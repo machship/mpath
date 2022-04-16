@@ -1,4 +1,4 @@
-module github.com/machship-oss/mpath
+module github.com/machship/mpath
 
 go 1.18
 
