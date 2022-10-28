@@ -178,6 +178,22 @@ Only for use with strings:
   - Takes one parameter
   - Tests whether the input does not end with the parameter
 
+- `ParseJSON`
+  - Takes one parameter
+  - Parses a string of JSON data to an addressable map
+
+- `ParseXML`
+  - Takes one parameter
+  - Parses a string of XML data to an addressable map
+
+- `ParseYAML`
+  - Takes one parameter
+  - Parses a string of YAML data to an addressable map
+
+- `ParseTOML`
+  - Takes one parameter
+  - Parses a string of TOML data to an addressable map
+
 Only for use with arrays:
 
 - `Count`
