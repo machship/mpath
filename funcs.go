@@ -1,11 +1,15 @@
 package mpath
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
 
+	xj "github.com/basgys/goxml2json"
+	"github.com/pelletier/go-toml/v2"
 	"github.com/shopspring/decimal"
+	"gopkg.in/yaml.v2"
 )
 
 func (op *opFunction) paramsGetFirstOfAny(rtParams runtimeParams) (val any, err error) {
@@ -499,4 +503,136 @@ func (op *opFunction) func_AnyOf(rtParams runtimeParams, val any) (bool, error) 
 	}
 
 	return false, nil
+}
+
+func (op *opFunction) func_ParseJSON(rtParams runtimeParams, val any) (map[string]any, error) {
+	if got, ok := rtParams.checkNumParams(0); !ok {
+		return nil, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.functionType), 0, got)
+	}
+
+	v := reflect.ValueOf(val)
+	if isEmptyValue(v) {
+		return nil, nil
+	}
+
+	switch v.Kind() {
+	case reflect.Pointer, reflect.Interface:
+		v = v.Elem()
+	}
+
+	switch v.Kind() {
+	case reflect.String:
+		if cdString, ok := val.(string); ok {
+			nm := map[string]any{}
+			err := json.Unmarshal([]byte(cdString), &nm)
+			if err != nil {
+				return nil, fmt.Errorf("value is not JSON: %w", err)
+			}
+
+			return nm, nil
+		}
+	}
+
+	return nil, fmt.Errorf("value is not a string")
+}
+
+func (op *opFunction) func_ParseXML(rtParams runtimeParams, val any) (map[string]any, error) {
+	if got, ok := rtParams.checkNumParams(0); !ok {
+		return nil, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.functionType), 0, got)
+	}
+
+	v := reflect.ValueOf(val)
+	if isEmptyValue(v) {
+		return nil, nil
+	}
+
+	switch v.Kind() {
+	case reflect.Pointer, reflect.Interface:
+		v = v.Elem()
+	}
+
+	switch v.Kind() {
+	case reflect.String:
+		if cdString, ok := val.(string); ok {
+			xml := strings.NewReader(cdString)
+			jsn, err := xj.Convert(xml)
+			if err != nil {
+				return nil, fmt.Errorf("input wasn't XML")
+			}
+
+			jsnString := jsn.String()
+
+			nm := map[string]any{}
+			err = json.Unmarshal([]byte(jsnString), &nm)
+			if err != nil {
+				return nil, fmt.Errorf("value is not JSON: %w", err)
+			}
+
+			return nm, nil
+		}
+	}
+
+	return nil, fmt.Errorf("value is not a string")
+}
+
+func (op *opFunction) func_ParseYAML(rtParams runtimeParams, val any) (map[string]any, error) {
+	if got, ok := rtParams.checkNumParams(0); !ok {
+		return nil, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.functionType), 0, got)
+	}
+
+	v := reflect.ValueOf(val)
+	if isEmptyValue(v) {
+		return nil, nil
+	}
+
+	switch v.Kind() {
+	case reflect.Pointer, reflect.Interface:
+		v = v.Elem()
+	}
+
+	switch v.Kind() {
+	case reflect.String:
+		if cdString, ok := val.(string); ok {
+			nm := map[string]any{}
+			err := yaml.Unmarshal([]byte(cdString), &nm)
+			if err != nil {
+				return nil, fmt.Errorf("value is not YAML: %w", err)
+			}
+
+			return nm, nil
+		}
+	}
+
+	return nil, fmt.Errorf("value is not a string")
+}
+
+func (op *opFunction) func_ParseTOML(rtParams runtimeParams, val any) (map[string]any, error) {
+	if got, ok := rtParams.checkNumParams(0); !ok {
+		return nil, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.functionType), 0, got)
+	}
+
+	v := reflect.ValueOf(val)
+	if isEmptyValue(v) {
+		return nil, nil
+	}
+
+	switch v.Kind() {
+	case reflect.Pointer, reflect.Interface:
+		v = v.Elem()
+	}
+
+	switch v.Kind() {
+	case reflect.String:
+		if cdString, ok := val.(string); ok {
+			nm := map[string]any{}
+			err := toml.Unmarshal([]byte(cdString), &nm)
+			if err != nil {
+				return nil, fmt.Errorf("value is not TOML: %w", err)
+			}
+
+			return nm, nil
+		}
+	}
+
+	return nil, fmt.Errorf("value is not a string")
 }

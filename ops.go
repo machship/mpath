@@ -597,6 +597,16 @@ func (x *opFunction) Do(currentData, originalData any) (dataToUse any, err error
 
 	case ft_AnyOf:
 		return x.func_AnyOf(rtParams, currentData)
+
+	case ft_ParseJSON:
+		return x.func_ParseJSON(rtParams, currentData)
+	case ft_ParseXML:
+		return x.func_ParseXML(rtParams, currentData)
+	case ft_ParseYAML:
+		return x.func_ParseYAML(rtParams, currentData)
+	case ft_ParseTOML:
+		return x.func_ParseTOML(rtParams, currentData)
+
 	}
 
 	return nil, fmt.Errorf("unrecognised function")
@@ -701,6 +711,11 @@ const (
 	ft_Div
 	ft_Mul
 	ft_Mod
+
+	ft_ParseJSON
+	ft_ParseXML
+	ft_ParseYAML
+	ft_ParseTOML
 )
 
 func ft_GetByName(name string) (ft ft_FunctionType, err error) {
@@ -759,6 +774,16 @@ func ft_GetByName(name string) (ft ft_FunctionType, err error) {
 		ft = ft_Mod
 	case "AnyOf":
 		ft = ft_AnyOf
+
+	case "ParseJSON":
+		ft = ft_ParseJSON
+	case "ParseXML":
+		ft = ft_ParseXML
+	case "ParseYAML":
+		ft = ft_ParseYAML
+	case "ParseTOML":
+		ft = ft_ParseTOML
+
 	default:
 		return 0, fmt.Errorf("unknown function name '%s'", name)
 	}
@@ -822,6 +847,15 @@ func ft_GetName(ft ft_FunctionType) (name string) {
 		name = "Mod"
 	case ft_AnyOf:
 		name = "AnyOf"
+
+	case ft_ParseJSON:
+		name = "ParseJSON"
+	case ft_ParseXML:
+		name = "ParseXML"
+	case ft_ParseYAML:
+		name = "ParseYAML"
+	case ft_ParseTOML:
+		name = "ParseTOML"
 	}
 
 	return

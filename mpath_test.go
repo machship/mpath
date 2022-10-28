@@ -199,6 +199,30 @@ var (
 		Expect_bool        bool
 	}{
 		{
+			Name:               "get data from string JSON field",
+			Query:              `$.result.json.ParseJSON().consignmentID`,
+			Expect_decimal:     decimal.NewFromInt(112357),
+			ExpectedResultType: RT_decimal,
+		},
+		{
+			Name:               "get data from string XML field",
+			Query:              `$.result.xml.ParseXML().root.consignmentID`,
+			Expect_string:      "112358",
+			ExpectedResultType: RT_string,
+		},
+		{
+			Name:               "get data from string YAML field",
+			Query:              `$.result.yaml.ParseYAML().consignmentID`,
+			Expect_decimal:     decimal.NewFromInt(112359),
+			ExpectedResultType: RT_decimal,
+		},
+		{
+			Name:               "get data from string TOML field",
+			Query:              `$.result.toml.ParseTOML().consignmentID`,
+			Expect_decimal:     decimal.NewFromInt(112360),
+			ExpectedResultType: RT_decimal,
+		},
+		{
 			Name:               "complex 1",
 			Query:              `{$.List.Last().SomeSettings[@.Key.Equal("DEF")].Any().Equal(true)}`,
 			Expect_bool:        false,
@@ -477,6 +501,12 @@ const (
 // Generated using https://json-generator.com/
 var jsn = `
   {
+	"result": {
+	  "json": "{\"consignmentID\":112357,\"consignmentName\":\"Test consignment\"}",
+	  "xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" ?><root><consignmentID>112358</consignmentID><consignmentName>Test consignment</consignmentName></root>",
+	  "yaml": "---\nconsignmentID: 112359\nconsignmentName: Test consignment",
+	  "toml": "consignmentID = 112_360\nconsignmentName = \"Test consignment\"\n"
+	},
 	"number": 1234,
 	"string": "abcDEF",
 	"bool": true,
@@ -490,7 +520,7 @@ var jsn = `
 	],
 	"floats": [
 	  1234.56,
-	  5678.90
+	  5678.9
 	],
 	"strings": [
 	  "abcDEF",
@@ -545,6 +575,12 @@ var jsn = `
 `
 
 type TestDataStruct struct {
+	Result struct {
+		JSON string `json:"json"`
+		XML  string `json:"xml"`
+		YAML string `json:"yaml"`
+		TOML string `json:"toml"`
+	} `json:"result"`
 	Number   int               `json:"number"`
 	String   string            `json:"string"`
 	Bool     bool              `json:"bool"`
