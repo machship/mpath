@@ -475,15 +475,9 @@ func (x *opFunction) Sprint(depth int) (out string) {
 func (x *opFunction) Do(currentData, originalData any) (dataToUse any, err error) {
 	rtParams := runtimeParams{}
 
-	for _, p := range x.paramsBool {
-		rtParams.paramsBool = append(rtParams.paramsBool, p)
-	}
-	for _, p := range x.paramsNumber {
-		rtParams.paramsNumber = append(rtParams.paramsNumber, p)
-	}
-	for _, p := range x.paramsString {
-		rtParams.paramsString = append(rtParams.paramsString, p)
-	}
+	rtParams.paramsBool = append(rtParams.paramsBool, x.paramsBool...)
+	rtParams.paramsNumber = append(rtParams.paramsNumber, x.paramsNumber...)
+	rtParams.paramsString = append(rtParams.paramsString, x.paramsString...)
 
 	// get the pathParams and put them in the appropriate bucket
 	for _, ppOp := range x.paramsPath {
@@ -598,6 +592,8 @@ func (x *opFunction) Do(currentData, originalData any) (dataToUse any, err error
 	case ft_AnyOf:
 		return x.func_AnyOf(rtParams, currentData)
 
+	case ft_AsJSON:
+		return x.func_AsJSON(rtParams, currentData)
 	case ft_ParseJSON:
 		return x.func_ParseJSON(rtParams, currentData)
 	case ft_ParseXML:
@@ -712,6 +708,7 @@ const (
 	ft_Mul
 	ft_Mod
 
+	ft_AsJSON
 	ft_ParseJSON
 	ft_ParseXML
 	ft_ParseYAML
@@ -775,6 +772,8 @@ func ft_GetByName(name string) (ft ft_FunctionType, err error) {
 	case "AnyOf":
 		ft = ft_AnyOf
 
+	case "AsJSON":
+		ft = ft_AsJSON
 	case "ParseJSON":
 		ft = ft_ParseJSON
 	case "ParseXML":

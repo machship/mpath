@@ -505,6 +505,29 @@ func (op *opFunction) func_AnyOf(rtParams runtimeParams, val any) (bool, error) 
 	return false, nil
 }
 
+func (op *opFunction) func_AsJSON(rtParams runtimeParams, val any) (string, error) {
+	if got, ok := rtParams.checkNumParams(0); !ok {
+		return "", fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.functionType), 0, got)
+	}
+
+	v := reflect.ValueOf(val)
+	if isEmptyValue(v) {
+		return "", nil
+	}
+
+	switch v.Kind() {
+	case reflect.Pointer, reflect.Interface:
+		v = v.Elem()
+	}
+
+	outBytes, err := json.Marshal(val)
+	if err != nil {
+		return "", fmt.Errorf("unable to marshal to JSON: %w", err)
+	}
+
+	return string(outBytes), nil
+}
+
 func (op *opFunction) func_ParseJSON(rtParams runtimeParams, val any) (map[string]any, error) {
 	if got, ok := rtParams.checkNumParams(0); !ok {
 		return nil, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.functionType), 0, got)

@@ -205,6 +205,18 @@ var (
 			ExpectedResultType: RT_decimal,
 		},
 		{
+			Name:               "get data from string JSON field, then put it back to JSON",
+			Query:              `$.result.json.ParseJSON().AsJSON()`,
+			Expect_string:      "{\"consignmentID\":112357,\"consignmentName\":\"Test consignment\"}",
+			ExpectedResultType: RT_string,
+		},
+		{
+			Name:               "get data from string JSON field, select a field, then put it back to JSON",
+			Query:              `$.result.json.ParseJSON().consignmentID.AsJSON()`,
+			Expect_string:      `"112357"`,
+			ExpectedResultType: RT_string,
+		},
+		{
 			Name:               "get data from string XML field",
 			Query:              `$.result.xml.ParseXML().root.consignmentID`,
 			Expect_string:      "112358",
