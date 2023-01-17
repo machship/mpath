@@ -178,20 +178,24 @@ Only for use with strings:
   - Takes one parameter
   - Tests whether the input does not end with the parameter
 
+- `AsJSON`
+  - Takes no parameters
+  - Marshals an input object to JSON
+
 - `ParseJSON`
-  - Takes one parameter
+  - Takes no parameters
   - Parses a string of JSON data to an addressable map
 
 - `ParseXML`
-  - Takes one parameter
+  - Takes no parameters
   - Parses a string of XML data to an addressable map
 
 - `ParseYAML`
-  - Takes one parameter
+  - Takes no parameters
   - Parses a string of YAML data to an addressable map
 
 - `ParseTOML`
-  - Takes one parameter
+  - Takes no parameters
   - Parses a string of TOML data to an addressable map
 
 Only for use with arrays:
