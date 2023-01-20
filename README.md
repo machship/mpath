@@ -178,6 +178,34 @@ Only for use with strings:
   - Takes one parameter
   - Tests whether the input does not end with the parameter
 
+- `TrimRightN`
+  - Takes one parameter
+  - Trims N characters from the right side of the string
+
+- `TrimLeftN`
+  - Takes one parameter
+  - Trims N characters from the left side of the string
+
+- `RightN`
+  - Takes one parameter
+  - Returns the right N most characters from the string
+
+- `LeftN`
+  - Takes one parameter
+  - Returns the left N most characters from the string
+
+- `DoesMatchRegex`
+  - Takes one parameter
+  - Tests whether the input matches the regex
+
+- `ReplaceRegex`
+  - Takes two parameters
+  - Copies the input and returns it with the regex (first parameter) match replaced with the second parameter
+
+- `ReplaceAll`
+  - Takes two parameters
+  - Replaces all occurrences of the first parameter with the second parameter.
+
 - `AsJSON`
   - Takes no parameters
   - Marshals an input object to JSON

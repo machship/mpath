@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
 
 	xj "github.com/basgys/goxml2json"
@@ -53,7 +54,7 @@ func (op *opFunction) paramsGetFirstOfString(rtParams runtimeParams) (val string
 		return p, nil
 	}
 
-	return val, fmt.Errorf("no stromg parameter found")
+	return val, fmt.Errorf("no string parameter found")
 }
 
 func (op *opFunction) paramsGetAll(rtParams runtimeParams) (val []any, err error) {
@@ -86,6 +87,10 @@ func (rtParams *runtimeParams) checkNumParams(allowed int) (got int, ok bool) {
 
 func (ft ft_FunctionType) errBool(err error) (bool, error) {
 	return false, fmt.Errorf("func %s: %w", ft_GetName(ft), err)
+}
+
+func (ft ft_FunctionType) errString(err error) (string, error) {
+	return "", fmt.Errorf("func %s: %w", ft_GetName(ft), err)
 }
 
 func (op *opFunction) func_Equal(rtParams runtimeParams, val any) (bool, error) {
@@ -515,17 +520,196 @@ func (op *opFunction) func_AsJSON(rtParams runtimeParams, val any) (string, erro
 		return "", nil
 	}
 
-	switch v.Kind() {
-	case reflect.Pointer, reflect.Interface:
-		v = v.Elem()
-	}
-
 	outBytes, err := json.Marshal(val)
 	if err != nil {
 		return "", fmt.Errorf("unable to marshal to JSON: %w", err)
 	}
 
 	return string(outBytes), nil
+}
+
+func (op *opFunction) func_TrimRightN(rtParams runtimeParams, val any) (string, error) {
+	param, err := op.paramsGetFirstOfNumber(rtParams)
+	if err != nil {
+		return op.functionType.errString(err)
+	}
+
+	if !param.IsInteger() {
+		return "", fmt.Errorf("parameter must be an integer")
+	}
+
+	paramAsInt := int(param.IntPart())
+
+	if valIfc, ok := val.(string); ok {
+		if len(valIfc) <= paramAsInt {
+			return "", nil
+		}
+
+		return valIfc[:len(valIfc)-paramAsInt], nil
+	}
+
+	return "", fmt.Errorf("value wasn't string")
+}
+
+func (op *opFunction) func_TrimLeftN(rtParams runtimeParams, val any) (string, error) {
+	param, err := op.paramsGetFirstOfNumber(rtParams)
+	if err != nil {
+		return op.functionType.errString(err)
+	}
+
+	if !param.IsInteger() {
+		return "", fmt.Errorf("parameter must be an integer")
+	}
+
+	paramAsInt := int(param.IntPart())
+
+	if valIfc, ok := val.(string); ok {
+		if len(valIfc) <= paramAsInt {
+			return "", nil
+		}
+
+		return valIfc[paramAsInt:], nil
+	}
+
+	return "", fmt.Errorf("value wasn't string")
+}
+
+func (op *opFunction) func_RightN(rtParams runtimeParams, val any) (string, error) {
+	param, err := op.paramsGetFirstOfNumber(rtParams)
+	if err != nil {
+		return op.functionType.errString(err)
+	}
+
+	if !param.IsInteger() {
+		return "", fmt.Errorf("parameter must be an integer")
+	}
+
+	paramAsInt := int(param.IntPart())
+
+	if valIfc, ok := val.(string); ok {
+		if len(valIfc) < paramAsInt {
+			return valIfc, nil
+		}
+
+		return valIfc[len(valIfc)-paramAsInt:], nil
+	}
+
+	return "", fmt.Errorf("value wasn't string")
+}
+
+func (op *opFunction) func_LeftN(rtParams runtimeParams, val any) (string, error) {
+	param, err := op.paramsGetFirstOfNumber(rtParams)
+	if err != nil {
+		return op.functionType.errString(err)
+	}
+
+	if !param.IsInteger() {
+		return "", fmt.Errorf("parameter must be an integer")
+	}
+
+	paramAsInt := int(param.IntPart())
+
+	if valIfc, ok := val.(string); ok {
+		if len(valIfc) < paramAsInt {
+			return valIfc, nil
+		}
+
+		return valIfc[:paramAsInt], nil
+	}
+
+	return "", fmt.Errorf("value wasn't string")
+}
+
+func (op *opFunction) func_DoesMatchRegex(rtParams runtimeParams, val any) (bool, error) {
+	param, err := op.paramsGetFirstOfString(rtParams)
+	if err != nil {
+		return op.functionType.errBool(err)
+	}
+
+	exp, err := regexp.Compile(param)
+	if err != nil {
+		return false, fmt.Errorf("regular expression is invalid")
+	}
+
+	if valIfc, ok := val.(string); ok {
+		return exp.MatchString(valIfc), nil
+	}
+
+	return false, fmt.Errorf("value wasn't string")
+}
+
+func (op *opFunction) func_ReplaceRegex(rtParams runtimeParams, val any) (string, error) {
+	if got, ok := rtParams.checkNumParams(2); !ok {
+		return "", fmt.Errorf("expected %d params, got %d", 1, got)
+	}
+
+	var rgx, replace string
+	var foundReplace bool
+
+	for i, p := range rtParams.paramsString {
+		switch i {
+		case 0:
+			if p == "" {
+				return "", fmt.Errorf("find parameter must not be an empty string")
+			}
+			rgx = p
+		case 1:
+			replace = p
+			foundReplace = true
+		}
+		if i > 1 {
+			break
+		}
+	}
+
+	if !foundReplace {
+		return "", fmt.Errorf("replace parameter missing")
+	}
+	exp, err := regexp.Compile(rgx)
+	if err != nil {
+		return "", fmt.Errorf("regular expression is invalid")
+	}
+
+	if valIfc, ok := val.(string); ok {
+		return exp.ReplaceAllString(valIfc, replace), nil
+	}
+
+	return "", fmt.Errorf("value wasn't string")
+}
+
+func (op *opFunction) func_ReplaceAll(rtParams runtimeParams, val any) (string, error) {
+	if got, ok := rtParams.checkNumParams(2); !ok {
+		return "", fmt.Errorf("expected %d params, got %d", 1, got)
+	}
+
+	var find, replace string
+	var foundReplace bool
+
+	for i, p := range rtParams.paramsString {
+		switch i {
+		case 0:
+			if p == "" {
+				return "", fmt.Errorf("find parameter must not be an empty string")
+			}
+			find = p
+		case 1:
+			replace = p
+			foundReplace = true
+		}
+		if i > 1 {
+			break
+		}
+	}
+
+	if !foundReplace {
+		return "", fmt.Errorf("replace parameter missing")
+	}
+
+	if valIfc, ok := val.(string); ok {
+		return strings.ReplaceAll(valIfc, find, replace), nil
+	}
+
+	return "", fmt.Errorf("value wasn't string")
 }
 
 func (op *opFunction) func_ParseJSON(rtParams runtimeParams, val any) (map[string]any, error) {

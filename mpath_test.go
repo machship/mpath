@@ -199,6 +199,116 @@ var (
 		Expect_bool        bool
 	}{
 		{
+			Name:               "trim right of string by n",
+			Query:              `$.string.TrimRightN(3)`,
+			Expect_string:      "abc",
+			ExpectedResultType: RT_string,
+		},
+		{
+			Name:               "trim right of string by n > length of string",
+			Query:              `$.string.TrimRightN(7)`,
+			Expect_string:      "",
+			ExpectedResultType: RT_string,
+		},
+		{
+			Name:               "trim right of string by n = length of string",
+			Query:              `$.string.TrimRightN(6)`,
+			Expect_string:      "",
+			ExpectedResultType: RT_string,
+		},
+		{
+			Name:               "trim right of string by n = 0",
+			Query:              `$.string.TrimRightN(0)`,
+			Expect_string:      "abcDEF",
+			ExpectedResultType: RT_string,
+		},
+
+		{
+			Name:               "trim left of string by n",
+			Query:              `$.string.TrimLeftN(3)`,
+			Expect_string:      "DEF",
+			ExpectedResultType: RT_string,
+		},
+		{
+			Name:               "trim left of string by n > length of string",
+			Query:              `$.string.TrimLeftN(7)`,
+			Expect_string:      "",
+			ExpectedResultType: RT_string,
+		},
+		{
+			Name:               "trim left of string by n = length of string",
+			Query:              `$.string.TrimLeftN(6)`,
+			Expect_string:      "",
+			ExpectedResultType: RT_string,
+		},
+		{
+			Name:               "trim left of string by n = 0",
+			Query:              `$.string.TrimLeftN(0)`,
+			Expect_string:      "abcDEF",
+			ExpectedResultType: RT_string,
+		},
+
+		{
+			Name:               "get left n of string",
+			Query:              `$.string.LeftN(2)`,
+			Expect_string:      "ab",
+			ExpectedResultType: RT_string,
+		},
+		{
+			Name:               "get right n of string",
+			Query:              `$.string.RightN(2)`,
+			Expect_string:      "EF",
+			ExpectedResultType: RT_string,
+		},
+
+		{
+			Name:               "get left n > len of string",
+			Query:              `$.string.LeftN(7)`,
+			Expect_string:      "abcDEF",
+			ExpectedResultType: RT_string,
+		},
+		{
+			Name:               "get right n > len of string",
+			Query:              `$.string.RightN(7)`,
+			Expect_string:      "abcDEF",
+			ExpectedResultType: RT_string,
+		},
+
+		{
+			Name:               "regex matches string",
+			Query:              `$.string.DoesMatchRegex("a[bc]+[A-Za-z]+")`,
+			Expect_bool:        true,
+			ExpectedResultType: RT_bool,
+		},
+		{
+			Name:               "regex doesn't match string",
+			Query:              `$.string.DoesMatchRegex("z[bc]+[A-Za-z]+")`,
+			Expect_bool:        false,
+			ExpectedResultType: RT_bool,
+		},
+
+		{
+			Name:               "replace regex",
+			Query:              `$.string.ReplaceRegex("(a)","z")`,
+			Expect_string:      "zbcDEF",
+			ExpectedResultType: RT_string,
+		},
+
+		{
+			Name:               "replace regex $",
+			Query:              `$.regexstring.ReplaceRegex("^(MSRWC)([a-zA-Z0-9]{7})(.*)","$1$2")`,
+			Expect_string:      "MSRWC1234567",
+			ExpectedResultType: RT_string,
+		},
+
+		{
+			Name:               "replace all",
+			Query:              `$.string.ReplaceAll("a","z")`,
+			Expect_string:      "zbcDEF",
+			ExpectedResultType: RT_string,
+		},
+
+		{
 			Name:               "get data from string JSON field",
 			Query:              `$.result.json.ParseJSON().consignmentID`,
 			Expect_decimal:     decimal.NewFromInt(112357),
@@ -521,6 +631,7 @@ var jsn = `
 	},
 	"number": 1234,
 	"string": "abcDEF",
+	"regexstring": "MSRWC1234567001",
 	"bool": true,
 	"numbers": [
 	  1234,
@@ -593,18 +704,19 @@ type TestDataStruct struct {
 		YAML string `json:"yaml"`
 		TOML string `json:"toml"`
 	} `json:"result"`
-	Number   int               `json:"number"`
-	String   string            `json:"string"`
-	Bool     bool              `json:"bool"`
-	Numbers  []decimal.Decimal `json:"numbers"`
-	Floats   []float64         `json:"floats"`
-	Ints     []int             `json:"ints"`
-	Strings  []string          `json:"strings"`
-	Bools    []bool            `json:"bools"`
-	Index    int               `json:"index"`
-	IsActive bool              `json:"isActive"`
-	Tags     []string          `json:"tags"`
-	List     []struct {
+	Number      int               `json:"number"`
+	String      string            `json:"string"`
+	RegexString string            `json:"regexstring"`
+	Bool        bool              `json:"bool"`
+	Numbers     []decimal.Decimal `json:"numbers"`
+	Floats      []float64         `json:"floats"`
+	Ints        []int             `json:"ints"`
+	Strings     []string          `json:"strings"`
+	Bools       []bool            `json:"bools"`
+	Index       int               `json:"index"`
+	IsActive    bool              `json:"isActive"`
+	Tags        []string          `json:"tags"`
+	List        []struct {
 		ID           int    `json:"id"`
 		Name         string `json:"name"`
 		SomeSettings []struct {

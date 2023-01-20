@@ -592,6 +592,21 @@ func (x *opFunction) Do(currentData, originalData any) (dataToUse any, err error
 	case ft_AnyOf:
 		return x.func_AnyOf(rtParams, currentData)
 
+	case ft_TrimRightN:
+		return x.func_TrimRightN(rtParams, currentData)
+	case ft_TrimLeftN:
+		return x.func_TrimLeftN(rtParams, currentData)
+	case ft_RightN:
+		return x.func_RightN(rtParams, currentData)
+	case ft_LeftN:
+		return x.func_LeftN(rtParams, currentData)
+	case ft_DoesMatchRegex:
+		return x.func_DoesMatchRegex(rtParams, currentData)
+	case ft_ReplaceRegex:
+		return x.func_ReplaceRegex(rtParams, currentData)
+	case ft_ReplaceAll:
+		return x.func_ReplaceAll(rtParams, currentData)
+
 	case ft_AsJSON:
 		return x.func_AsJSON(rtParams, currentData)
 	case ft_ParseJSON:
@@ -708,6 +723,14 @@ const (
 	ft_Mul
 	ft_Mod
 
+	ft_TrimRightN
+	ft_TrimLeftN
+	ft_RightN
+	ft_LeftN
+	ft_DoesMatchRegex
+	ft_ReplaceRegex
+	ft_ReplaceAll
+
 	ft_AsJSON
 	ft_ParseJSON
 	ft_ParseXML
@@ -771,6 +794,21 @@ func ft_GetByName(name string) (ft ft_FunctionType, err error) {
 		ft = ft_Mod
 	case "AnyOf":
 		ft = ft_AnyOf
+
+	case "TrimRightN":
+		ft = ft_TrimRightN
+	case "TrimLeftN":
+		ft = ft_TrimLeftN
+	case "RightN":
+		ft = ft_RightN
+	case "LeftN":
+		ft = ft_LeftN
+	case "DoesMatchRegex":
+		ft = ft_DoesMatchRegex
+	case "ReplaceRegex":
+		ft = ft_ReplaceRegex
+	case "ReplaceAll":
+		ft = ft_ReplaceAll
 
 	case "AsJSON":
 		ft = ft_AsJSON
@@ -846,6 +884,21 @@ func ft_GetName(ft ft_FunctionType) (name string) {
 		name = "Mod"
 	case ft_AnyOf:
 		name = "AnyOf"
+
+	case ft_TrimRightN:
+		name = "TrimRightN"
+	case ft_TrimLeftN:
+		name = "TrimLeftN"
+	case ft_RightN:
+		name = "RightN"
+	case ft_LeftN:
+		name = "LeftN"
+	case ft_DoesMatchRegex:
+		name = "DoesMatchRegex"
+	case ft_ReplaceRegex:
+		name = "ReplaceRegex"
+	case ft_ReplaceAll:
+		name = "ReplaceAll"
 
 	case ft_ParseJSON:
 		name = "ParseJSON"
