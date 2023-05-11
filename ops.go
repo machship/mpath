@@ -82,6 +82,13 @@ func (x *opPath) Do(currentData, originalData any) (dataToUse any, err error) {
 		dataToUse = currentData
 	}
 
+	if len(x.operations) == 0 {
+		// This is a special case where the root is being returned
+
+		// As we always guarantee numbers are returned as the decimal type, we do this check
+		dataToUse = convertToDecimalIfNumber(dataToUse)
+	}
+
 	// Now we know which data to use, we can apply the path parts
 	for _, op := range x.operations {
 		dataToUse, err = op.Do(dataToUse, originalData)

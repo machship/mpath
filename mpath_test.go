@@ -117,6 +117,29 @@ func Test_ParseErrors(t *testing.T) {
 	}
 }
 
+func Test_DecimalAtRoot(t *testing.T) {
+	const testName = "Test_DecimalAtRoot"
+
+	data := float64(40)
+	op, err := ParseString("$")
+	if err != nil {
+		t.Errorf("'%s' has error: %v,", testName, err)
+		return
+	}
+
+	dataToUse, err := op.Do(data, data)
+	if err != nil {
+		t.Errorf("'%s' got error from Do(): %v", testName, err)
+		return
+	}
+
+	if d, ok := dataToUse.(decimal.Decimal); ok {
+		t.Logf("value was float and was %s", d)
+	} else {
+		t.Error("wasn't decimal.Decimal")
+	}
+}
+
 func Test_ParseAndDo(t *testing.T) {
 
 	var err error
@@ -136,8 +159,6 @@ func Test_ParseAndDo(t *testing.T) {
 	}
 
 	datas := []any{dataAsMap, dataAsStruct}
-	// datas := []any{dataAsMap}
-	// datas := []any{dataAsStruct}
 
 	for _, data := range datas {
 		for _, test := range testQueries {
