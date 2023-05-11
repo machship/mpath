@@ -14,7 +14,7 @@ import (
 )
 
 func (op *opFunction) paramsGetFirstOfAny(rtParams runtimeParams) (val any, err error) {
-	if got, ok := rtParams.checkNumParams(1); !ok {
+	if got, ok := rtParams.checkLengthOfParams(1); !ok {
 		return nil, fmt.Errorf("expected %d params, got %d", 1, got)
 	}
 
@@ -34,7 +34,7 @@ func (op *opFunction) paramsGetFirstOfAny(rtParams runtimeParams) (val any, err 
 }
 
 func (op *opFunction) paramsGetFirstOfNumber(rtParams runtimeParams) (val decimal.Decimal, err error) {
-	if got, ok := rtParams.checkNumParams(1); !ok {
+	if got, ok := rtParams.checkLengthOfParams(1); !ok {
 		return val, fmt.Errorf("expected %d params, got %d", 1, got)
 	}
 
@@ -46,7 +46,7 @@ func (op *opFunction) paramsGetFirstOfNumber(rtParams runtimeParams) (val decima
 }
 
 func (op *opFunction) paramsGetFirstOfString(rtParams runtimeParams) (val string, err error) {
-	if got, ok := rtParams.checkNumParams(1); !ok {
+	if got, ok := rtParams.checkLengthOfParams(1); !ok {
 		return val, fmt.Errorf("expected %d params, got %d", 1, got)
 	}
 
@@ -73,7 +73,7 @@ func (op *opFunction) paramsGetAll(rtParams runtimeParams) (val []any, err error
 	return
 }
 
-func (rtParams *runtimeParams) checkNumParams(allowed int) (got int, ok bool) {
+func (rtParams *runtimeParams) checkLengthOfParams(allowed int) (got int, ok bool) {
 	got = len(rtParams.paramsNumber) +
 		len(rtParams.paramsString) +
 		len(rtParams.paramsBool)
@@ -260,7 +260,7 @@ func (op *opFunction) func_NotSuffix(rtParams runtimeParams, val any) (bool, err
 }
 
 func (op *opFunction) func_Count(rtParams runtimeParams, val any) (decimal.Decimal, error) {
-	if got, ok := rtParams.checkNumParams(0); !ok {
+	if got, ok := rtParams.checkLengthOfParams(0); !ok {
 		return decimal.Zero, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.functionType), 0, got)
 	}
 
@@ -283,7 +283,7 @@ func (op *opFunction) func_Count(rtParams runtimeParams, val any) (decimal.Decim
 }
 
 func (op *opFunction) func_Any(rtParams runtimeParams, val any) (bool, error) {
-	if got, ok := rtParams.checkNumParams(0); !ok {
+	if got, ok := rtParams.checkLengthOfParams(0); !ok {
 		return false, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.functionType), 0, got)
 	}
 
@@ -308,7 +308,7 @@ func (op *opFunction) func_Any(rtParams runtimeParams, val any) (bool, error) {
 }
 
 func (op *opFunction) func_First(rtParams runtimeParams, val any) (any, error) {
-	if got, ok := rtParams.checkNumParams(0); !ok {
+	if got, ok := rtParams.checkLengthOfParams(0); !ok {
 		return 0, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.functionType), 0, got)
 	}
 
@@ -335,7 +335,7 @@ func (op *opFunction) func_First(rtParams runtimeParams, val any) (any, error) {
 }
 
 func (op *opFunction) func_Last(rtParams runtimeParams, val any) (any, error) {
-	if got, ok := rtParams.checkNumParams(0); !ok {
+	if got, ok := rtParams.checkLengthOfParams(0); !ok {
 		return false, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.functionType), 0, got)
 	}
 
@@ -511,7 +511,7 @@ func (op *opFunction) func_AnyOf(rtParams runtimeParams, val any) (bool, error) 
 }
 
 func (op *opFunction) func_AsJSON(rtParams runtimeParams, val any) (string, error) {
-	if got, ok := rtParams.checkNumParams(0); !ok {
+	if got, ok := rtParams.checkLengthOfParams(0); !ok {
 		return "", fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.functionType), 0, got)
 	}
 
@@ -639,7 +639,7 @@ func (op *opFunction) func_DoesMatchRegex(rtParams runtimeParams, val any) (bool
 }
 
 func (op *opFunction) func_ReplaceRegex(rtParams runtimeParams, val any) (string, error) {
-	if got, ok := rtParams.checkNumParams(2); !ok {
+	if got, ok := rtParams.checkLengthOfParams(2); !ok {
 		return "", fmt.Errorf("expected %d params, got %d", 1, got)
 	}
 
@@ -678,7 +678,7 @@ func (op *opFunction) func_ReplaceRegex(rtParams runtimeParams, val any) (string
 }
 
 func (op *opFunction) func_ReplaceAll(rtParams runtimeParams, val any) (string, error) {
-	if got, ok := rtParams.checkNumParams(2); !ok {
+	if got, ok := rtParams.checkLengthOfParams(2); !ok {
 		return "", fmt.Errorf("expected %d params, got %d", 1, got)
 	}
 
@@ -713,7 +713,7 @@ func (op *opFunction) func_ReplaceAll(rtParams runtimeParams, val any) (string, 
 }
 
 func (op *opFunction) func_ParseJSON(rtParams runtimeParams, val any) (map[string]any, error) {
-	if got, ok := rtParams.checkNumParams(0); !ok {
+	if got, ok := rtParams.checkLengthOfParams(0); !ok {
 		return nil, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.functionType), 0, got)
 	}
 
@@ -744,7 +744,7 @@ func (op *opFunction) func_ParseJSON(rtParams runtimeParams, val any) (map[strin
 }
 
 func (op *opFunction) func_ParseXML(rtParams runtimeParams, val any) (map[string]any, error) {
-	if got, ok := rtParams.checkNumParams(0); !ok {
+	if got, ok := rtParams.checkLengthOfParams(0); !ok {
 		return nil, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.functionType), 0, got)
 	}
 
@@ -783,7 +783,7 @@ func (op *opFunction) func_ParseXML(rtParams runtimeParams, val any) (map[string
 }
 
 func (op *opFunction) func_ParseYAML(rtParams runtimeParams, val any) (map[string]any, error) {
-	if got, ok := rtParams.checkNumParams(0); !ok {
+	if got, ok := rtParams.checkLengthOfParams(0); !ok {
 		return nil, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.functionType), 0, got)
 	}
 
@@ -814,7 +814,7 @@ func (op *opFunction) func_ParseYAML(rtParams runtimeParams, val any) (map[strin
 }
 
 func (op *opFunction) func_ParseTOML(rtParams runtimeParams, val any) (map[string]any, error) {
-	if got, ok := rtParams.checkNumParams(0); !ok {
+	if got, ok := rtParams.checkLengthOfParams(0); !ok {
 		return nil, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.functionType), 0, got)
 	}
 
