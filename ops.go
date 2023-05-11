@@ -86,7 +86,9 @@ func (x *opPath) Do(currentData, originalData any) (dataToUse any, err error) {
 		// This is a special case where the root is being returned
 
 		// As we always guarantee numbers are returned as the decimal type, we do this check
-		dataToUse = convertToDecimalIfNumber(dataToUse)
+		if _, ok := dataToUse.(string); !ok {
+			dataToUse = convertToDecimalIfNumber(dataToUse)
+		}
 	}
 
 	// Now we know which data to use, we can apply the path parts
@@ -202,7 +204,10 @@ func (x *opPathIdent) Do(currentData, _ any) (dataToUse any, err error) {
 				continue
 			}
 
-			dataToUse = convertToDecimalIfNumber(v.MapIndex(e).Interface())
+			dataToUse = v.MapIndex(e).Interface()
+			if _, ok := dataToUse.(string); !ok {
+				dataToUse = convertToDecimalIfNumber(dataToUse)
+			}
 			return
 		}
 

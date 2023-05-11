@@ -42,6 +42,12 @@ func (op *opFunction) paramsGetFirstOfNumber(rtParams runtimeParams) (val decima
 		return p, nil
 	}
 
+	for _, p := range rtParams.paramsString {
+		if wasNumber, number := convertToDecimalIfNumberAndCheck(p); wasNumber {
+			return number, nil
+		}
+	}
+
 	return val, fmt.Errorf("no number parameter found")
 }
 
@@ -389,46 +395,51 @@ func (op *opFunction) func_Index(rtParams runtimeParams, val any) (any, error) {
 	return false, fmt.Errorf("not array")
 }
 
-func (op *opFunction) func_decimalSlice(rtParams runtimeParams, val any, decSlcFunc func(decimal.Decimal, ...decimal.Decimal) decimal.Decimal) (any, error) {
+func (op *opFunction) func_decimalSlice(rtParams runtimeParams, val any, decimalSliceFunction func(decimal.Decimal, ...decimal.Decimal) decimal.Decimal) (any, error) {
 	if vd, ok := val.(decimal.Decimal); ok {
 		val = []decimal.Decimal{vd}
 	}
 
-	if valIfc, ok := val.([]decimal.Decimal); ok {
-		newSlc := append([]decimal.Decimal{}, valIfc...)
-		newSlc = append(newSlc, rtParams.paramsNumber...)
-
-		if len(newSlc) == 0 {
-			return decimal.Zero, nil
+	var paramNumbers []decimal.Decimal
+	paramNumbers = append(paramNumbers, rtParams.paramsNumber...)
+	for _, ps := range rtParams.paramsString {
+		if wasNumber, number := convertToDecimalIfNumberAndCheck(ps); wasNumber {
+			paramNumbers = append(paramNumbers, number)
 		}
-
-		if len(newSlc) == 1 {
-			return newSlc[0], nil
-		}
-
-		return decSlcFunc(newSlc[0], newSlc[1:]...), nil
 	}
 
-	if valIfc, ok := val.([]any); ok {
-		newSlc := append([]decimal.Decimal{}, rtParams.paramsNumber...)
+	var newSlc []decimal.Decimal
+	if valIfc, ok := val.([]decimal.Decimal); ok {
+		newSlc = append([]decimal.Decimal{}, valIfc...)
+		newSlc = append(newSlc, paramNumbers...)
+	} else if valIfc, ok := val.([]any); ok {
+		newSlc = append([]decimal.Decimal{}, paramNumbers...)
 		for _, vs := range valIfc {
 			if vd, ok := vs.(decimal.Decimal); ok {
 				newSlc = append(newSlc, vd)
+			} else if vd, ok := vs.(string); ok {
+				// Check if the string can be converted to an integer
+				wasNumber, number := convertToDecimalIfNumberAndCheck(vd)
+				if wasNumber {
+					newSlc = append(newSlc, number)
+					continue
+				}
+				goto notArrayOfNumbers
 			} else {
 				goto notArrayOfNumbers
 			}
 		}
-
-		if len(newSlc) == 0 {
-			return decimal.Zero, nil
-		}
-
-		if len(newSlc) == 1 {
-			return newSlc[0], nil
-		}
-
-		return decSlcFunc(newSlc[0], newSlc[1:]...), nil
 	}
+
+	if len(newSlc) == 0 {
+		return decimal.Zero, nil
+	}
+
+	if len(newSlc) == 1 {
+		return newSlc[0], nil
+	}
+
+	return decimalSliceFunction(newSlc[0], newSlc[1:]...), nil
 
 notArrayOfNumbers:
 	return false, fmt.Errorf("not array of numbers")

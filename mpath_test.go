@@ -220,6 +220,18 @@ var (
 		Expect_bool        bool
 	}{
 		{
+			Name:               "Add number to string number",
+			Query:              `$.numberInString.Add(21111.123)`,
+			Expect_decimal:     decimal.NewFromFloat(33456.123),
+			ExpectedResultType: RT_decimal,
+		},
+		{
+			Name:               "Add string number to string number",
+			Query:              `$.numberInString.Add("21111.123")`,
+			Expect_decimal:     decimal.NewFromFloat(33456.123),
+			ExpectedResultType: RT_decimal,
+		},
+		{
 			Name:               "trim right of string by n",
 			Query:              `$.string.TrimRightN(3)`,
 			Expect_string:      "abc",
@@ -653,6 +665,7 @@ var jsn = `
 	"number": 1234,
 	"string": "abcDEF",
 	"regexstring": "MSRWC1234567001",
+	"numberInString": "12345",
 	"bool": true,
 	"numbers": [
 	  1234,
@@ -725,19 +738,20 @@ type TestDataStruct struct {
 		YAML string `json:"yaml"`
 		TOML string `json:"toml"`
 	} `json:"result"`
-	Number      int               `json:"number"`
-	String      string            `json:"string"`
-	RegexString string            `json:"regexstring"`
-	Bool        bool              `json:"bool"`
-	Numbers     []decimal.Decimal `json:"numbers"`
-	Floats      []float64         `json:"floats"`
-	Ints        []int             `json:"ints"`
-	Strings     []string          `json:"strings"`
-	Bools       []bool            `json:"bools"`
-	Index       int               `json:"index"`
-	IsActive    bool              `json:"isActive"`
-	Tags        []string          `json:"tags"`
-	List        []struct {
+	Number         int               `json:"number"`
+	String         string            `json:"string"`
+	RegexString    string            `json:"regexstring"`
+	NumberInString string            `json:"numberInString"`
+	Bool           bool              `json:"bool"`
+	Numbers        []decimal.Decimal `json:"numbers"`
+	Floats         []float64         `json:"floats"`
+	Ints           []int             `json:"ints"`
+	Strings        []string          `json:"strings"`
+	Bools          []bool            `json:"bools"`
+	Index          int               `json:"index"`
+	IsActive       bool              `json:"isActive"`
+	Tags           []string          `json:"tags"`
+	List           []struct {
 		ID           int    `json:"id"`
 		Name         string `json:"name"`
 		SomeSettings []struct {
