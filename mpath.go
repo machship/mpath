@@ -8,7 +8,12 @@ import (
 	"unicode"
 
 	"github.com/pkg/errors"
+	"github.com/shopspring/decimal"
 )
+
+func Setup(jsonMarshalDecimalsWithoutQuotes bool) {
+	decimal.MarshalJSONWithoutQuotes = jsonMarshalDecimalsWithoutQuotes
+}
 
 var (
 	scannerPool = sync.Pool{
