@@ -11,6 +11,7 @@ require (
 )
 
 require (
+	github.com/bitly/go-simplejson v0.5.1 // indirect
 	golang.org/x/net v0.1.0 // indirect
 	golang.org/x/text v0.4.0 // indirect
 )

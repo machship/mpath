@@ -24,7 +24,7 @@ func Benchmark_ParseAndDo(b *testing.B) {
 		b.Run("Parse "+test.Name, func(b *testing.B) {
 			for n := 0; n < b.N; n++ {
 				b.ReportAllocs()
-				op, err = ParseString(test.Query)
+				op, _, err = ParseString(test.Query)
 
 				if err != nil { // This is to avoid nil dereference errors
 					b.Errorf("'%s' has error: %v,", test.Name, err)
@@ -43,7 +43,7 @@ func Benchmark_ParseAndDo(b *testing.B) {
 
 	for _, test := range testQueries {
 		b.Run("Do "+test.Name, func(b *testing.B) {
-			op, err = ParseString(test.Query)
+			op, _, err = ParseString(test.Query)
 
 			for n := 0; n < b.N; n++ {
 				b.ReportAllocs()
@@ -61,7 +61,7 @@ func Benchmark_ParseAndDo(b *testing.B) {
 	for _, test := range testQueries {
 		b.Run("Parse and Do "+test.Name, func(b *testing.B) {
 			for n := 0; n < b.N; n++ {
-				op, err = ParseString(test.Query)
+				op, _, err = ParseString(test.Query)
 
 				b.ReportAllocs()
 				_, err = op.Do(data, data)
@@ -77,12 +77,65 @@ func Benchmark_ParseAndDo(b *testing.B) {
 func Test_Sprint(t *testing.T) {
 	// We need only test that the Sprint doesn't throw an error
 	for _, test := range testQueries {
-		op, err := ParseString(test.Query)
+		op, _, err := ParseString(test.Query)
 		if err != nil {
 			t.Error(err)
 		}
 		if len(op.Sprint(0)) == 0 {
 			t.Errorf("Got 0 length Sprint string")
+		}
+	}
+}
+
+func Test_ForPath(t *testing.T) {
+	var onlyRun string
+
+	// onlyRun = "complex 1"
+
+	for _, test := range testQueries {
+		if onlyRun != "" && test.Name != onlyRun {
+			continue
+		}
+
+		_, forPath, err := ParseString(test.Query)
+		if err != nil {
+			t.Error(err)
+		}
+
+		gotError := false
+
+		if lGot, lWanted := len(forPath), len(test.Expect_ForPath); lGot != lWanted {
+			t.Errorf("'%s': got bad forPath length: wanted: %d; got: %d", test.Name, lWanted, lGot)
+			gotError = true
+			goto Error
+		}
+
+		for i, fpWanted := range test.Expect_ForPath {
+			fpGot := forPath[i]
+			if len(fpWanted) != len(fpGot) {
+				t.Errorf("'%s': got bad forPath length at index %d: wanted: %d; got: %d", test.Name, i, len(fpWanted), len(fpGot))
+				gotError = true
+				continue
+			}
+
+			for ii, fpWI := range fpWanted {
+				fpGI := fpGot[ii]
+
+				if fpGI != fpWI {
+					gotError = true
+					t.Errorf("'%s': wrong forPath value at index %d: wanted: '%s'; got: '%s'", test.Name, ii, fpWI, fpGI)
+				}
+			}
+		}
+
+	Error:
+		if gotError {
+			for _, w := range test.Expect_ForPath {
+				t.Errorf("'%s': wanted: %v", test.Name, w)
+			}
+			for _, g := range forPath {
+				t.Errorf("'%s': got: %v", test.Name, g)
+			}
 		}
 	}
 }
@@ -102,7 +155,7 @@ func Test_ParseErrors(t *testing.T) {
 
 	// We need only test that the Sprint doesn't throw an error
 	for _, test := range tests {
-		op, err := ParseString(test.Query)
+		op, _, err := ParseString(test.Query)
 		if err == nil {
 			t.Errorf("%s: expected error, got none", test.Name)
 			continue
@@ -121,7 +174,7 @@ func Test_DecimalAtRoot(t *testing.T) {
 	const testName = "Test_DecimalAtRoot"
 
 	data := float64(40)
-	op, err := ParseString("$")
+	op, _, err := ParseString("$")
 	if err != nil {
 		t.Errorf("'%s' has error: %v,", testName, err)
 		return
@@ -162,7 +215,7 @@ func Test_ParseAndDo(t *testing.T) {
 
 	for _, data := range datas {
 		for _, test := range testQueries {
-			op, err := ParseString(test.Query)
+			op, _, err := ParseString(test.Query)
 
 			if err != nil { // This is to avoid nil dereference errors
 				t.Errorf("'%s' has error: %v,", test.Name, err)
@@ -218,42 +271,49 @@ var (
 		Expect_string      string
 		Expect_decimal     decimal.Decimal
 		Expect_bool        bool
+		Expect_ForPath     [][]string
 	}{
 		{
 			Name:               "Add number to string number",
 			Query:              `$.numberInString.Add(21111.123)`,
 			Expect_decimal:     decimal.NewFromFloat(33456.123),
 			ExpectedResultType: RT_decimal,
+			Expect_ForPath:     [][]string{[]string{"numberInString"}},
 		},
 		{
 			Name:               "Add string number to string number",
 			Query:              `$.numberInString.Add("21111.123")`,
 			Expect_decimal:     decimal.NewFromFloat(33456.123),
 			ExpectedResultType: RT_decimal,
+			Expect_ForPath:     [][]string{[]string{"numberInString"}},
 		},
 		{
 			Name:               "trim right of string by n",
 			Query:              `$.string.TrimRightN(3)`,
 			Expect_string:      "abc",
 			ExpectedResultType: RT_string,
+			Expect_ForPath:     [][]string{[]string{"string"}},
 		},
 		{
 			Name:               "trim right of string by n > length of string",
 			Query:              `$.string.TrimRightN(7)`,
 			Expect_string:      "",
 			ExpectedResultType: RT_string,
+			Expect_ForPath:     [][]string{[]string{"string"}},
 		},
 		{
 			Name:               "trim right of string by n = length of string",
 			Query:              `$.string.TrimRightN(6)`,
 			Expect_string:      "",
 			ExpectedResultType: RT_string,
+			Expect_ForPath:     [][]string{[]string{"string"}},
 		},
 		{
 			Name:               "trim right of string by n = 0",
 			Query:              `$.string.TrimRightN(0)`,
 			Expect_string:      "abcDEF",
 			ExpectedResultType: RT_string,
+			Expect_ForPath:     [][]string{[]string{"string"}},
 		},
 
 		{
@@ -261,24 +321,28 @@ var (
 			Query:              `$.string.TrimLeftN(3)`,
 			Expect_string:      "DEF",
 			ExpectedResultType: RT_string,
+			Expect_ForPath:     [][]string{[]string{"string"}},
 		},
 		{
 			Name:               "trim left of string by n > length of string",
 			Query:              `$.string.TrimLeftN(7)`,
 			Expect_string:      "",
 			ExpectedResultType: RT_string,
+			Expect_ForPath:     [][]string{[]string{"string"}},
 		},
 		{
 			Name:               "trim left of string by n = length of string",
 			Query:              `$.string.TrimLeftN(6)`,
 			Expect_string:      "",
 			ExpectedResultType: RT_string,
+			Expect_ForPath:     [][]string{[]string{"string"}},
 		},
 		{
 			Name:               "trim left of string by n = 0",
 			Query:              `$.string.TrimLeftN(0)`,
 			Expect_string:      "abcDEF",
 			ExpectedResultType: RT_string,
+			Expect_ForPath:     [][]string{[]string{"string"}},
 		},
 
 		{
@@ -286,12 +350,14 @@ var (
 			Query:              `$.string.LeftN(2)`,
 			Expect_string:      "ab",
 			ExpectedResultType: RT_string,
+			Expect_ForPath:     [][]string{[]string{"string"}},
 		},
 		{
 			Name:               "get right n of string",
 			Query:              `$.string.RightN(2)`,
 			Expect_string:      "EF",
 			ExpectedResultType: RT_string,
+			Expect_ForPath:     [][]string{[]string{"string"}},
 		},
 
 		{
@@ -299,12 +365,14 @@ var (
 			Query:              `$.string.LeftN(7)`,
 			Expect_string:      "abcDEF",
 			ExpectedResultType: RT_string,
+			Expect_ForPath:     [][]string{[]string{"string"}},
 		},
 		{
 			Name:               "get right n > len of string",
 			Query:              `$.string.RightN(7)`,
 			Expect_string:      "abcDEF",
 			ExpectedResultType: RT_string,
+			Expect_ForPath:     [][]string{[]string{"string"}},
 		},
 
 		{
@@ -312,12 +380,14 @@ var (
 			Query:              `$.string.DoesMatchRegex("a[bc]+[A-Za-z]+")`,
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
+			Expect_ForPath:     [][]string{[]string{"string"}},
 		},
 		{
 			Name:               "regex doesn't match string",
 			Query:              `$.string.DoesMatchRegex("z[bc]+[A-Za-z]+")`,
 			Expect_bool:        false,
 			ExpectedResultType: RT_bool,
+			Expect_ForPath:     [][]string{[]string{"string"}},
 		},
 
 		{
@@ -325,6 +395,7 @@ var (
 			Query:              `$.string.ReplaceRegex("(a)","z")`,
 			Expect_string:      "zbcDEF",
 			ExpectedResultType: RT_string,
+			Expect_ForPath:     [][]string{[]string{"string"}},
 		},
 
 		{
@@ -332,6 +403,7 @@ var (
 			Query:              `$.regexstring.ReplaceRegex("^(MSRWC)([a-zA-Z0-9]{7})(.*)","$1$2")`,
 			Expect_string:      "MSRWC1234567",
 			ExpectedResultType: RT_string,
+			Expect_ForPath:     [][]string{[]string{"regexstring"}},
 		},
 
 		{
@@ -339,6 +411,7 @@ var (
 			Query:              `$.string.ReplaceAll("a","z")`,
 			Expect_string:      "zbcDEF",
 			ExpectedResultType: RT_string,
+			Expect_ForPath:     [][]string{[]string{"string"}},
 		},
 
 		{
@@ -346,150 +419,219 @@ var (
 			Query:              `$.result.json.ParseJSON().consignmentID`,
 			Expect_decimal:     decimal.NewFromInt(112357),
 			ExpectedResultType: RT_decimal,
+			Expect_ForPath:     [][]string{[]string{"result", "json"}},
 		},
 		{
 			Name:               "get data from string JSON field, then put it back to JSON",
 			Query:              `$.result.json.ParseJSON().AsJSON()`,
 			Expect_string:      "{\"consignmentID\":112357,\"consignmentName\":\"Test consignment\"}",
 			ExpectedResultType: RT_string,
+			Expect_ForPath:     [][]string{[]string{"result", "json"}},
 		},
 		{
 			Name:               "get data from string JSON field, select a field, then put it back to JSON",
 			Query:              `$.result.json.ParseJSON().consignmentID.AsJSON()`,
 			Expect_string:      `"112357"`,
 			ExpectedResultType: RT_string,
+			Expect_ForPath:     [][]string{[]string{"result", "json"}},
 		},
 		{
 			Name:               "get data from string XML field",
 			Query:              `$.result.xml.ParseXML().root.consignmentID`,
 			Expect_string:      "112358",
 			ExpectedResultType: RT_string,
+			Expect_ForPath:     [][]string{[]string{"result", "xml"}},
 		},
 		{
 			Name:               "get data from string YAML field",
 			Query:              `$.result.yaml.ParseYAML().consignmentID`,
 			Expect_decimal:     decimal.NewFromInt(112359),
 			ExpectedResultType: RT_decimal,
+			Expect_ForPath:     [][]string{[]string{"result", "yaml"}},
 		},
 		{
 			Name:               "get data from string TOML field",
 			Query:              `$.result.toml.ParseTOML().consignmentID`,
 			Expect_decimal:     decimal.NewFromInt(112360),
 			ExpectedResultType: RT_decimal,
+			Expect_ForPath:     [][]string{[]string{"result", "toml"}},
 		},
 		{
 			Name:               "complex 1",
 			Query:              `{$.List.Last().SomeSettings[@.Key.Equal("DEF")].Any().Equal(true)}`,
 			Expect_bool:        false,
 			ExpectedResultType: RT_bool,
+			Expect_ForPath: [][]string{
+				[]string{"List", "SomeSettings"},
+				[]string{"List", "SomeSettings", "Key"},
+			},
 		},
 		{
 			Name:               "complex 2",
 			Query:              `$.List[@.ID.AnyOf(1,2)].First().SomeSettings[@.Key.Equal("DEF")].First().Number`,
 			Expect_decimal:     decimal.NewFromFloat(222),
 			ExpectedResultType: RT_decimal,
+			Expect_ForPath: [][]string{
+				[]string{"List", "ID"},
+				[]string{"List", "SomeSettings", "Key"},
+				[]string{"List", "SomeSettings", "Number"},
+			},
 		},
 		{
 			Name:               "complex 3",
 			Query:              `$.List.First().SomeSettings[@.Key.Equal("ABC")].First().Number`,
 			Expect_decimal:     decimal.NewFromFloat(1234),
 			ExpectedResultType: RT_decimal,
+			Expect_ForPath: [][]string{
+				[]string{"List", "SomeSettings", "Key"},
+				[]string{"List", "SomeSettings", "Number"},
+			},
 		},
 		{
 			Name:               "simple 1",
 			Query:              `$.List.Count()`,
 			Expect_decimal:     decimal.NewFromFloat(4),
 			ExpectedResultType: RT_decimal,
+			Expect_ForPath: [][]string{
+				[]string{"List"},
+			},
 		},
 		{
 			Name:               "simple 2",
 			Query:              `$.sTRinG`,
 			Expect_string:      "abcDEF",
 			ExpectedResultType: RT_string,
+			Expect_ForPath: [][]string{
+				[]string{"sTRinG"},
+			},
 		},
 		{
 			Name:               "simple 3",
 			Query:              `{OR,$.string.Equal("ABCD"),$.string.Equal("abcDEF")}`,
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
+			Expect_ForPath: [][]string{
+				[]string{"string"},
+				[]string{"string"},
+			},
 		},
 		{
 			Name:               "simple 4",
 			Query:              `$[@.index.Equal(1)].Any()`,
 			Expect_bool:        false,
 			ExpectedResultType: RT_bool,
+			Expect_ForPath: [][]string{
+				[]string{"index"},
+			},
 		},
 		{
 			Name:               "simple 5",
 			Query:              `$[@.index.Equal(6)].Any()`,
 			Expect_bool:        false,
 			ExpectedResultType: RT_bool,
+			Expect_ForPath: [][]string{
+				[]string{"index"},
+			},
 		},
 		{
 			Name:               "simple 6",
 			Query:              `{OR,$[@.index.Equal(1)].Any(),$[@.index.Equal(7)].Any()}`,
 			Expect_bool:        false,
 			ExpectedResultType: RT_bool,
+			Expect_ForPath: [][]string{
+				[]string{"index"},
+				[]string{"index"},
+			},
 		},
 		{
 			Name:               "simple 7",
 			Query:              `{AND,{AND,$.index.Equal(6)}}`,
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
+			Expect_ForPath: [][]string{
+				[]string{"index"},
+			},
 		},
 		{
 			Name:               "simple 8",
 			Query:              `{$.index.Equal($.index)}`,
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
+			Expect_ForPath: [][]string{
+				[]string{"index"},
+			},
 		},
 		{
 			Name:               "simple 9",
 			Query:              `{$.string.Equal($.string)}`,
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
+			Expect_ForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 		{
 			Name:               "simple 10",
 			Query:              `{$.bool.Equal($.bool)}`,
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
+			Expect_ForPath: [][]string{
+				[]string{"bool"},
+			},
 		},
 		{
 			Name:               "simple 11",
 			Query:              `{$.numbers.First().AnyOf($.numbers)}`,
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
+			Expect_ForPath: [][]string{
+				[]string{"numbers"},
+			},
 		},
 		{
 			Name:               "simple 12",
 			Query:              `{$.strings.First().AnyOf($.strings)}`,
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
+			Expect_ForPath: [][]string{
+				[]string{"strings"},
+			},
 		},
 		{
 			Name:               "simple 13",
 			Query:              `{$.bools.First().AnyOf($.bools)}`,
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
+			Expect_ForPath: [][]string{
+				[]string{"bools"},
+			},
 		},
 		{
 			Name:               "simple 14",
 			Query:              `{$.floats.First().AnyOf($.floats)}`,
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
+			Expect_ForPath: [][]string{
+				[]string{"floats"},
+			},
 		},
 		{
 			Name:               "simple 15",
 			Query:              `{$.ints.First().AnyOf($.ints)}`,
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
+			Expect_ForPath: [][]string{
+				[]string{"ints"},
+			},
 		},
 		{
 			Name:               "simple 16",
 			Query:              `{$.bools.Last().AnyOf(false)}`,
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
+			Expect_ForPath: [][]string{
+				[]string{"bools"},
+			},
 		},
 
 		{
@@ -497,24 +639,36 @@ var (
 			Query:              `$.number.Less(10000)`,
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
+			Expect_ForPath: [][]string{
+				[]string{"number"},
+			},
 		},
 		{
 			Name:               "func LessOrEqual",
 			Query:              `$.number.LessOrEqual(1234)`,
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
+			Expect_ForPath: [][]string{
+				[]string{"number"},
+			},
 		},
 		{
 			Name:               "func Greater",
 			Query:              `$.number.Greater(1)`,
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
+			Expect_ForPath: [][]string{
+				[]string{"number"},
+			},
 		},
 		{
 			Name:               "func GreaterOrEqual",
 			Query:              `$.number.GreaterOrEqual(1234)`,
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
+			Expect_ForPath: [][]string{
+				[]string{"number"},
+			},
 		},
 
 		{
@@ -522,54 +676,81 @@ var (
 			Query:              `$.string.Equal("abcDEF")`,
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
+			Expect_ForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 		{
 			Name:               "func NotEqual",
 			Query:              `$.string.NotEqual("abcDEFG")`,
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
+			Expect_ForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 		{
 			Name:               "func Contains",
 			Query:              `$.string.Contains("abc")`,
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
+			Expect_ForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 		{
 			Name:               "func NotContains",
 			Query:              `$.string.NotContains("zzzzz")`,
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
+			Expect_ForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 		{
 			Name:               "func Prefix",
 			Query:              `$.string.Prefix("ab")`,
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
+			Expect_ForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 		{
 			Name:               "func NotPrefix",
 			Query:              `$.string.NotPrefix("cd")`,
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
+			Expect_ForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 		{
 			Name:               "func Suffix",
 			Query:              `$.string.Suffix("EF")`,
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
+			Expect_ForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 		{
 			Name:               "func NotSuffix",
 			Query:              `$.string.NotSuffix("DE")`,
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
+			Expect_ForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 		{
 			Name:               "func Index",
 			Query:              `$.tags.Index(1)`,
 			Expect_string:      "bbb",
 			ExpectedResultType: RT_string,
+			Expect_ForPath: [][]string{
+				[]string{"tags"},
+			},
 		},
 
 		{
@@ -577,60 +758,90 @@ var (
 			Query:              "$.number.Sum(1000,2000)",
 			Expect_decimal:     decimal.NewFromFloat(4234),
 			ExpectedResultType: RT_decimal,
+			Expect_ForPath: [][]string{
+				[]string{"number"},
+			},
 		},
 		{
 			Name:               "func Avg",
 			Query:              "$.number.Avg(5678)",
 			Expect_decimal:     decimal.NewFromFloat(3456),
 			ExpectedResultType: RT_decimal,
+			Expect_ForPath: [][]string{
+				[]string{"number"},
+			},
 		},
 		{
 			Name:               "func Max",
 			Query:              "$.number.Max(9999)",
 			Expect_decimal:     decimal.NewFromFloat(9999),
 			ExpectedResultType: RT_decimal,
+			Expect_ForPath: [][]string{
+				[]string{"number"},
+			},
 		},
 		{
 			Name:               "func Min",
 			Query:              "$.number.Min(9999)",
 			Expect_decimal:     decimal.NewFromFloat(1234),
 			ExpectedResultType: RT_decimal,
+			Expect_ForPath: [][]string{
+				[]string{"number"},
+			},
 		},
 		{
 			Name:               "func Add",
 			Query:              "$.number.Add(1)",
 			Expect_decimal:     decimal.NewFromFloat(1235),
 			ExpectedResultType: RT_decimal,
+			Expect_ForPath: [][]string{
+				[]string{"number"},
+			},
 		},
 		{
 			Name:               "func Sub",
 			Query:              "$.number.Sub(2)",
 			Expect_decimal:     decimal.NewFromFloat(1232),
 			ExpectedResultType: RT_decimal,
+			Expect_ForPath: [][]string{
+				[]string{"number"},
+			},
 		},
 		{
 			Name:               "func Div",
 			Query:              "$.number.Div(2)",
 			Expect_decimal:     decimal.NewFromFloat(617),
 			ExpectedResultType: RT_decimal,
+			Expect_ForPath: [][]string{
+				[]string{"number"},
+			},
 		},
 		{
 			Name:               "func Mul",
 			Query:              "$.number.Mul(11)",
 			Expect_decimal:     decimal.NewFromFloat(13574),
 			ExpectedResultType: RT_decimal,
+			Expect_ForPath: [][]string{
+				[]string{"number"},
+			},
 		},
 		{
 			Name:               "func Mod",
 			Query:              "$.number.Mod(100)",
 			Expect_decimal:     decimal.NewFromFloat(34),
 			ExpectedResultType: RT_decimal,
+			Expect_ForPath: [][]string{
+				[]string{"number"},
+			},
 		},
 		{
 			Name:               "select many",
 			Query:              "$.list.id.Sum(10)",
 			Expect_decimal:     decimal.NewFromFloat(17),
 			ExpectedResultType: RT_decimal,
+			Expect_ForPath: [][]string{
+				[]string{"list", "id"},
+			},
 		},
 	}
 )
