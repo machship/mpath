@@ -18,6 +18,7 @@ type Operation interface {
 	Do(currentData, originalData any) (dataToUse any, err error)
 	Parse(s *scanner, r rune) (nextR rune, err error)
 	Sprint(depth int) (out string)
+	ForPath(current []string) (outCurrent []string, additional [][]string, shouldStopLoop bool)
 	Type() ot_OpType
 }
 
@@ -71,6 +72,29 @@ func (x *opPath) Sprint(depth int) (out string) {
 	return
 }
 
+func (x *opPath) ForPath(current []string) (outCurrent []string, additional [][]string, shouldStopLoop bool) {
+	outCurrent = current
+
+	for _, op := range x.operations {
+		pass := outCurrent
+		// if op.Type() != ot_Filter {
+		// 	pass = nil
+		// }
+
+		oc, a, shouldStopLoop := op.ForPath(pass)
+		if shouldStopLoop {
+			break
+		}
+
+		outCurrent = oc
+		if len(a) > 0 {
+			additional = append(additional, a...)
+		}
+	}
+
+	return
+}
+
 func (x *opPath) Do(currentData, originalData any) (dataToUse any, err error) {
 	if x.startAtRoot && x.disallowRoot {
 		return nil, fmt.Errorf("cannot access root data in filter")
@@ -80,6 +104,15 @@ func (x *opPath) Do(currentData, originalData any) (dataToUse any, err error) {
 		dataToUse = originalData
 	} else {
 		dataToUse = currentData
+	}
+
+	if len(x.operations) == 0 {
+		// This is a special case where the root is being returned
+
+		// As we always guarantee numbers are returned as the decimal type, we do this check
+		if _, ok := dataToUse.(string); !ok {
+			dataToUse = convertToDecimalIfNumber(dataToUse)
+		}
 	}
 
 	// Now we know which data to use, we can apply the path parts
@@ -178,6 +211,10 @@ func (x *opPathIdent) Sprint(depth int) (out string) {
 	return x.identName
 }
 
+func (x *opPathIdent) ForPath(current []string) (outCurrent []string, additional [][]string, shouldStopLoop bool) {
+	return append(current, x.identName), nil, false
+}
+
 func (x *opPathIdent) Do(currentData, _ any) (dataToUse any, err error) {
 	// Ident paths require that the data is a struct or map[string]any
 
@@ -208,7 +245,10 @@ func (x *opPathIdent) Do(currentData, _ any) (dataToUse any, err error) {
 				continue
 			}
 
-			dataToUse = convertToDecimalIfNumber(v.MapIndex(e).Interface())
+			dataToUse = v.MapIndex(e).Interface()
+			if _, ok := dataToUse.(string); !ok {
+				dataToUse = convertToDecimalIfNumber(dataToUse)
+			}
 			return
 		}
 
@@ -235,6 +275,17 @@ func (x *opFilter) Type() ot_OpType { return ot_Filter }
 
 func (x *opFilter) Sprint(depth int) (out string) {
 	return x.logicalOperation.Sprint(depth)
+}
+
+func (x *opFilter) ForPath(current []string) (outCurrent []string, additional [][]string, shouldStopLoop bool) {
+	oc, additional, _ := x.logicalOperation.ForPath(current)
+	outCurrent = current
+	a := []string{}
+	a = append(a, oc...)
+	if len(a) > 0 {
+		additional = append(additional, a)
+	}
+	return
 }
 
 func (x *opFilter) Do(currentData, originalData any) (dataToUse any, err error) {
@@ -328,6 +379,25 @@ func (x *opLogicalOperation) Sprint(depth int) (out string) {
 	}
 
 	out += "\n" + repeatTabs(depth) + endChar
+
+	return
+}
+
+func (x *opLogicalOperation) ForPath(current []string) (outCurrent []string, additional [][]string, shouldStopLoop bool) {
+	// outCurrent = current
+
+	for _, op := range x.operations {
+		oc, a, _ := op.ForPath(nil)
+		nc := []string{}
+		nc = append(nc, current...)
+		nc = append(nc, oc...)
+		if len(nc) > 0 {
+			additional = append(additional, nc)
+		}
+		if len(a) > 0 {
+			additional = append(additional, a...)
+		}
+	}
 
 	return
 }
@@ -473,6 +543,22 @@ func (x *opFunction) Sprint(depth int) (out string) {
 	}
 
 	return fmt.Sprintf("%s(%s)", ft_GetName(x.functionType), strings.Join(paramsAsStrings, ","))
+}
+
+func (x *opFunction) ForPath(current []string) (outCurrent []string, additional [][]string, shouldStopLoop bool) {
+	if !ft_ShouldContinueForPath(x.functionType) {
+		shouldStopLoop = true
+		return
+	}
+	outCurrent = current
+
+	for _, p := range x.paramsPath {
+		pp, a, _ := p.ForPath(current)
+		additional = append(additional, pp)
+		additional = append(additional, a...)
+	}
+
+	return
 }
 
 func (x *opFunction) Do(currentData, originalData any) (dataToUse any, err error) {
@@ -914,6 +1000,15 @@ func ft_GetName(ft ft_FunctionType) (name string) {
 	}
 
 	return
+}
+
+func ft_ShouldContinueForPath(ft ft_FunctionType) bool {
+	switch ft {
+	case ft_First, ft_Last, ft_Index:
+		return true
+	}
+
+	return false
 }
 
 func ft_IsBoolFunc(ft ft_FunctionType) bool {

@@ -29,8 +29,7 @@ func isEmptyValue(v reflect.Value) bool {
 	return false
 }
 
-func convertToDecimalIfNumber(val any) (out any) {
-	out = val
+func convertToDecimalIfNumberAndCheck(val any) (wasNumber bool, out decimal.Decimal) {
 	v := reflect.ValueOf(val)
 
 	if !isEmptyValue(v) {
@@ -40,11 +39,17 @@ func convertToDecimalIfNumber(val any) (out any) {
 		}
 	}
 
-	if !isNumberKind(v.Kind()) {
+	if !(isNumberKind(v.Kind()) || v.Kind() == reflect.String) {
 		return
 	}
 
-	switch outType := out.(type) {
+	switch outType := val.(type) {
+	case string:
+		var err error
+		out, err = decimal.NewFromString(outType)
+		if err != nil {
+			return false, decimal.Zero
+		}
 	case int:
 		out = decimal.NewFromInt(int64(outType))
 	case int8:
@@ -71,7 +76,17 @@ func convertToDecimalIfNumber(val any) (out any) {
 		out = decimal.NewFromFloat(outType)
 	}
 
-	return out
+	wasNumber = true
+
+	return
+}
+
+func convertToDecimalIfNumber(val any) (out any) {
+	if wasNumber, number := convertToDecimalIfNumberAndCheck(val); wasNumber {
+		return number
+	}
+
+	return val
 }
 
 func isNumberKind(k reflect.Kind) bool {
