@@ -267,7 +267,7 @@ func Test_CustomStringTypeMap(t *testing.T) {
 	data := map[CustomStringTypeForTest]any{"varname": outStrConst}
 	queryString := "$.varname"
 
-	op, err := ParseString(queryString)
+	op, _, err := ParseString(queryString)
 
 	if err != nil {
 		t.Errorf("failed to parse query: %s", err)
@@ -304,42 +304,42 @@ var (
 			Query:              `$.numberInString.Add(21111.123)`,
 			Expect_decimal:     decimal.NewFromFloat(33456.123),
 			ExpectedResultType: RT_decimal,
-			Expect_ForPath:     [][]string{[]string{"numberInString"}},
+			Expect_ForPath:     [][]string{{"numberInString"}},
 		},
 		{
 			Name:               "Add string number to string number",
 			Query:              `$.numberInString.Add("21111.123")`,
 			Expect_decimal:     decimal.NewFromFloat(33456.123),
 			ExpectedResultType: RT_decimal,
-			Expect_ForPath:     [][]string{[]string{"numberInString"}},
+			Expect_ForPath:     [][]string{{"numberInString"}},
 		},
 		{
 			Name:               "trim right of string by n",
 			Query:              `$.string.TrimRightN(3)`,
 			Expect_string:      "abc",
 			ExpectedResultType: RT_string,
-			Expect_ForPath:     [][]string{[]string{"string"}},
+			Expect_ForPath:     [][]string{{"string"}},
 		},
 		{
 			Name:               "trim right of string by n > length of string",
 			Query:              `$.string.TrimRightN(7)`,
 			Expect_string:      "",
 			ExpectedResultType: RT_string,
-			Expect_ForPath:     [][]string{[]string{"string"}},
+			Expect_ForPath:     [][]string{{"string"}},
 		},
 		{
 			Name:               "trim right of string by n = length of string",
 			Query:              `$.string.TrimRightN(6)`,
 			Expect_string:      "",
 			ExpectedResultType: RT_string,
-			Expect_ForPath:     [][]string{[]string{"string"}},
+			Expect_ForPath:     [][]string{{"string"}},
 		},
 		{
 			Name:               "trim right of string by n = 0",
 			Query:              `$.string.TrimRightN(0)`,
 			Expect_string:      "abcDEF",
 			ExpectedResultType: RT_string,
-			Expect_ForPath:     [][]string{[]string{"string"}},
+			Expect_ForPath:     [][]string{{"string"}},
 		},
 
 		{
@@ -347,28 +347,28 @@ var (
 			Query:              `$.string.TrimLeftN(3)`,
 			Expect_string:      "DEF",
 			ExpectedResultType: RT_string,
-			Expect_ForPath:     [][]string{[]string{"string"}},
+			Expect_ForPath:     [][]string{{"string"}},
 		},
 		{
 			Name:               "trim left of string by n > length of string",
 			Query:              `$.string.TrimLeftN(7)`,
 			Expect_string:      "",
 			ExpectedResultType: RT_string,
-			Expect_ForPath:     [][]string{[]string{"string"}},
+			Expect_ForPath:     [][]string{{"string"}},
 		},
 		{
 			Name:               "trim left of string by n = length of string",
 			Query:              `$.string.TrimLeftN(6)`,
 			Expect_string:      "",
 			ExpectedResultType: RT_string,
-			Expect_ForPath:     [][]string{[]string{"string"}},
+			Expect_ForPath:     [][]string{{"string"}},
 		},
 		{
 			Name:               "trim left of string by n = 0",
 			Query:              `$.string.TrimLeftN(0)`,
 			Expect_string:      "abcDEF",
 			ExpectedResultType: RT_string,
-			Expect_ForPath:     [][]string{[]string{"string"}},
+			Expect_ForPath:     [][]string{{"string"}},
 		},
 
 		{
@@ -376,14 +376,14 @@ var (
 			Query:              `$.string.LeftN(2)`,
 			Expect_string:      "ab",
 			ExpectedResultType: RT_string,
-			Expect_ForPath:     [][]string{[]string{"string"}},
+			Expect_ForPath:     [][]string{{"string"}},
 		},
 		{
 			Name:               "get right n of string",
 			Query:              `$.string.RightN(2)`,
 			Expect_string:      "EF",
 			ExpectedResultType: RT_string,
-			Expect_ForPath:     [][]string{[]string{"string"}},
+			Expect_ForPath:     [][]string{{"string"}},
 		},
 
 		{
@@ -391,14 +391,14 @@ var (
 			Query:              `$.string.LeftN(7)`,
 			Expect_string:      "abcDEF",
 			ExpectedResultType: RT_string,
-			Expect_ForPath:     [][]string{[]string{"string"}},
+			Expect_ForPath:     [][]string{{"string"}},
 		},
 		{
 			Name:               "get right n > len of string",
 			Query:              `$.string.RightN(7)`,
 			Expect_string:      "abcDEF",
 			ExpectedResultType: RT_string,
-			Expect_ForPath:     [][]string{[]string{"string"}},
+			Expect_ForPath:     [][]string{{"string"}},
 		},
 
 		{
@@ -406,14 +406,14 @@ var (
 			Query:              `$.string.DoesMatchRegex("a[bc]+[A-Za-z]+")`,
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
-			Expect_ForPath:     [][]string{[]string{"string"}},
+			Expect_ForPath:     [][]string{{"string"}},
 		},
 		{
 			Name:               "regex doesn't match string",
 			Query:              `$.string.DoesMatchRegex("z[bc]+[A-Za-z]+")`,
 			Expect_bool:        false,
 			ExpectedResultType: RT_bool,
-			Expect_ForPath:     [][]string{[]string{"string"}},
+			Expect_ForPath:     [][]string{{"string"}},
 		},
 
 		{
@@ -421,7 +421,7 @@ var (
 			Query:              `$.string.ReplaceRegex("(a)","z")`,
 			Expect_string:      "zbcDEF",
 			ExpectedResultType: RT_string,
-			Expect_ForPath:     [][]string{[]string{"string"}},
+			Expect_ForPath:     [][]string{{"string"}},
 		},
 
 		{
@@ -429,7 +429,7 @@ var (
 			Query:              `$.regexstring.ReplaceRegex("^(MSRWC)([a-zA-Z0-9]{7})(.*)","$1$2")`,
 			Expect_string:      "MSRWC1234567",
 			ExpectedResultType: RT_string,
-			Expect_ForPath:     [][]string{[]string{"regexstring"}},
+			Expect_ForPath:     [][]string{{"regexstring"}},
 		},
 
 		{
@@ -437,7 +437,7 @@ var (
 			Query:              `$.string.ReplaceAll("a","z")`,
 			Expect_string:      "zbcDEF",
 			ExpectedResultType: RT_string,
-			Expect_ForPath:     [][]string{[]string{"string"}},
+			Expect_ForPath:     [][]string{{"string"}},
 		},
 
 		{
@@ -445,42 +445,42 @@ var (
 			Query:              `$.result.json.ParseJSON().consignmentID`,
 			Expect_decimal:     decimal.NewFromInt(112357),
 			ExpectedResultType: RT_decimal,
-			Expect_ForPath:     [][]string{[]string{"result", "json"}},
+			Expect_ForPath:     [][]string{{"result", "json"}},
 		},
 		{
 			Name:               "get data from string JSON field, then put it back to JSON",
 			Query:              `$.result.json.ParseJSON().AsJSON()`,
 			Expect_string:      "{\"consignmentID\":112357,\"consignmentName\":\"Test consignment\"}",
 			ExpectedResultType: RT_string,
-			Expect_ForPath:     [][]string{[]string{"result", "json"}},
+			Expect_ForPath:     [][]string{{"result", "json"}},
 		},
 		{
 			Name:               "get data from string JSON field, select a field, then put it back to JSON",
 			Query:              `$.result.json.ParseJSON().consignmentID.AsJSON()`,
 			Expect_string:      `"112357"`,
 			ExpectedResultType: RT_string,
-			Expect_ForPath:     [][]string{[]string{"result", "json"}},
+			Expect_ForPath:     [][]string{{"result", "json"}},
 		},
 		{
 			Name:               "get data from string XML field",
 			Query:              `$.result.xml.ParseXML().root.consignmentID`,
 			Expect_string:      "112358",
 			ExpectedResultType: RT_string,
-			Expect_ForPath:     [][]string{[]string{"result", "xml"}},
+			Expect_ForPath:     [][]string{{"result", "xml"}},
 		},
 		{
 			Name:               "get data from string YAML field",
 			Query:              `$.result.yaml.ParseYAML().consignmentID`,
 			Expect_decimal:     decimal.NewFromInt(112359),
 			ExpectedResultType: RT_decimal,
-			Expect_ForPath:     [][]string{[]string{"result", "yaml"}},
+			Expect_ForPath:     [][]string{{"result", "yaml"}},
 		},
 		{
 			Name:               "get data from string TOML field",
 			Query:              `$.result.toml.ParseTOML().consignmentID`,
 			Expect_decimal:     decimal.NewFromInt(112360),
 			ExpectedResultType: RT_decimal,
-			Expect_ForPath:     [][]string{[]string{"result", "toml"}},
+			Expect_ForPath:     [][]string{{"result", "toml"}},
 		},
 		{
 			Name:               "complex 1",
