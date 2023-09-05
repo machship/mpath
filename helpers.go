@@ -271,3 +271,30 @@ func getFieldValueByNameFromStruct(identName string, structValue reflect.Value) 
 
 	return nil, false
 }
+
+func doForMapPerKey(valueThatShouldBeMap any, doFunc func(keyAsString string, keyAsValue, mapAsValue reflect.Value)) {
+	v := reflect.ValueOf(valueThatShouldBeMap)
+	switch v.Kind() {
+	case reflect.Pointer, reflect.Interface:
+		v = v.Elem()
+	}
+
+	if v.Kind() == reflect.Map {
+		for _, e := range v.MapKeys() {
+			mks, ok := e.Interface().(string)
+			if !ok {
+				if reflect.TypeOf(e.Interface()).ConvertibleTo(reflect.TypeOf("")) {
+					mksTemp := reflect.ValueOf(e.Interface()).Convert(reflect.TypeOf("")).Interface()
+					mks, ok = mksTemp.(string)
+					if !ok || mks == "" {
+						continue
+					}
+				} else {
+					continue
+				}
+			}
+
+			doFunc(mks, e, v)
+		}
+	}
+}

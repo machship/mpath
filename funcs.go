@@ -854,3 +854,338 @@ func (op *opFunction) func_ParseTOML(rtParams runtimeParams, val any) (map[strin
 
 	return nil, fmt.Errorf("value is not a string")
 }
+
+func (op *opFunction) func_RemoveKeysByRegex(rtParams runtimeParams, val any) (map[string]any, error) {
+	if got, ok := rtParams.checkLengthOfParams(1); !ok {
+		return nil, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.functionType), 1, got)
+	}
+
+	param, err := op.paramsGetFirstOfString(rtParams)
+	if err != nil {
+		return nil, err
+	}
+
+	exp, err := regexp.Compile(param)
+	if err != nil {
+		return nil, fmt.Errorf("regular expression is invalid")
+	}
+
+	doForMapPerKey(val, func(keyAsString string, keyAsValue, mapAsValue reflect.Value) {
+		if exp.MatchString(keyAsString) {
+			// This deletes the key if it matches the regex
+			mapAsValue.SetMapIndex(keyAsValue, reflect.Value{})
+		}
+	})
+
+	return nil, fmt.Errorf("value is not a map")
+}
+
+func (op *opFunction) func_RemoveKeysByPrefix(rtParams runtimeParams, val any) (map[string]any, error) {
+	if got, ok := rtParams.checkLengthOfParams(1); !ok {
+		return nil, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.functionType), 1, got)
+	}
+
+	prefixParam, err := op.paramsGetFirstOfString(rtParams)
+	if err != nil {
+		return nil, err
+	}
+
+	doForMapPerKey(val, func(keyAsString string, keyAsValue, mapAsValue reflect.Value) {
+		if strings.HasPrefix(keyAsString, prefixParam) {
+			// This deletes the key if it matches the regex
+			mapAsValue.SetMapIndex(keyAsValue, reflect.Value{})
+		}
+	})
+
+	return nil, fmt.Errorf("value is not a map")
+}
+
+func (op *opFunction) func_RemoveKeysBySuffix(rtParams runtimeParams, val any) (map[string]any, error) {
+	if got, ok := rtParams.checkLengthOfParams(1); !ok {
+		return nil, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.functionType), 1, got)
+	}
+
+	prefixParam, err := op.paramsGetFirstOfString(rtParams)
+	if err != nil {
+		return nil, err
+	}
+
+	doForMapPerKey(val, func(keyAsString string, keyAsValue, mapAsValue reflect.Value) {
+		if strings.HasSuffix(keyAsString, prefixParam) {
+			// This deletes the key if it matches the regex
+			mapAsValue.SetMapIndex(keyAsValue, reflect.Value{})
+		}
+	})
+
+	return nil, fmt.Errorf("value is not a map")
+}
+
+type ft_FunctionType int
+
+const (
+	ft_NotSet ft_FunctionType = iota
+	ft_Equal
+	ft_NotEqual
+	ft_Less
+	ft_LessOrEqual
+	ft_Greater
+	ft_GreaterOrEqual
+	ft_Contains
+	ft_NotContains
+	ft_Prefix
+	ft_NotPrefix
+	ft_Suffix
+	ft_NotSuffix
+	ft_Any
+	ft_AnyOf
+
+	ft_Count
+	ft_First
+	ft_Last
+	ft_Index
+	ft_Sum
+	ft_Avg
+	ft_Max
+	ft_Min
+	ft_Add
+	ft_Sub
+	ft_Div
+	ft_Mul
+	ft_Mod
+
+	ft_TrimRightN
+	ft_TrimLeftN
+	ft_RightN
+	ft_LeftN
+	ft_DoesMatchRegex
+	ft_ReplaceRegex
+	ft_ReplaceAll
+
+	ft_AsJSON
+	ft_ParseJSON
+	ft_ParseXML
+	ft_ParseYAML
+	ft_ParseTOML
+	ft_RemoveKeysByRegex
+	ft_RemoveKeysByPrefix
+	ft_RemoveKeysBySuffix
+)
+
+func ft_GetByName(name string) (ft ft_FunctionType, err error) {
+	switch name {
+	case "Equal":
+		ft = ft_Equal
+	case "NotEqual":
+		ft = ft_NotEqual
+	case "Less":
+		ft = ft_Less
+	case "LessOrEqual":
+		ft = ft_LessOrEqual
+	case "Greater":
+		ft = ft_Greater
+	case "GreaterOrEqual":
+		ft = ft_GreaterOrEqual
+	case "Contains":
+		ft = ft_Contains
+	case "NotContains":
+		ft = ft_NotContains
+	case "Prefix":
+		ft = ft_Prefix
+	case "NotPrefix":
+		ft = ft_NotPrefix
+	case "Suffix":
+		ft = ft_Suffix
+	case "NotSuffix":
+		ft = ft_NotSuffix
+	case "Count":
+		ft = ft_Count
+	case "First":
+		ft = ft_First
+	case "Last":
+		ft = ft_Last
+	case "Index":
+		ft = ft_Index
+	case "Any":
+		ft = ft_Any
+	case "Sum":
+		ft = ft_Sum
+	case "Avg":
+		ft = ft_Avg
+	case "Max":
+		ft = ft_Max
+	case "Min":
+		ft = ft_Min
+	case "Add":
+		ft = ft_Add
+	case "Sub":
+		ft = ft_Sub
+	case "Div":
+		ft = ft_Div
+	case "Mul":
+		ft = ft_Mul
+	case "Mod":
+		ft = ft_Mod
+	case "AnyOf":
+		ft = ft_AnyOf
+
+	case "TrimRightN":
+		ft = ft_TrimRightN
+	case "TrimLeftN":
+		ft = ft_TrimLeftN
+	case "RightN":
+		ft = ft_RightN
+	case "LeftN":
+		ft = ft_LeftN
+	case "DoesMatchRegex":
+		ft = ft_DoesMatchRegex
+	case "ReplaceRegex":
+		ft = ft_ReplaceRegex
+	case "ReplaceAll":
+		ft = ft_ReplaceAll
+
+	case "AsJSON":
+		ft = ft_AsJSON
+	case "ParseJSON":
+		ft = ft_ParseJSON
+	case "ParseXML":
+		ft = ft_ParseXML
+	case "ParseYAML":
+		ft = ft_ParseYAML
+	case "ParseTOML":
+		ft = ft_ParseTOML
+
+	case "RemoveKeysByRegex":
+		ft = ft_RemoveKeysByRegex
+	case "RemoveKeysByPrefix":
+		ft = ft_RemoveKeysByPrefix
+	case "RemoveKeysBySuffix":
+		ft = ft_RemoveKeysBySuffix
+
+	default:
+		return 0, fmt.Errorf("unknown function name '%s'", name)
+	}
+
+	return
+}
+
+func ft_GetName(ft ft_FunctionType) (name string) {
+	switch ft {
+	case ft_Equal:
+		name = "Equal"
+	case ft_NotEqual:
+		name = "NotEqual"
+	case ft_Less:
+		name = "Less"
+	case ft_LessOrEqual:
+		name = "LessOrEqual"
+	case ft_Greater:
+		name = "Greater"
+	case ft_GreaterOrEqual:
+		name = "GreaterOrEqual"
+	case ft_Contains:
+		name = "Contains"
+	case ft_NotContains:
+		name = "NotContains"
+	case ft_Prefix:
+		name = "Prefix"
+	case ft_NotPrefix:
+		name = "NotPrefix"
+	case ft_Suffix:
+		name = "Suffix"
+	case ft_NotSuffix:
+		name = "NotSuffix"
+	case ft_Count:
+		name = "Count"
+	case ft_First:
+		name = "First"
+	case ft_Last:
+		name = "Last"
+	case ft_Index:
+		name = "Index"
+	case ft_Any:
+		name = "Any"
+	case ft_Sum:
+		name = "Sum"
+	case ft_Avg:
+		name = "Avg"
+	case ft_Max:
+		name = "Max"
+	case ft_Min:
+		name = "Min"
+	case ft_Add:
+		name = "Add"
+	case ft_Sub:
+		name = "Sub"
+	case ft_Div:
+		name = "Div"
+	case ft_Mul:
+		name = "Mul"
+	case ft_Mod:
+		name = "Mod"
+	case ft_AnyOf:
+		name = "AnyOf"
+
+	case ft_TrimRightN:
+		name = "TrimRightN"
+	case ft_TrimLeftN:
+		name = "TrimLeftN"
+	case ft_RightN:
+		name = "RightN"
+	case ft_LeftN:
+		name = "LeftN"
+	case ft_DoesMatchRegex:
+		name = "DoesMatchRegex"
+	case ft_ReplaceRegex:
+		name = "ReplaceRegex"
+	case ft_ReplaceAll:
+		name = "ReplaceAll"
+
+	case ft_ParseJSON:
+		name = "ParseJSON"
+	case ft_ParseXML:
+		name = "ParseXML"
+	case ft_ParseYAML:
+		name = "ParseYAML"
+	case ft_ParseTOML:
+		name = "ParseTOML"
+	case ft_RemoveKeysByRegex:
+		name = "RemoveKeysByRegex"
+	case ft_RemoveKeysByPrefix:
+		name = "RemoveKeysByPrefix"
+	case ft_RemoveKeysBySuffix:
+		name = "RemoveKeysBySuffix"
+	}
+
+	return
+}
+
+func ft_ShouldContinueForPath(ft ft_FunctionType) bool {
+	switch ft {
+	case ft_First, ft_Last, ft_Index:
+		return true
+	}
+
+	return false
+}
+
+func ft_IsBoolFunc(ft ft_FunctionType) bool {
+	switch ft {
+	case ft_Equal,
+		ft_NotEqual,
+		ft_Less,
+		ft_LessOrEqual,
+		ft_Greater,
+		ft_GreaterOrEqual,
+		ft_Contains,
+		ft_NotContains,
+		ft_Prefix,
+		ft_NotPrefix,
+		ft_Suffix,
+		ft_NotSuffix,
+		ft_AnyOf,
+		ft_Any:
+		return true
+	}
+
+	return false
+}

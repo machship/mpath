@@ -212,8 +212,18 @@ func Test_ParseAndDo(t *testing.T) {
 
 	datas := []any{dataAsMap, dataAsStruct}
 
+	onlyRunName := ""
+
+	// onlyRunName = "Add number to string number"
+
 	for _, data := range datas {
 		for _, test := range testQueries {
+			if onlyRunName != "" {
+				if test.Name != onlyRunName {
+					continue
+				}
+			}
+
 			op, _, err := ParseString(test.Query)
 
 			if err != nil { // This is to avoid nil dereference errors
@@ -488,8 +498,8 @@ var (
 			Expect_bool:        false,
 			ExpectedResultType: RT_bool,
 			Expect_ForPath: [][]string{
-				[]string{"List", "SomeSettings"},
-				[]string{"List", "SomeSettings", "Key"},
+				{"List", "SomeSettings"},
+				{"List", "SomeSettings", "Key"},
 			},
 		},
 		{
@@ -498,9 +508,9 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(222),
 			ExpectedResultType: RT_decimal,
 			Expect_ForPath: [][]string{
-				[]string{"List", "ID"},
-				[]string{"List", "SomeSettings", "Key"},
-				[]string{"List", "SomeSettings", "Number"},
+				{"List", "ID"},
+				{"List", "SomeSettings", "Key"},
+				{"List", "SomeSettings", "Number"},
 			},
 		},
 		{
@@ -509,8 +519,8 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(1234),
 			ExpectedResultType: RT_decimal,
 			Expect_ForPath: [][]string{
-				[]string{"List", "SomeSettings", "Key"},
-				[]string{"List", "SomeSettings", "Number"},
+				{"List", "SomeSettings", "Key"},
+				{"List", "SomeSettings", "Number"},
 			},
 		},
 		{
@@ -519,7 +529,7 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(4),
 			ExpectedResultType: RT_decimal,
 			Expect_ForPath: [][]string{
-				[]string{"List"},
+				{"List"},
 			},
 		},
 		{
@@ -528,7 +538,7 @@ var (
 			Expect_string:      "abcDEF",
 			ExpectedResultType: RT_string,
 			Expect_ForPath: [][]string{
-				[]string{"sTRinG"},
+				{"sTRinG"},
 			},
 		},
 		{
@@ -537,8 +547,8 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			Expect_ForPath: [][]string{
-				[]string{"string"},
-				[]string{"string"},
+				{"string"},
+				{"string"},
 			},
 		},
 		{
@@ -547,7 +557,7 @@ var (
 			Expect_bool:        false,
 			ExpectedResultType: RT_bool,
 			Expect_ForPath: [][]string{
-				[]string{"index"},
+				{"index"},
 			},
 		},
 		{
@@ -556,7 +566,7 @@ var (
 			Expect_bool:        false,
 			ExpectedResultType: RT_bool,
 			Expect_ForPath: [][]string{
-				[]string{"index"},
+				{"index"},
 			},
 		},
 		{
@@ -565,8 +575,8 @@ var (
 			Expect_bool:        false,
 			ExpectedResultType: RT_bool,
 			Expect_ForPath: [][]string{
-				[]string{"index"},
-				[]string{"index"},
+				{"index"},
+				{"index"},
 			},
 		},
 		{
@@ -575,7 +585,7 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			Expect_ForPath: [][]string{
-				[]string{"index"},
+				{"index"},
 			},
 		},
 		{
@@ -584,7 +594,7 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			Expect_ForPath: [][]string{
-				[]string{"index"},
+				{"index"},
 			},
 		},
 		{
@@ -593,7 +603,7 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			Expect_ForPath: [][]string{
-				[]string{"string"},
+				{"string"},
 			},
 		},
 		{
@@ -602,7 +612,7 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			Expect_ForPath: [][]string{
-				[]string{"bool"},
+				{"bool"},
 			},
 		},
 		{
@@ -611,7 +621,7 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			Expect_ForPath: [][]string{
-				[]string{"numbers"},
+				{"numbers"},
 			},
 		},
 		{
@@ -620,7 +630,7 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			Expect_ForPath: [][]string{
-				[]string{"strings"},
+				{"strings"},
 			},
 		},
 		{
@@ -629,7 +639,7 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			Expect_ForPath: [][]string{
-				[]string{"bools"},
+				{"bools"},
 			},
 		},
 		{
@@ -638,7 +648,7 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			Expect_ForPath: [][]string{
-				[]string{"floats"},
+				{"floats"},
 			},
 		},
 		{
@@ -647,7 +657,7 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			Expect_ForPath: [][]string{
-				[]string{"ints"},
+				{"ints"},
 			},
 		},
 		{
@@ -656,7 +666,7 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			Expect_ForPath: [][]string{
-				[]string{"bools"},
+				{"bools"},
 			},
 		},
 
@@ -666,7 +676,7 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			Expect_ForPath: [][]string{
-				[]string{"number"},
+				{"number"},
 			},
 		},
 		{
@@ -675,7 +685,7 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			Expect_ForPath: [][]string{
-				[]string{"number"},
+				{"number"},
 			},
 		},
 		{
@@ -684,7 +694,7 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			Expect_ForPath: [][]string{
-				[]string{"number"},
+				{"number"},
 			},
 		},
 		{
@@ -693,7 +703,7 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			Expect_ForPath: [][]string{
-				[]string{"number"},
+				{"number"},
 			},
 		},
 
@@ -703,7 +713,7 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			Expect_ForPath: [][]string{
-				[]string{"string"},
+				{"string"},
 			},
 		},
 		{
@@ -712,7 +722,7 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			Expect_ForPath: [][]string{
-				[]string{"string"},
+				{"string"},
 			},
 		},
 		{
@@ -721,7 +731,7 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			Expect_ForPath: [][]string{
-				[]string{"string"},
+				{"string"},
 			},
 		},
 		{
@@ -730,7 +740,7 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			Expect_ForPath: [][]string{
-				[]string{"string"},
+				{"string"},
 			},
 		},
 		{
@@ -739,7 +749,7 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			Expect_ForPath: [][]string{
-				[]string{"string"},
+				{"string"},
 			},
 		},
 		{
@@ -748,7 +758,7 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			Expect_ForPath: [][]string{
-				[]string{"string"},
+				{"string"},
 			},
 		},
 		{
@@ -757,7 +767,7 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			Expect_ForPath: [][]string{
-				[]string{"string"},
+				{"string"},
 			},
 		},
 		{
@@ -766,7 +776,7 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			Expect_ForPath: [][]string{
-				[]string{"string"},
+				{"string"},
 			},
 		},
 		{
@@ -775,7 +785,7 @@ var (
 			Expect_string:      "bbb",
 			ExpectedResultType: RT_string,
 			Expect_ForPath: [][]string{
-				[]string{"tags"},
+				{"tags"},
 			},
 		},
 
@@ -785,7 +795,7 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(4234),
 			ExpectedResultType: RT_decimal,
 			Expect_ForPath: [][]string{
-				[]string{"number"},
+				{"number"},
 			},
 		},
 		{
@@ -794,7 +804,7 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(3456),
 			ExpectedResultType: RT_decimal,
 			Expect_ForPath: [][]string{
-				[]string{"number"},
+				{"number"},
 			},
 		},
 		{
@@ -803,7 +813,7 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(9999),
 			ExpectedResultType: RT_decimal,
 			Expect_ForPath: [][]string{
-				[]string{"number"},
+				{"number"},
 			},
 		},
 		{
@@ -812,7 +822,7 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(1234),
 			ExpectedResultType: RT_decimal,
 			Expect_ForPath: [][]string{
-				[]string{"number"},
+				{"number"},
 			},
 		},
 		{
@@ -821,7 +831,7 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(1235),
 			ExpectedResultType: RT_decimal,
 			Expect_ForPath: [][]string{
-				[]string{"number"},
+				{"number"},
 			},
 		},
 		{
@@ -830,7 +840,7 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(1232),
 			ExpectedResultType: RT_decimal,
 			Expect_ForPath: [][]string{
-				[]string{"number"},
+				{"number"},
 			},
 		},
 		{
@@ -839,7 +849,7 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(617),
 			ExpectedResultType: RT_decimal,
 			Expect_ForPath: [][]string{
-				[]string{"number"},
+				{"number"},
 			},
 		},
 		{
@@ -848,7 +858,7 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(13574),
 			ExpectedResultType: RT_decimal,
 			Expect_ForPath: [][]string{
-				[]string{"number"},
+				{"number"},
 			},
 		},
 		{
@@ -857,7 +867,7 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(34),
 			ExpectedResultType: RT_decimal,
 			Expect_ForPath: [][]string{
-				[]string{"number"},
+				{"number"},
 			},
 		},
 		{
@@ -866,7 +876,7 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(17),
 			ExpectedResultType: RT_decimal,
 			Expect_ForPath: [][]string{
-				[]string{"list", "id"},
+				{"list", "id"},
 			},
 		},
 	}
