@@ -191,7 +191,20 @@ func (x *opPathIdent) Do(currentData, _ any) (dataToUse any, err error) {
 
 	if v.Kind() == reflect.Map {
 		for _, e := range v.MapKeys() {
-			if mks, ok := e.Interface().(string); !ok || strings.ToLower(mks) != strings.ToLower(x.identName) {
+			mks, ok := e.Interface().(string)
+			if !ok {
+				if reflect.TypeOf(e.Interface()).ConvertibleTo(reflect.TypeOf("")) {
+					mksTemp := reflect.ValueOf(e.Interface()).Convert(reflect.TypeOf("")).Interface()
+					mks, ok = mksTemp.(string)
+					if !ok || mks == "" {
+						continue
+					}
+				} else {
+					continue
+				}
+			}
+
+			if !strings.EqualFold(mks, x.identName) {
 				continue
 			}
 
@@ -441,16 +454,6 @@ type runtimeParams struct {
 	paramsString []string
 	paramsBool   []bool
 }
-
-type fpt_FunctionParameterType int
-
-const (
-	fpt_NotSet fpt_FunctionParameterType = iota
-	fpt_String
-	fpt_Number
-	fpt_Bool
-	fpt_NumberSlice
-)
 
 func (x *opFunction) Type() ot_OpType { return ot_Function }
 

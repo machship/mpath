@@ -127,15 +127,6 @@ func erInvalid(s *scanner, validRunes ...rune) error {
 	return erAt(s, "invalid next character '%s': must be one of '%s'", s.TokenText(), strings.Join(validRunesAsStrings, "', '"))
 }
 
-func isValidNextRune(nr rune, valid ...rune) (bool, []rune) {
-	for _, vr := range valid {
-		if vr == nr {
-			return true, valid
-		}
-	}
-	return false, valid
-}
-
 type scanner struct {
 	sx *sc.Scanner
 }

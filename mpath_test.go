@@ -2,7 +2,6 @@ package mpath
 
 import (
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	"github.com/shopspring/decimal"
@@ -186,6 +185,33 @@ func Test_ParseAndDo(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+func Test_CustomStringTypeMap(t *testing.T) {
+	const outStrConst = "hello world"
+	data := map[CustomStringTypeForTest]any{"varname": outStrConst}
+	queryString := "$.varname"
+
+	op, err := ParseString(queryString)
+
+	if err != nil {
+		t.Errorf("failed to parse query: %s", err)
+	}
+
+	out, err := op.Do(data, data)
+
+	if err != nil {
+		t.Errorf("failed to do mpath: %s", err)
+	}
+
+	outStr, ok := out.(string)
+	if !ok {
+		t.Error("out was not a string")
+	}
+
+	if outStr != outStrConst {
+		t.Errorf("outStr was wrong; expected: '%s', got '%s'", outStrConst, outStr)
 	}
 }
 
@@ -602,16 +628,6 @@ var (
 	}
 )
 
-func logFunc(t *testing.T, testName, s string, args ...any) {
-	t.Logf(fmt.Sprintf("Test '%s': ", testName)+s, args...)
-}
-
-func errFunc[T comparable](t *testing.T, testName string, expectedResultType ResultType, expected, got T, message string, args ...any) {
-	if expected != got {
-		t.Errorf("Test '%s': %s: expected '%v'; got '%v'", testName, fmt.Sprintf(message, args...), expected, got)
-	}
-}
-
 type ResultType string
 
 const (
@@ -619,6 +635,8 @@ const (
 	RT_decimal ResultType = "decimal"
 	RT_bool    ResultType = "bool"
 )
+
+type CustomStringTypeForTest string
 
 // Generated using https://json-generator.com/
 var jsn = `

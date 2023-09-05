@@ -190,7 +190,20 @@ func getFieldValueByNameFromStruct(identName string, structValue reflect.Value) 
 
 	if svk == reflect.Map {
 		for _, e := range structValue.MapKeys() {
-			if mks, ok := e.Interface().(string); !ok || strings.ToLower(mks) != strings.ToLower(identName) {
+			mks, ok := e.Interface().(string)
+			if !ok {
+				if reflect.TypeOf(e.Interface()).ConvertibleTo(reflect.TypeOf("")) {
+					mksTemp := reflect.ValueOf(e.Interface()).Convert(reflect.TypeOf("")).Interface()
+					mks, ok = mksTemp.(string)
+					if !ok || mks == "" {
+						continue
+					}
+				} else {
+					continue
+				}
+			}
+
+			if !strings.EqualFold(mks, identName) {
 				continue
 			}
 
@@ -206,7 +219,8 @@ func getFieldValueByNameFromStruct(identName string, structValue reflect.Value) 
 	st := structValue.Type()
 
 	for fn := 0; fn < structValue.NumField(); fn++ {
-		if strings.ToLower(st.Field(fn).Name) == strings.ToLower(identName) {
+		structFieldName := st.Field(fn).Name
+		if strings.EqualFold(structFieldName, identName) {
 			out = structValue.Field(fn).Interface()
 
 			switch outType := out.(type) {
