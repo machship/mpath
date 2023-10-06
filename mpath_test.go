@@ -214,7 +214,7 @@ func Test_ParseAndDo(t *testing.T) {
 
 	onlyRunName := ""
 
-	onlyRunName = "complex 1"
+	// onlyRunName = "complex 1"
 
 	for _, data := range datas {
 		for _, test := range testQueries {

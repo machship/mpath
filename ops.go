@@ -1,6 +1,7 @@
 package mpath
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -20,6 +21,7 @@ type Operation interface {
 	Sprint(depth int) (out string)
 	ForPath(current []string) (outCurrent []string, additional [][]string, shouldStopLoop bool)
 	Type() OT_OpType
+	MarshalJSON() ([]byte, error)
 }
 
 ////////////////////////////////////////////////////////////////////////////////////
@@ -39,6 +41,22 @@ type opPath struct {
 	DisallowRoot      bool
 	MustEndInFunction bool
 	Operations        []Operation
+}
+
+func (x *opPath) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Type              string `json:"_type"`
+		StartAtRoot       bool
+		DisallowRoot      bool
+		MustEndInFunction bool
+		Operations        []Operation
+	}{
+		Type:              "Path",
+		StartAtRoot:       x.StartAtRoot,
+		DisallowRoot:      x.DisallowRoot,
+		MustEndInFunction: x.MustEndInFunction,
+		Operations:        x.Operations,
+	})
 }
 
 func (x *opPath) addOpToOperationsAndParse(op Operation, s *scanner, r rune) (nextR rune, err error) {
@@ -205,6 +223,16 @@ type opPathIdent struct {
 	IdentName string
 }
 
+func (x *opPathIdent) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Type      string `json:"_type"`
+		IdentName string
+	}{
+		Type:      "PathIdent",
+		IdentName: x.IdentName,
+	})
+}
+
 func (x *opPathIdent) Type() OT_OpType { return OT_PathIdent }
 
 func (x *opPathIdent) Sprint(depth int) (out string) {
@@ -271,6 +299,16 @@ type opFilter struct {
 	LogicalOperation *opLogicalOperation
 }
 
+func (x *opFilter) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Type             string `json:"_type"`
+		LogicalOperation *opLogicalOperation
+	}{
+		Type:             "Filter",
+		LogicalOperation: x.LogicalOperation,
+	})
+}
+
 func (x *opFilter) Type() OT_OpType { return OT_Filter }
 
 func (x *opFilter) Sprint(depth int) (out string) {
@@ -335,12 +373,23 @@ func (x *opFilter) Parse(s *scanner, r rune) (nextR rune, err error) {
 ////////////////////////////////////////////////////////////////////////////////////
 
 type opLogicalOperation struct {
-	ID uint32
-
-	DisallowRoot bool
-
+	DisallowRoot         bool
 	LogicalOperationType LOT_LogicalOperationType
 	Operations           []Operation
+}
+
+func (x *opLogicalOperation) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Type                 string `json:"_type"`
+		DisallowRoot         bool
+		LogicalOperationType LOT_LogicalOperationType
+		Operations           []Operation
+	}{
+		Type:                 "LogicalOperation",
+		DisallowRoot:         x.DisallowRoot,
+		LogicalOperationType: x.LogicalOperationType,
+		Operations:           x.Operations,
+	})
 }
 
 func (x *opLogicalOperation) addOpToOperationsAndParse(op Operation, s *scanner, r rune) (nextR rune, err error) {
@@ -436,18 +485,7 @@ func (x *opLogicalOperation) Do(currentData, originalData any) (dataToUse any, e
 	return nil, fmt.Errorf("didn't parse result correctly")
 }
 
-var (
-	globalID = uint32(0)
-)
-
-func getNextID() uint32 {
-	globalID++
-	return globalID
-}
-
 func (x *opLogicalOperation) Parse(s *scanner, r rune) (nextR rune, err error) {
-	x.ID = getNextID()
-
 	if !(r == '{' || r == '[') {
 		return r, erInvalid(s, '{', '[')
 	}
@@ -517,6 +555,26 @@ type opFunction struct {
 	ParamsString []string
 	ParamsBool   []bool
 	ParamsPath   []*opPath
+}
+
+func (x *opFunction) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Type         string `json:"_type"`
+		FunctionName string `json:"_functionName"`
+		FunctionType FT_FunctionType
+		ParamsNumber []decimal.Decimal
+		ParamsString []string
+		ParamsBool   []bool
+		ParamsPath   []*opPath
+	}{
+		Type:         "Function",
+		FunctionName: ft_GetName(x.FunctionType),
+		FunctionType: x.FunctionType,
+		ParamsNumber: x.ParamsNumber,
+		ParamsString: x.ParamsString,
+		ParamsBool:   x.ParamsBool,
+		ParamsPath:   x.ParamsPath,
+	})
 }
 
 type runtimeParams struct {
