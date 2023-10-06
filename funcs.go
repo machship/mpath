@@ -91,18 +91,18 @@ func (rtParams *runtimeParams) checkLengthOfParams(allowed int) (got int, ok boo
 	return got, allowed == got
 }
 
-func (ft ft_FunctionType) errBool(err error) (bool, error) {
+func (ft FT_FunctionType) errBool(err error) (bool, error) {
 	return false, fmt.Errorf("func %s: %w", ft_GetName(ft), err)
 }
 
-func (ft ft_FunctionType) errString(err error) (string, error) {
+func (ft FT_FunctionType) errString(err error) (string, error) {
 	return "", fmt.Errorf("func %s: %w", ft_GetName(ft), err)
 }
 
 func (op *opFunction) func_Equal(rtParams runtimeParams, val any) (bool, error) {
 	param, err := op.paramsGetFirstOfAny(rtParams)
 	if err != nil {
-		return op.functionType.errBool(err)
+		return op.FunctionType.errBool(err)
 	}
 
 	switch vt := val.(type) {
@@ -120,7 +120,7 @@ func (op *opFunction) func_Equal(rtParams runtimeParams, val any) (bool, error) 
 func (op *opFunction) func_NotEqual(rtParams runtimeParams, val any) (bool, error) {
 	param, err := op.paramsGetFirstOfAny(rtParams)
 	if err != nil {
-		return op.functionType.errBool(err)
+		return op.FunctionType.errBool(err)
 	}
 
 	switch vt := val.(type) {
@@ -138,7 +138,7 @@ func (op *opFunction) func_NotEqual(rtParams runtimeParams, val any) (bool, erro
 func (op *opFunction) func_Less(rtParams runtimeParams, val any) (bool, error) {
 	param, err := op.paramsGetFirstOfNumber(rtParams)
 	if err != nil {
-		return op.functionType.errBool(err)
+		return op.FunctionType.errBool(err)
 	}
 
 	if valIfc, ok := val.(decimal.Decimal); ok {
@@ -151,7 +151,7 @@ func (op *opFunction) func_Less(rtParams runtimeParams, val any) (bool, error) {
 func (op *opFunction) func_LessOrEqual(rtParams runtimeParams, val any) (bool, error) {
 	param, err := op.paramsGetFirstOfNumber(rtParams)
 	if err != nil {
-		return op.functionType.errBool(err)
+		return op.FunctionType.errBool(err)
 	}
 
 	if valIfc, ok := val.(decimal.Decimal); ok {
@@ -164,7 +164,7 @@ func (op *opFunction) func_LessOrEqual(rtParams runtimeParams, val any) (bool, e
 func (op *opFunction) func_Greater(rtParams runtimeParams, val any) (bool, error) {
 	param, err := op.paramsGetFirstOfNumber(rtParams)
 	if err != nil {
-		return op.functionType.errBool(err)
+		return op.FunctionType.errBool(err)
 	}
 
 	if valIfc, ok := val.(decimal.Decimal); ok {
@@ -177,7 +177,7 @@ func (op *opFunction) func_Greater(rtParams runtimeParams, val any) (bool, error
 func (op *opFunction) func_GreaterOrEqual(rtParams runtimeParams, val any) (bool, error) {
 	param, err := op.paramsGetFirstOfNumber(rtParams)
 	if err != nil {
-		return op.functionType.errBool(err)
+		return op.FunctionType.errBool(err)
 	}
 
 	if valDec, ok := val.(decimal.Decimal); ok {
@@ -190,7 +190,7 @@ func (op *opFunction) func_GreaterOrEqual(rtParams runtimeParams, val any) (bool
 func (op *opFunction) func_Contains(rtParams runtimeParams, val any) (bool, error) {
 	param, err := op.paramsGetFirstOfString(rtParams)
 	if err != nil {
-		return op.functionType.errBool(err)
+		return op.FunctionType.errBool(err)
 	}
 
 	if valIfc, ok := val.(string); ok {
@@ -203,7 +203,7 @@ func (op *opFunction) func_Contains(rtParams runtimeParams, val any) (bool, erro
 func (op *opFunction) func_NotContains(rtParams runtimeParams, val any) (bool, error) {
 	param, err := op.paramsGetFirstOfString(rtParams)
 	if err != nil {
-		return op.functionType.errBool(err)
+		return op.FunctionType.errBool(err)
 	}
 
 	if valIfc, ok := val.(string); ok {
@@ -216,7 +216,7 @@ func (op *opFunction) func_NotContains(rtParams runtimeParams, val any) (bool, e
 func (op *opFunction) func_Prefix(rtParams runtimeParams, val any) (bool, error) {
 	param, err := op.paramsGetFirstOfString(rtParams)
 	if err != nil {
-		return op.functionType.errBool(err)
+		return op.FunctionType.errBool(err)
 	}
 
 	if valIfc, ok := val.(string); ok {
@@ -229,7 +229,7 @@ func (op *opFunction) func_Prefix(rtParams runtimeParams, val any) (bool, error)
 func (op *opFunction) func_NotPrefix(rtParams runtimeParams, val any) (bool, error) {
 	param, err := op.paramsGetFirstOfString(rtParams)
 	if err != nil {
-		return op.functionType.errBool(err)
+		return op.FunctionType.errBool(err)
 	}
 
 	if valIfc, ok := val.(string); ok {
@@ -242,7 +242,7 @@ func (op *opFunction) func_NotPrefix(rtParams runtimeParams, val any) (bool, err
 func (op *opFunction) func_Suffix(rtParams runtimeParams, val any) (bool, error) {
 	param, err := op.paramsGetFirstOfString(rtParams)
 	if err != nil {
-		return op.functionType.errBool(err)
+		return op.FunctionType.errBool(err)
 	}
 
 	if valIfc, ok := val.(string); ok {
@@ -255,7 +255,7 @@ func (op *opFunction) func_Suffix(rtParams runtimeParams, val any) (bool, error)
 func (op *opFunction) func_NotSuffix(rtParams runtimeParams, val any) (bool, error) {
 	param, err := op.paramsGetFirstOfString(rtParams)
 	if err != nil {
-		return op.functionType.errBool(err)
+		return op.FunctionType.errBool(err)
 	}
 
 	if valIfc, ok := val.(string); ok {
@@ -267,7 +267,7 @@ func (op *opFunction) func_NotSuffix(rtParams runtimeParams, val any) (bool, err
 
 func (op *opFunction) func_Count(rtParams runtimeParams, val any) (decimal.Decimal, error) {
 	if got, ok := rtParams.checkLengthOfParams(0); !ok {
-		return decimal.Zero, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.functionType), 0, got)
+		return decimal.Zero, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.FunctionType), 0, got)
 	}
 
 	v := reflect.ValueOf(val)
@@ -290,7 +290,7 @@ func (op *opFunction) func_Count(rtParams runtimeParams, val any) (decimal.Decim
 
 func (op *opFunction) func_Any(rtParams runtimeParams, val any) (bool, error) {
 	if got, ok := rtParams.checkLengthOfParams(0); !ok {
-		return false, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.functionType), 0, got)
+		return false, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.FunctionType), 0, got)
 	}
 
 	v := reflect.ValueOf(val)
@@ -315,7 +315,7 @@ func (op *opFunction) func_Any(rtParams runtimeParams, val any) (bool, error) {
 
 func (op *opFunction) func_First(rtParams runtimeParams, val any) (any, error) {
 	if got, ok := rtParams.checkLengthOfParams(0); !ok {
-		return 0, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.functionType), 0, got)
+		return 0, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.FunctionType), 0, got)
 	}
 
 	v := reflect.ValueOf(val)
@@ -342,7 +342,7 @@ func (op *opFunction) func_First(rtParams runtimeParams, val any) (any, error) {
 
 func (op *opFunction) func_Last(rtParams runtimeParams, val any) (any, error) {
 	if got, ok := rtParams.checkLengthOfParams(0); !ok {
-		return false, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.functionType), 0, got)
+		return false, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.FunctionType), 0, got)
 	}
 
 	v := reflect.ValueOf(val)
@@ -370,7 +370,7 @@ func (op *opFunction) func_Last(rtParams runtimeParams, val any) (any, error) {
 func (op *opFunction) func_Index(rtParams runtimeParams, val any) (any, error) {
 	param, err := op.paramsGetFirstOfNumber(rtParams)
 	if err != nil {
-		return op.functionType.errBool(err)
+		return op.FunctionType.errBool(err)
 	}
 
 	v := reflect.ValueOf(val)
@@ -464,7 +464,7 @@ func (op *opFunction) func_Max(rtParams runtimeParams, val any) (any, error) {
 func (op *opFunction) func_decimal(rtParams runtimeParams, val any, decSlcFunc func(decimal.Decimal, decimal.Decimal) decimal.Decimal) (any, error) {
 	param, err := op.paramsGetFirstOfNumber(rtParams)
 	if err != nil {
-		return op.functionType.errBool(err)
+		return op.FunctionType.errBool(err)
 	}
 
 	if valIfc, ok := val.(decimal.Decimal); ok {
@@ -497,7 +497,7 @@ func (op *opFunction) func_Mod(rtParams runtimeParams, val any) (any, error) {
 func (op *opFunction) func_AnyOf(rtParams runtimeParams, val any) (bool, error) {
 	params, err := op.paramsGetAll(rtParams)
 	if err != nil {
-		return op.functionType.errBool(err)
+		return op.FunctionType.errBool(err)
 	}
 
 	for _, p := range params {
@@ -523,7 +523,7 @@ func (op *opFunction) func_AnyOf(rtParams runtimeParams, val any) (bool, error) 
 
 func (op *opFunction) func_AsJSON(rtParams runtimeParams, val any) (string, error) {
 	if got, ok := rtParams.checkLengthOfParams(0); !ok {
-		return "", fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.functionType), 0, got)
+		return "", fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.FunctionType), 0, got)
 	}
 
 	v := reflect.ValueOf(val)
@@ -542,7 +542,7 @@ func (op *opFunction) func_AsJSON(rtParams runtimeParams, val any) (string, erro
 func (op *opFunction) func_TrimRightN(rtParams runtimeParams, val any) (string, error) {
 	param, err := op.paramsGetFirstOfNumber(rtParams)
 	if err != nil {
-		return op.functionType.errString(err)
+		return op.FunctionType.errString(err)
 	}
 
 	if !param.IsInteger() {
@@ -565,7 +565,7 @@ func (op *opFunction) func_TrimRightN(rtParams runtimeParams, val any) (string, 
 func (op *opFunction) func_TrimLeftN(rtParams runtimeParams, val any) (string, error) {
 	param, err := op.paramsGetFirstOfNumber(rtParams)
 	if err != nil {
-		return op.functionType.errString(err)
+		return op.FunctionType.errString(err)
 	}
 
 	if !param.IsInteger() {
@@ -588,7 +588,7 @@ func (op *opFunction) func_TrimLeftN(rtParams runtimeParams, val any) (string, e
 func (op *opFunction) func_RightN(rtParams runtimeParams, val any) (string, error) {
 	param, err := op.paramsGetFirstOfNumber(rtParams)
 	if err != nil {
-		return op.functionType.errString(err)
+		return op.FunctionType.errString(err)
 	}
 
 	if !param.IsInteger() {
@@ -611,7 +611,7 @@ func (op *opFunction) func_RightN(rtParams runtimeParams, val any) (string, erro
 func (op *opFunction) func_LeftN(rtParams runtimeParams, val any) (string, error) {
 	param, err := op.paramsGetFirstOfNumber(rtParams)
 	if err != nil {
-		return op.functionType.errString(err)
+		return op.FunctionType.errString(err)
 	}
 
 	if !param.IsInteger() {
@@ -634,7 +634,7 @@ func (op *opFunction) func_LeftN(rtParams runtimeParams, val any) (string, error
 func (op *opFunction) func_DoesMatchRegex(rtParams runtimeParams, val any) (bool, error) {
 	param, err := op.paramsGetFirstOfString(rtParams)
 	if err != nil {
-		return op.functionType.errBool(err)
+		return op.FunctionType.errBool(err)
 	}
 
 	exp, err := regexp.Compile(param)
@@ -725,7 +725,7 @@ func (op *opFunction) func_ReplaceAll(rtParams runtimeParams, val any) (string, 
 
 func (op *opFunction) func_ParseJSON(rtParams runtimeParams, val any) (map[string]any, error) {
 	if got, ok := rtParams.checkLengthOfParams(0); !ok {
-		return nil, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.functionType), 0, got)
+		return nil, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.FunctionType), 0, got)
 	}
 
 	v := reflect.ValueOf(val)
@@ -756,7 +756,7 @@ func (op *opFunction) func_ParseJSON(rtParams runtimeParams, val any) (map[strin
 
 func (op *opFunction) func_ParseXML(rtParams runtimeParams, val any) (map[string]any, error) {
 	if got, ok := rtParams.checkLengthOfParams(0); !ok {
-		return nil, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.functionType), 0, got)
+		return nil, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.FunctionType), 0, got)
 	}
 
 	v := reflect.ValueOf(val)
@@ -795,7 +795,7 @@ func (op *opFunction) func_ParseXML(rtParams runtimeParams, val any) (map[string
 
 func (op *opFunction) func_ParseYAML(rtParams runtimeParams, val any) (map[string]any, error) {
 	if got, ok := rtParams.checkLengthOfParams(0); !ok {
-		return nil, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.functionType), 0, got)
+		return nil, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.FunctionType), 0, got)
 	}
 
 	v := reflect.ValueOf(val)
@@ -826,7 +826,7 @@ func (op *opFunction) func_ParseYAML(rtParams runtimeParams, val any) (map[strin
 
 func (op *opFunction) func_ParseTOML(rtParams runtimeParams, val any) (map[string]any, error) {
 	if got, ok := rtParams.checkLengthOfParams(0); !ok {
-		return nil, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.functionType), 0, got)
+		return nil, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.FunctionType), 0, got)
 	}
 
 	v := reflect.ValueOf(val)
@@ -857,7 +857,7 @@ func (op *opFunction) func_ParseTOML(rtParams runtimeParams, val any) (map[strin
 
 func (op *opFunction) func_RemoveKeysByRegex(rtParams runtimeParams, val any) (map[string]any, error) {
 	if got, ok := rtParams.checkLengthOfParams(1); !ok {
-		return nil, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.functionType), 1, got)
+		return nil, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.FunctionType), 1, got)
 	}
 
 	param, err := op.paramsGetFirstOfString(rtParams)
@@ -882,7 +882,7 @@ func (op *opFunction) func_RemoveKeysByRegex(rtParams runtimeParams, val any) (m
 
 func (op *opFunction) func_RemoveKeysByPrefix(rtParams runtimeParams, val any) (map[string]any, error) {
 	if got, ok := rtParams.checkLengthOfParams(1); !ok {
-		return nil, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.functionType), 1, got)
+		return nil, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.FunctionType), 1, got)
 	}
 
 	prefixParam, err := op.paramsGetFirstOfString(rtParams)
@@ -902,7 +902,7 @@ func (op *opFunction) func_RemoveKeysByPrefix(rtParams runtimeParams, val any) (
 
 func (op *opFunction) func_RemoveKeysBySuffix(rtParams runtimeParams, val any) (map[string]any, error) {
 	if got, ok := rtParams.checkLengthOfParams(1); !ok {
-		return nil, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.functionType), 1, got)
+		return nil, fmt.Errorf("(%s) expected %d params, got %d", ft_GetName(op.FunctionType), 1, got)
 	}
 
 	prefixParam, err := op.paramsGetFirstOfString(rtParams)
@@ -920,146 +920,146 @@ func (op *opFunction) func_RemoveKeysBySuffix(rtParams runtimeParams, val any) (
 	return nil, fmt.Errorf("value is not a map")
 }
 
-type ft_FunctionType int
+type FT_FunctionType int
 
 const (
-	ft_NotSet ft_FunctionType = iota
-	ft_Equal
-	ft_NotEqual
-	ft_Less
-	ft_LessOrEqual
-	ft_Greater
-	ft_GreaterOrEqual
-	ft_Contains
-	ft_NotContains
-	ft_Prefix
-	ft_NotPrefix
-	ft_Suffix
-	ft_NotSuffix
-	ft_Any
-	ft_AnyOf
+	FT_NotSet FT_FunctionType = iota
+	FT_Equal
+	FT_NotEqual
+	FT_Less
+	FT_LessOrEqual
+	FT_Greater
+	FT_GreaterOrEqual
+	FT_Contains
+	FT_NotContains
+	FT_Prefix
+	FT_NotPrefix
+	FT_Suffix
+	FT_NotSuffix
+	FT_Any
+	FT_AnyOf
 
-	ft_Count
-	ft_First
-	ft_Last
-	ft_Index
-	ft_Sum
-	ft_Avg
-	ft_Max
-	ft_Min
-	ft_Add
-	ft_Sub
-	ft_Div
-	ft_Mul
-	ft_Mod
+	FT_Count
+	FT_First
+	FT_Last
+	FT_Index
+	FT_Sum
+	FT_Avg
+	FT_Max
+	FT_Min
+	FT_Add
+	FT_Sub
+	FT_Div
+	FT_Mul
+	FT_Mod
 
-	ft_TrimRightN
-	ft_TrimLeftN
-	ft_RightN
-	ft_LeftN
-	ft_DoesMatchRegex
-	ft_ReplaceRegex
-	ft_ReplaceAll
+	FT_TrimRightN
+	FT_TrimLeftN
+	FT_RightN
+	FT_LeftN
+	FT_DoesMatchRegex
+	FT_ReplaceRegex
+	FT_ReplaceAll
 
-	ft_AsJSON
-	ft_ParseJSON
-	ft_ParseXML
-	ft_ParseYAML
-	ft_ParseTOML
-	ft_RemoveKeysByRegex
-	ft_RemoveKeysByPrefix
-	ft_RemoveKeysBySuffix
+	FT_AsJSON
+	FT_ParseJSON
+	FT_ParseXML
+	FT_ParseYAML
+	FT_ParseTOML
+	FT_RemoveKeysByRegex
+	FT_RemoveKeysByPrefix
+	FT_RemoveKeysBySuffix
 )
 
-func ft_GetByName(name string) (ft ft_FunctionType, err error) {
+func ft_GetByName(name string) (ft FT_FunctionType, err error) {
 	switch name {
 	case "Equal":
-		ft = ft_Equal
+		ft = FT_Equal
 	case "NotEqual":
-		ft = ft_NotEqual
+		ft = FT_NotEqual
 	case "Less":
-		ft = ft_Less
+		ft = FT_Less
 	case "LessOrEqual":
-		ft = ft_LessOrEqual
+		ft = FT_LessOrEqual
 	case "Greater":
-		ft = ft_Greater
+		ft = FT_Greater
 	case "GreaterOrEqual":
-		ft = ft_GreaterOrEqual
+		ft = FT_GreaterOrEqual
 	case "Contains":
-		ft = ft_Contains
+		ft = FT_Contains
 	case "NotContains":
-		ft = ft_NotContains
+		ft = FT_NotContains
 	case "Prefix":
-		ft = ft_Prefix
+		ft = FT_Prefix
 	case "NotPrefix":
-		ft = ft_NotPrefix
+		ft = FT_NotPrefix
 	case "Suffix":
-		ft = ft_Suffix
+		ft = FT_Suffix
 	case "NotSuffix":
-		ft = ft_NotSuffix
+		ft = FT_NotSuffix
 	case "Count":
-		ft = ft_Count
+		ft = FT_Count
 	case "First":
-		ft = ft_First
+		ft = FT_First
 	case "Last":
-		ft = ft_Last
+		ft = FT_Last
 	case "Index":
-		ft = ft_Index
+		ft = FT_Index
 	case "Any":
-		ft = ft_Any
+		ft = FT_Any
 	case "Sum":
-		ft = ft_Sum
+		ft = FT_Sum
 	case "Avg":
-		ft = ft_Avg
+		ft = FT_Avg
 	case "Max":
-		ft = ft_Max
+		ft = FT_Max
 	case "Min":
-		ft = ft_Min
+		ft = FT_Min
 	case "Add":
-		ft = ft_Add
+		ft = FT_Add
 	case "Sub":
-		ft = ft_Sub
+		ft = FT_Sub
 	case "Div":
-		ft = ft_Div
+		ft = FT_Div
 	case "Mul":
-		ft = ft_Mul
+		ft = FT_Mul
 	case "Mod":
-		ft = ft_Mod
+		ft = FT_Mod
 	case "AnyOf":
-		ft = ft_AnyOf
+		ft = FT_AnyOf
 
 	case "TrimRightN":
-		ft = ft_TrimRightN
+		ft = FT_TrimRightN
 	case "TrimLeftN":
-		ft = ft_TrimLeftN
+		ft = FT_TrimLeftN
 	case "RightN":
-		ft = ft_RightN
+		ft = FT_RightN
 	case "LeftN":
-		ft = ft_LeftN
+		ft = FT_LeftN
 	case "DoesMatchRegex":
-		ft = ft_DoesMatchRegex
+		ft = FT_DoesMatchRegex
 	case "ReplaceRegex":
-		ft = ft_ReplaceRegex
+		ft = FT_ReplaceRegex
 	case "ReplaceAll":
-		ft = ft_ReplaceAll
+		ft = FT_ReplaceAll
 
 	case "AsJSON":
-		ft = ft_AsJSON
+		ft = FT_AsJSON
 	case "ParseJSON":
-		ft = ft_ParseJSON
+		ft = FT_ParseJSON
 	case "ParseXML":
-		ft = ft_ParseXML
+		ft = FT_ParseXML
 	case "ParseYAML":
-		ft = ft_ParseYAML
+		ft = FT_ParseYAML
 	case "ParseTOML":
-		ft = ft_ParseTOML
+		ft = FT_ParseTOML
 
 	case "RemoveKeysByRegex":
-		ft = ft_RemoveKeysByRegex
+		ft = FT_RemoveKeysByRegex
 	case "RemoveKeysByPrefix":
-		ft = ft_RemoveKeysByPrefix
+		ft = FT_RemoveKeysByPrefix
 	case "RemoveKeysBySuffix":
-		ft = ft_RemoveKeysBySuffix
+		ft = FT_RemoveKeysBySuffix
 
 	default:
 		return 0, fmt.Errorf("unknown function name '%s'", name)
@@ -1068,122 +1068,122 @@ func ft_GetByName(name string) (ft ft_FunctionType, err error) {
 	return
 }
 
-func ft_GetName(ft ft_FunctionType) (name string) {
+func ft_GetName(ft FT_FunctionType) (name string) {
 	switch ft {
-	case ft_Equal:
+	case FT_Equal:
 		name = "Equal"
-	case ft_NotEqual:
+	case FT_NotEqual:
 		name = "NotEqual"
-	case ft_Less:
+	case FT_Less:
 		name = "Less"
-	case ft_LessOrEqual:
+	case FT_LessOrEqual:
 		name = "LessOrEqual"
-	case ft_Greater:
+	case FT_Greater:
 		name = "Greater"
-	case ft_GreaterOrEqual:
+	case FT_GreaterOrEqual:
 		name = "GreaterOrEqual"
-	case ft_Contains:
+	case FT_Contains:
 		name = "Contains"
-	case ft_NotContains:
+	case FT_NotContains:
 		name = "NotContains"
-	case ft_Prefix:
+	case FT_Prefix:
 		name = "Prefix"
-	case ft_NotPrefix:
+	case FT_NotPrefix:
 		name = "NotPrefix"
-	case ft_Suffix:
+	case FT_Suffix:
 		name = "Suffix"
-	case ft_NotSuffix:
+	case FT_NotSuffix:
 		name = "NotSuffix"
-	case ft_Count:
+	case FT_Count:
 		name = "Count"
-	case ft_First:
+	case FT_First:
 		name = "First"
-	case ft_Last:
+	case FT_Last:
 		name = "Last"
-	case ft_Index:
+	case FT_Index:
 		name = "Index"
-	case ft_Any:
+	case FT_Any:
 		name = "Any"
-	case ft_Sum:
+	case FT_Sum:
 		name = "Sum"
-	case ft_Avg:
+	case FT_Avg:
 		name = "Avg"
-	case ft_Max:
+	case FT_Max:
 		name = "Max"
-	case ft_Min:
+	case FT_Min:
 		name = "Min"
-	case ft_Add:
+	case FT_Add:
 		name = "Add"
-	case ft_Sub:
+	case FT_Sub:
 		name = "Sub"
-	case ft_Div:
+	case FT_Div:
 		name = "Div"
-	case ft_Mul:
+	case FT_Mul:
 		name = "Mul"
-	case ft_Mod:
+	case FT_Mod:
 		name = "Mod"
-	case ft_AnyOf:
+	case FT_AnyOf:
 		name = "AnyOf"
 
-	case ft_TrimRightN:
+	case FT_TrimRightN:
 		name = "TrimRightN"
-	case ft_TrimLeftN:
+	case FT_TrimLeftN:
 		name = "TrimLeftN"
-	case ft_RightN:
+	case FT_RightN:
 		name = "RightN"
-	case ft_LeftN:
+	case FT_LeftN:
 		name = "LeftN"
-	case ft_DoesMatchRegex:
+	case FT_DoesMatchRegex:
 		name = "DoesMatchRegex"
-	case ft_ReplaceRegex:
+	case FT_ReplaceRegex:
 		name = "ReplaceRegex"
-	case ft_ReplaceAll:
+	case FT_ReplaceAll:
 		name = "ReplaceAll"
 
-	case ft_ParseJSON:
+	case FT_ParseJSON:
 		name = "ParseJSON"
-	case ft_ParseXML:
+	case FT_ParseXML:
 		name = "ParseXML"
-	case ft_ParseYAML:
+	case FT_ParseYAML:
 		name = "ParseYAML"
-	case ft_ParseTOML:
+	case FT_ParseTOML:
 		name = "ParseTOML"
-	case ft_RemoveKeysByRegex:
+	case FT_RemoveKeysByRegex:
 		name = "RemoveKeysByRegex"
-	case ft_RemoveKeysByPrefix:
+	case FT_RemoveKeysByPrefix:
 		name = "RemoveKeysByPrefix"
-	case ft_RemoveKeysBySuffix:
+	case FT_RemoveKeysBySuffix:
 		name = "RemoveKeysBySuffix"
 	}
 
 	return
 }
 
-func ft_ShouldContinueForPath(ft ft_FunctionType) bool {
+func ft_ShouldContinueForPath(ft FT_FunctionType) bool {
 	switch ft {
-	case ft_First, ft_Last, ft_Index:
+	case FT_First, FT_Last, FT_Index:
 		return true
 	}
 
 	return false
 }
 
-func ft_IsBoolFunc(ft ft_FunctionType) bool {
+func ft_IsBoolFunc(ft FT_FunctionType) bool {
 	switch ft {
-	case ft_Equal,
-		ft_NotEqual,
-		ft_Less,
-		ft_LessOrEqual,
-		ft_Greater,
-		ft_GreaterOrEqual,
-		ft_Contains,
-		ft_NotContains,
-		ft_Prefix,
-		ft_NotPrefix,
-		ft_Suffix,
-		ft_NotSuffix,
-		ft_AnyOf,
-		ft_Any:
+	case FT_Equal,
+		FT_NotEqual,
+		FT_Less,
+		FT_LessOrEqual,
+		FT_Greater,
+		FT_GreaterOrEqual,
+		FT_Contains,
+		FT_NotContains,
+		FT_Prefix,
+		FT_NotPrefix,
+		FT_Suffix,
+		FT_NotSuffix,
+		FT_AnyOf,
+		FT_Any:
 		return true
 	}
 

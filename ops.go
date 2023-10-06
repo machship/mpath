@@ -19,40 +19,40 @@ type Operation interface {
 	Parse(s *scanner, r rune) (nextR rune, err error)
 	Sprint(depth int) (out string)
 	ForPath(current []string) (outCurrent []string, additional [][]string, shouldStopLoop bool)
-	Type() ot_OpType
+	Type() OT_OpType
 }
 
 ////////////////////////////////////////////////////////////////////////////////////
 
-type ot_OpType int
+type OT_OpType int
 
 const (
-	ot_Path ot_OpType = iota
-	ot_PathIdent
-	ot_Filter
-	ot_LogicalOperation
-	ot_Function
+	OT_Path OT_OpType = iota
+	OT_PathIdent
+	OT_Filter
+	OT_LogicalOperation
+	OT_Function
 )
 
 type opPath struct {
-	startAtRoot       bool
-	disallowRoot      bool
-	mustEndInFunction bool
-	operations        []Operation
+	StartAtRoot       bool
+	DisallowRoot      bool
+	MustEndInFunction bool
+	Operations        []Operation
 }
 
 func (x *opPath) addOpToOperationsAndParse(op Operation, s *scanner, r rune) (nextR rune, err error) {
-	x.operations = append(x.operations, op)
+	x.Operations = append(x.Operations, op)
 	return op.Parse(s, r)
 }
 
-func (x *opPath) Type() ot_OpType { return ot_Path }
+func (x *opPath) Type() OT_OpType { return OT_Path }
 
 func (x *opPath) Sprint(depth int) (out string) {
 
 	out += repeatTabs(depth)
 
-	switch x.startAtRoot {
+	switch x.StartAtRoot {
 	case true:
 		out += "$"
 	case false:
@@ -61,7 +61,7 @@ func (x *opPath) Sprint(depth int) (out string) {
 
 	opStrings := []string{}
 
-	for _, op := range x.operations {
+	for _, op := range x.Operations {
 		opStrings = append(opStrings, op.Sprint(depth))
 	}
 
@@ -75,7 +75,7 @@ func (x *opPath) Sprint(depth int) (out string) {
 func (x *opPath) ForPath(current []string) (outCurrent []string, additional [][]string, shouldStopLoop bool) {
 	outCurrent = current
 
-	for _, op := range x.operations {
+	for _, op := range x.Operations {
 		pass := outCurrent
 		// if op.Type() != ot_Filter {
 		// 	pass = nil
@@ -96,17 +96,17 @@ func (x *opPath) ForPath(current []string) (outCurrent []string, additional [][]
 }
 
 func (x *opPath) Do(currentData, originalData any) (dataToUse any, err error) {
-	if x.startAtRoot && x.disallowRoot {
+	if x.StartAtRoot && x.DisallowRoot {
 		return nil, fmt.Errorf("cannot access root data in filter")
 	}
 
-	if x.startAtRoot {
+	if x.StartAtRoot {
 		dataToUse = originalData
 	} else {
 		dataToUse = currentData
 	}
 
-	if len(x.operations) == 0 {
+	if len(x.Operations) == 0 {
 		// This is a special case where the root is being returned
 
 		// As we always guarantee numbers are returned as the decimal type, we do this check
@@ -116,7 +116,7 @@ func (x *opPath) Do(currentData, originalData any) (dataToUse any, err error) {
 	}
 
 	// Now we know which data to use, we can apply the path parts
-	for _, op := range x.operations {
+	for _, op := range x.Operations {
 		dataToUse, err = op.Do(dataToUse, originalData)
 		if err != nil {
 			return nil, fmt.Errorf("path op failed: %w", err)
@@ -132,10 +132,10 @@ func (x *opPath) Do(currentData, originalData any) (dataToUse any, err error) {
 func (x *opPath) Parse(s *scanner, r rune) (nextR rune, err error) {
 	switch r {
 	case '$':
-		if x.disallowRoot {
+		if x.DisallowRoot {
 			return r, errors.Wrap(erInvalid(s, '@'), "cannot use '$' (root) inside filter")
 		}
-		x.startAtRoot = true
+		x.StartAtRoot = true
 	case '@':
 		// do nothing, this is the default
 	default:
@@ -158,10 +158,10 @@ func (x *opPath) Parse(s *scanner, r rune) (nextR rune, err error) {
 
 		case ',', ')', ']', '}':
 			// This should mean we are finished the path
-			if x.mustEndInFunction {
-				if len(x.operations) > 0 && x.operations[len(x.operations)-1].Type() == ot_Function {
-					if pf, ok := x.operations[len(x.operations)-1].(*opFunction); ok {
-						if ft_IsBoolFunc(pf.functionType) {
+			if x.MustEndInFunction {
+				if len(x.Operations) > 0 && x.Operations[len(x.Operations)-1].Type() == OT_Function {
+					if pf, ok := x.Operations[len(x.Operations)-1].(*opFunction); ok {
+						if ft_IsBoolFunc(pf.FunctionType) {
 							return r, nil
 						}
 					}
@@ -202,17 +202,17 @@ func (x *opPath) Parse(s *scanner, r rune) (nextR rune, err error) {
 ////////////////////////////////////////////////////////////////////////////////////
 
 type opPathIdent struct {
-	identName string
+	IdentName string
 }
 
-func (x *opPathIdent) Type() ot_OpType { return ot_PathIdent }
+func (x *opPathIdent) Type() OT_OpType { return OT_PathIdent }
 
 func (x *opPathIdent) Sprint(depth int) (out string) {
-	return x.identName
+	return x.IdentName
 }
 
 func (x *opPathIdent) ForPath(current []string) (outCurrent []string, additional [][]string, shouldStopLoop bool) {
-	return append(current, x.identName), nil, false
+	return append(current, x.IdentName), nil, false
 }
 
 func (x *opPathIdent) Do(currentData, _ any) (dataToUse any, err error) {
@@ -241,7 +241,7 @@ func (x *opPathIdent) Do(currentData, _ any) (dataToUse any, err error) {
 				}
 			}
 
-			if !strings.EqualFold(mks, x.identName) {
+			if !strings.EqualFold(mks, x.IdentName) {
 				continue
 			}
 
@@ -257,10 +257,10 @@ func (x *opPathIdent) Do(currentData, _ any) (dataToUse any, err error) {
 
 	// If we get here, the data must be a struct
 	// and we will look for the field by name
-	return getValuesByName(x.identName, currentData), nil
+	return getValuesByName(x.IdentName, currentData), nil
 }
 func (x *opPathIdent) Parse(s *scanner, r rune) (nextR rune, err error) {
-	x.identName = s.TokenText()
+	x.IdentName = s.TokenText()
 
 	return s.Scan(), nil
 }
@@ -268,17 +268,17 @@ func (x *opPathIdent) Parse(s *scanner, r rune) (nextR rune, err error) {
 ////////////////////////////////////////////////////////////////////////////////////
 
 type opFilter struct {
-	logicalOperation *opLogicalOperation
+	LogicalOperation *opLogicalOperation
 }
 
-func (x *opFilter) Type() ot_OpType { return ot_Filter }
+func (x *opFilter) Type() OT_OpType { return OT_Filter }
 
 func (x *opFilter) Sprint(depth int) (out string) {
-	return x.logicalOperation.Sprint(depth)
+	return x.LogicalOperation.Sprint(depth)
 }
 
 func (x *opFilter) ForPath(current []string) (outCurrent []string, additional [][]string, shouldStopLoop bool) {
-	oc, additional, _ := x.logicalOperation.ForPath(current)
+	oc, additional, _ := x.LogicalOperation.ForPath(current)
 	outCurrent = current
 	a := []string{}
 	a = append(a, oc...)
@@ -296,7 +296,7 @@ func (x *opFilter) Do(currentData, originalData any) (dataToUse any, err error) 
 	}
 
 	if wasStruct {
-		res, err := x.logicalOperation.Do(val, originalData)
+		res, err := x.LogicalOperation.Do(val, originalData)
 		if err != nil {
 			return nil, err
 		}
@@ -309,7 +309,7 @@ func (x *opFilter) Do(currentData, originalData any) (dataToUse any, err error) 
 
 	newOut := []any{}
 	for _, v := range val.([]any) {
-		res, err := x.logicalOperation.Do(v, originalData)
+		res, err := x.LogicalOperation.Do(v, originalData)
 		if err != nil {
 			return nil, err
 		}
@@ -327,33 +327,33 @@ func (x *opFilter) Parse(s *scanner, r rune) (nextR rune, err error) {
 		return r, erInvalid(s, '[')
 	}
 
-	x.logicalOperation = &opLogicalOperation{}
-	x.logicalOperation.disallowRoot = true
-	return x.logicalOperation.Parse(s, r)
+	x.LogicalOperation = &opLogicalOperation{}
+	x.LogicalOperation.DisallowRoot = true
+	return x.LogicalOperation.Parse(s, r)
 }
 
 ////////////////////////////////////////////////////////////////////////////////////
 
 type opLogicalOperation struct {
-	id uint32
+	ID uint32
 
-	disallowRoot bool
+	DisallowRoot bool
 
-	logicalOperationType lot_LogicalOperationType
-	operations           []Operation
+	LogicalOperationType LOT_LogicalOperationType
+	Operations           []Operation
 }
 
 func (x *opLogicalOperation) addOpToOperationsAndParse(op Operation, s *scanner, r rune) (nextR rune, err error) {
-	x.operations = append(x.operations, op)
+	x.Operations = append(x.Operations, op)
 	return op.Parse(s, r)
 }
 
-func (x *opLogicalOperation) Type() ot_OpType { return ot_LogicalOperation }
+func (x *opLogicalOperation) Type() OT_OpType { return OT_LogicalOperation }
 
 func (x *opLogicalOperation) Sprint(depth int) (out string) {
 	startChar := "{"
 	endChar := "}"
-	if x.disallowRoot {
+	if x.DisallowRoot {
 		startChar = "["
 		endChar = "]"
 	}
@@ -367,14 +367,14 @@ func (x *opLogicalOperation) Sprint(depth int) (out string) {
 
 	out += "\n" + repeatTabs(depth+1)
 
-	switch x.logicalOperationType {
-	case lot_And:
+	switch x.LogicalOperationType {
+	case LOT_And:
 		out += "AND,"
-	case lot_Or:
+	case LOT_Or:
 		out += "OR,"
 	}
 
-	for _, op := range x.operations {
+	for _, op := range x.Operations {
 		out += "\n" + op.Sprint(depth+1) + ","
 	}
 
@@ -386,7 +386,7 @@ func (x *opLogicalOperation) Sprint(depth int) (out string) {
 func (x *opLogicalOperation) ForPath(current []string) (outCurrent []string, additional [][]string, shouldStopLoop bool) {
 	// outCurrent = current
 
-	for _, op := range x.operations {
+	for _, op := range x.Operations {
 		oc, a, _ := op.ForPath(nil)
 		nc := []string{}
 		nc = append(nc, current...)
@@ -403,18 +403,18 @@ func (x *opLogicalOperation) ForPath(current []string) (outCurrent []string, add
 }
 
 func (x *opLogicalOperation) Do(currentData, originalData any) (dataToUse any, err error) {
-	for _, op := range x.operations {
+	for _, op := range x.Operations {
 		res, err := op.Do(currentData, originalData)
 		if err != nil {
 			return nil, err
 		}
 		if b, ok := res.(bool); ok {
-			switch x.logicalOperationType {
-			case lot_And:
+			switch x.LogicalOperationType {
+			case LOT_And:
 				if !b {
 					return false, nil
 				}
-			case lot_Or:
+			case LOT_Or:
 				if b {
 					return true, nil
 				}
@@ -426,10 +426,10 @@ func (x *opLogicalOperation) Do(currentData, originalData any) (dataToUse any, e
 		return false, nil //fmt.Errorf("op %T didn't return a boolean (returned %T)", op, res)
 	}
 
-	switch x.logicalOperationType {
-	case lot_And:
+	switch x.LogicalOperationType {
+	case LOT_And:
 		return true, nil
-	case lot_Or:
+	case LOT_Or:
 		return false, nil
 	}
 
@@ -446,7 +446,7 @@ func getNextID() uint32 {
 }
 
 func (x *opLogicalOperation) Parse(s *scanner, r rune) (nextR rune, err error) {
-	x.id = getNextID()
+	x.ID = getNextID()
 
 	if !(r == '{' || r == '[') {
 		return r, erInvalid(s, '{', '[')
@@ -457,15 +457,15 @@ func (x *opLogicalOperation) Parse(s *scanner, r rune) (nextR rune, err error) {
 	if r == sc.Ident && (tokenText == "AND" || tokenText == "OR") {
 		switch tokenText {
 		case "AND":
-			x.logicalOperationType = lot_And
+			x.LogicalOperationType = LOT_And
 		case "OR":
-			x.logicalOperationType = lot_Or
+			x.LogicalOperationType = LOT_Or
 		}
 		r = s.Scan()
 	} else {
 		// We assume that a group without the logical operation defined is
 		// an AND operation
-		x.logicalOperationType = lot_And
+		x.LogicalOperationType = LOT_And
 	}
 
 	var op Operation
@@ -482,7 +482,7 @@ func (x *opLogicalOperation) Parse(s *scanner, r rune) (nextR rune, err error) {
 
 		case '$', '@':
 			// This is an opPath
-			op = &opPath{mustEndInFunction: true, disallowRoot: x.disallowRoot}
+			op = &opPath{MustEndInFunction: true, DisallowRoot: x.DisallowRoot}
 		case '{':
 			// This is an opLogicalOperation
 			op = &opLogicalOperation{}
@@ -501,22 +501,22 @@ func (x *opLogicalOperation) Parse(s *scanner, r rune) (nextR rune, err error) {
 	return
 }
 
-type lot_LogicalOperationType int
+type LOT_LogicalOperationType int
 
 const (
-	lot_And lot_LogicalOperationType = iota
-	lot_Or
+	LOT_And LOT_LogicalOperationType = iota
+	LOT_Or
 )
 
 ////////////////////////////////////////////////////////////////////////////////////
 
 // Functions can only be part of an opPath
 type opFunction struct {
-	functionType ft_FunctionType
-	paramsNumber []decimal.Decimal
-	paramsString []string
-	paramsBool   []bool
-	paramsPath   []*opPath
+	FunctionType FT_FunctionType
+	ParamsNumber []decimal.Decimal
+	ParamsString []string
+	ParamsBool   []bool
+	ParamsPath   []*opPath
 }
 
 type runtimeParams struct {
@@ -525,34 +525,34 @@ type runtimeParams struct {
 	paramsBool   []bool
 }
 
-func (x *opFunction) Type() ot_OpType { return ot_Function }
+func (x *opFunction) Type() OT_OpType { return OT_Function }
 
 func (x *opFunction) Sprint(depth int) (out string) {
 	paramsAsStrings := []string{}
-	for _, p := range x.paramsNumber {
+	for _, p := range x.ParamsNumber {
 		paramsAsStrings = append(paramsAsStrings, fmt.Sprint(p))
 	}
-	for _, p := range x.paramsString {
+	for _, p := range x.ParamsString {
 		paramsAsStrings = append(paramsAsStrings, fmt.Sprintf(`"%s"`, p))
 	}
-	for _, p := range x.paramsBool {
+	for _, p := range x.ParamsBool {
 		paramsAsStrings = append(paramsAsStrings, fmt.Sprint(p))
 	}
-	for _, p := range x.paramsPath {
+	for _, p := range x.ParamsPath {
 		paramsAsStrings = append(paramsAsStrings, strings.TrimLeft(p.Sprint(depth), "\t"))
 	}
 
-	return fmt.Sprintf("%s(%s)", ft_GetName(x.functionType), strings.Join(paramsAsStrings, ","))
+	return fmt.Sprintf("%s(%s)", ft_GetName(x.FunctionType), strings.Join(paramsAsStrings, ","))
 }
 
 func (x *opFunction) ForPath(current []string) (outCurrent []string, additional [][]string, shouldStopLoop bool) {
-	if !ft_ShouldContinueForPath(x.functionType) {
+	if !ft_ShouldContinueForPath(x.FunctionType) {
 		shouldStopLoop = true
 		return
 	}
 	outCurrent = current
 
-	for _, p := range x.paramsPath {
+	for _, p := range x.ParamsPath {
 		pp, a, _ := p.ForPath(current)
 		additional = append(additional, pp)
 		additional = append(additional, a...)
@@ -564,12 +564,12 @@ func (x *opFunction) ForPath(current []string) (outCurrent []string, additional 
 func (x *opFunction) Do(currentData, originalData any) (dataToUse any, err error) {
 	rtParams := runtimeParams{}
 
-	rtParams.paramsBool = append(rtParams.paramsBool, x.paramsBool...)
-	rtParams.paramsNumber = append(rtParams.paramsNumber, x.paramsNumber...)
-	rtParams.paramsString = append(rtParams.paramsString, x.paramsString...)
+	rtParams.paramsBool = append(rtParams.paramsBool, x.ParamsBool...)
+	rtParams.paramsNumber = append(rtParams.paramsNumber, x.ParamsNumber...)
+	rtParams.paramsString = append(rtParams.paramsString, x.ParamsString...)
 
 	// get the pathParams and put them in the appropriate bucket
-	for _, ppOp := range x.paramsPath {
+	for _, ppOp := range x.ParamsPath {
 		res, err := ppOp.Do(currentData, originalData)
 		if err != nil {
 			return nil, fmt.Errorf("issue with path parameter: %w", err)
@@ -619,99 +619,99 @@ func (x *opFunction) Do(currentData, originalData any) (dataToUse any, err error
 
 	currentData = convertToDecimalIfNumber(currentData)
 
-	switch x.functionType {
-	case ft_Equal:
+	switch x.FunctionType {
+	case FT_Equal:
 		return x.func_Equal(rtParams, currentData)
-	case ft_NotEqual:
+	case FT_NotEqual:
 		return x.func_NotEqual(rtParams, currentData)
 
-	case ft_Less:
+	case FT_Less:
 		return x.func_Less(rtParams, currentData)
-	case ft_LessOrEqual:
+	case FT_LessOrEqual:
 		return x.func_LessOrEqual(rtParams, currentData)
-	case ft_Greater:
+	case FT_Greater:
 		return x.func_Greater(rtParams, currentData)
-	case ft_GreaterOrEqual:
+	case FT_GreaterOrEqual:
 		return x.func_GreaterOrEqual(rtParams, currentData)
 
-	case ft_Contains:
+	case FT_Contains:
 		return x.func_Contains(rtParams, currentData)
-	case ft_NotContains:
+	case FT_NotContains:
 		return x.func_NotContains(rtParams, currentData)
-	case ft_Prefix:
+	case FT_Prefix:
 		return x.func_Prefix(rtParams, currentData)
-	case ft_NotPrefix:
+	case FT_NotPrefix:
 		return x.func_NotPrefix(rtParams, currentData)
-	case ft_Suffix:
+	case FT_Suffix:
 		return x.func_Suffix(rtParams, currentData)
-	case ft_NotSuffix:
+	case FT_NotSuffix:
 		return x.func_NotSuffix(rtParams, currentData)
 
-	case ft_Count:
+	case FT_Count:
 		return x.func_Count(rtParams, currentData)
-	case ft_Any:
+	case FT_Any:
 		return x.func_Any(rtParams, currentData)
-	case ft_First:
+	case FT_First:
 		return x.func_First(rtParams, currentData)
-	case ft_Last:
+	case FT_Last:
 		return x.func_Last(rtParams, currentData)
-	case ft_Index:
+	case FT_Index:
 		return x.func_Index(rtParams, currentData)
 
-	case ft_Sum:
+	case FT_Sum:
 		return x.func_Sum(rtParams, currentData)
-	case ft_Avg:
+	case FT_Avg:
 		return x.func_Avg(rtParams, currentData)
-	case ft_Max:
+	case FT_Max:
 		return x.func_Max(rtParams, currentData)
-	case ft_Min:
+	case FT_Min:
 		return x.func_Min(rtParams, currentData)
 
-	case ft_Add:
+	case FT_Add:
 		return x.func_Add(rtParams, currentData)
-	case ft_Sub:
+	case FT_Sub:
 		return x.func_Sub(rtParams, currentData)
-	case ft_Div:
+	case FT_Div:
 		return x.func_Div(rtParams, currentData)
-	case ft_Mul:
+	case FT_Mul:
 		return x.func_Mul(rtParams, currentData)
-	case ft_Mod:
+	case FT_Mod:
 		return x.func_Mod(rtParams, currentData)
 
-	case ft_AnyOf:
+	case FT_AnyOf:
 		return x.func_AnyOf(rtParams, currentData)
 
-	case ft_TrimRightN:
+	case FT_TrimRightN:
 		return x.func_TrimRightN(rtParams, currentData)
-	case ft_TrimLeftN:
+	case FT_TrimLeftN:
 		return x.func_TrimLeftN(rtParams, currentData)
-	case ft_RightN:
+	case FT_RightN:
 		return x.func_RightN(rtParams, currentData)
-	case ft_LeftN:
+	case FT_LeftN:
 		return x.func_LeftN(rtParams, currentData)
-	case ft_DoesMatchRegex:
+	case FT_DoesMatchRegex:
 		return x.func_DoesMatchRegex(rtParams, currentData)
-	case ft_ReplaceRegex:
+	case FT_ReplaceRegex:
 		return x.func_ReplaceRegex(rtParams, currentData)
-	case ft_ReplaceAll:
+	case FT_ReplaceAll:
 		return x.func_ReplaceAll(rtParams, currentData)
 
-	case ft_AsJSON:
+	case FT_AsJSON:
 		return x.func_AsJSON(rtParams, currentData)
-	case ft_ParseJSON:
+	case FT_ParseJSON:
 		return x.func_ParseJSON(rtParams, currentData)
-	case ft_ParseXML:
+	case FT_ParseXML:
 		return x.func_ParseXML(rtParams, currentData)
-	case ft_ParseYAML:
+	case FT_ParseYAML:
 		return x.func_ParseYAML(rtParams, currentData)
-	case ft_ParseTOML:
+	case FT_ParseTOML:
 		return x.func_ParseTOML(rtParams, currentData)
 
-	case ft_RemoveKeysByRegex:
+	case FT_RemoveKeysByRegex:
 		return x.func_RemoveKeysByRegex(rtParams, currentData)
-	case ft_RemoveKeysByPrefix:
+	case FT_RemoveKeysByPrefix:
 		return x.func_RemoveKeysByPrefix(rtParams, currentData)
-	case ft_RemoveKeysBySuffix:
+	case FT_RemoveKeysBySuffix:
 		return x.func_RemoveKeysBySuffix(rtParams, currentData)
 
 	}
@@ -724,7 +724,7 @@ func (x *opFunction) Parse(s *scanner, r rune) (nextR rune, err error) {
 		return r, erInvalid(s, '(')
 	}
 
-	x.functionType, err = ft_GetByName(s.TokenText())
+	x.FunctionType, err = ft_GetByName(s.TokenText())
 	if err != nil {
 		return r, erAt(s, err.Error())
 	}
@@ -755,21 +755,21 @@ func (x *opFunction) Parse(s *scanner, r rune) (nextR rune, err error) {
 			if len(tt) >= 2 && strings.HasPrefix(tt, `"`) && strings.HasSuffix(tt, `"`) {
 				tt = tt[1 : len(tt)-1]
 			}
-			x.paramsString = append(x.paramsString, tt)
+			x.ParamsString = append(x.ParamsString, tt)
 		case sc.Float, sc.Int:
 			f, err := strconv.ParseFloat(s.TokenText(), 64)
 			if err != nil {
 				// This should not be possible, but handle it just in case
 				return r, erAt(s, "couldn't convert number as string '%s' to number", s.TokenText())
 			}
-			x.paramsNumber = append(x.paramsNumber, decimal.NewFromFloat(f))
+			x.ParamsNumber = append(x.ParamsNumber, decimal.NewFromFloat(f))
 		case sc.Ident:
 			//must be bool
 			switch s.TokenText() {
 			case "true":
-				x.paramsBool = append(x.paramsBool, true)
+				x.ParamsBool = append(x.ParamsBool, true)
 			case "false":
-				x.paramsBool = append(x.paramsBool, false)
+				x.ParamsBool = append(x.ParamsBool, false)
 			default:
 				return r, erInvalid(s)
 			}
@@ -782,6 +782,6 @@ func (x *opFunction) Parse(s *scanner, r rune) (nextR rune, err error) {
 
 func (x *opFunction) addOpToParamsAndParse(s *scanner, r rune) (nextR rune, err error) {
 	op := &opPath{}
-	x.paramsPath = append(x.paramsPath, op)
+	x.ParamsPath = append(x.ParamsPath, op)
 	return op.Parse(s, r)
 }
