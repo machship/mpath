@@ -13,6 +13,32 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+type PT_ParameterType interface {
+	IsParamType()
+}
+
+type PT_String struct{}
+
+func (PT_String) IsParamType() {}
+
+type PT_Number struct{}
+
+func (PT_Number) IsParamType() {}
+
+type PT_SameAsInput struct{}
+
+func (PT_SameAsInput) IsParamType() {}
+
+type PT_Any struct{}
+
+func (PT_Any) IsParamType() {}
+
+type FunctionDescriptor struct {
+	Name    string
+	Params  []PT_ParameterType
+	ValidOn PT_ParameterType
+}
+
 func (op *opFunction) paramsGetFirstOfAny(rtParams runtimeParams) (val any, err error) {
 	if got, ok := rtParams.checkLengthOfParams(1); !ok {
 		return nil, fmt.Errorf("expected %d params, got %d", 1, got)
@@ -969,6 +995,60 @@ const (
 	FT_RemoveKeysByRegex
 	FT_RemoveKeysByPrefix
 	FT_RemoveKeysBySuffix
+)
+
+var (
+	funcMap = map[FT_FunctionType]FunctionDescriptor{
+		FT_Equal: {
+			Name: "Equal",
+			Params: []PT_ParameterType{
+				PT_SameAsInput{},
+			},
+			ValidOn: PT_Any{},
+		},
+		FT_NotEqual:           {},
+		FT_Less:               {},
+		FT_LessOrEqual:        {},
+		FT_Greater:            {},
+		FT_GreaterOrEqual:     {},
+		FT_Contains:           {},
+		FT_NotContains:        {},
+		FT_Prefix:             {},
+		FT_NotPrefix:          {},
+		FT_Suffix:             {},
+		FT_NotSuffix:          {},
+		FT_Count:              {},
+		FT_First:              {},
+		FT_Last:               {},
+		FT_Index:              {},
+		FT_Any:                {},
+		FT_Sum:                {},
+		FT_Avg:                {},
+		FT_Max:                {},
+		FT_Min:                {},
+		FT_Add:                {},
+		FT_Sub:                {},
+		FT_Div:                {},
+		FT_Mul:                {},
+		FT_Mod:                {},
+		FT_AnyOf:              {},
+		FT_TrimRightN:         {},
+		FT_TrimLeftN:          {},
+		FT_RightN:             {},
+		FT_LeftN:              {},
+		FT_DoesMatchRegex:     {},
+		FT_ReplaceRegex:       {},
+		FT_ReplaceAll:         {},
+		FT_ParseJSON:          {},
+		FT_ParseXML:           {},
+		FT_ParseYAML:          {},
+		FT_ParseTOML:          {},
+		FT_RemoveKeysByRegex:  {},
+		FT_RemoveKeysByPrefix: {},
+		FT_RemoveKeysBySuffix: {},
+		FT_First:              {},
+		FT_Equal:              {},
+	}
 )
 
 func ft_GetByName(name string) (ft FT_FunctionType, err error) {
