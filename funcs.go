@@ -13,30 +13,30 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-type PT_ParameterType interface {
-	IsParamType()
-}
+type PT_ParameterType string
 
-type PT_String struct{}
-
-func (PT_String) IsParamType() {}
-
-type PT_Number struct{}
-
-func (PT_Number) IsParamType() {}
-
-type PT_SameAsInput struct{}
-
-func (PT_SameAsInput) IsParamType() {}
-
-type PT_Any struct{}
-
-func (PT_Any) IsParamType() {}
+const (
+	PT_String                 PT_ParameterType = "String"
+	PT_Number                 PT_ParameterType = "Number"
+	PT_Array                  PT_ParameterType = "Array"
+	PT_ArrayOfNumbers         PT_ParameterType = "ArrayOfNumbers"
+	PT_NumberOrArrayOfNumbers PT_ParameterType = "ArrayOfNumbers"
+	PT_SameAsInput            PT_ParameterType = "SameAsInput"
+	PT_Any                    PT_ParameterType = "Any"
+	PT_MapStringOfAny         PT_ParameterType = "MapStringOfAny"
+)
 
 type FunctionDescriptor struct {
-	Name    string
-	Params  []PT_ParameterType
-	ValidOn PT_ParameterType
+	Name        string
+	Description string
+	Params      []ParameterDescriptor
+	ValidOn     PT_ParameterType
+	Returns     PT_ParameterType
+}
+
+type ParameterDescriptor struct {
+	Name string
+	Type PT_ParameterType
 }
 
 func (op *opFunction) paramsGetFirstOfAny(rtParams runtimeParams) (val any, err error) {
@@ -997,57 +997,287 @@ const (
 	FT_RemoveKeysBySuffix
 )
 
+func singleParam(name string, typ PT_ParameterType) []ParameterDescriptor {
+	return []ParameterDescriptor{
+		{
+			Name: name,
+			Type: typ,
+		},
+	}
+}
+
 var (
 	funcMap = map[FT_FunctionType]FunctionDescriptor{
 		FT_Equal: {
-			Name: "Equal",
-			Params: []PT_ParameterType{
-				PT_SameAsInput{},
-			},
-			ValidOn: PT_Any{},
+			Name:        "Equal",
+			Description: "Checks whether the value equals the parameter",
+			Params:      singleParam("value to match", PT_Any),
+			ValidOn:     PT_Any,
 		},
-		FT_NotEqual:           {},
-		FT_Less:               {},
-		FT_LessOrEqual:        {},
-		FT_Greater:            {},
-		FT_GreaterOrEqual:     {},
-		FT_Contains:           {},
-		FT_NotContains:        {},
-		FT_Prefix:             {},
-		FT_NotPrefix:          {},
-		FT_Suffix:             {},
-		FT_NotSuffix:          {},
-		FT_Count:              {},
-		FT_First:              {},
-		FT_Last:               {},
-		FT_Index:              {},
-		FT_Any:                {},
-		FT_Sum:                {},
-		FT_Avg:                {},
-		FT_Max:                {},
-		FT_Min:                {},
-		FT_Add:                {},
-		FT_Sub:                {},
-		FT_Div:                {},
-		FT_Mul:                {},
-		FT_Mod:                {},
-		FT_AnyOf:              {},
-		FT_TrimRightN:         {},
-		FT_TrimLeftN:          {},
-		FT_RightN:             {},
-		FT_LeftN:              {},
-		FT_DoesMatchRegex:     {},
-		FT_ReplaceRegex:       {},
-		FT_ReplaceAll:         {},
-		FT_ParseJSON:          {},
-		FT_ParseXML:           {},
-		FT_ParseYAML:          {},
-		FT_ParseTOML:          {},
-		FT_RemoveKeysByRegex:  {},
-		FT_RemoveKeysByPrefix: {},
-		FT_RemoveKeysBySuffix: {},
-		FT_First:              {},
-		FT_Equal:              {},
+		FT_NotEqual: {
+			Name:        "NotEqual",
+			Description: "Checks whether the value does not equal the parameter",
+			Params:      singleParam("value to match", PT_Any),
+			ValidOn:     PT_Any,
+		},
+		FT_Less: {
+			Name:        "Less",
+			Description: "Checks whether the value is less than the parameter",
+			Params:      singleParam("number to compare", PT_Number),
+			ValidOn:     PT_Number,
+		},
+		FT_LessOrEqual: {
+			Name:        "LessOrEqual",
+			Description: "Checks whether the value is less than or equal to the parameter",
+			Params:      singleParam("number to compare", PT_Number),
+			ValidOn:     PT_Number,
+		},
+		FT_Greater: {
+			Name:        "Greater",
+			Description: "Checks whether the value is greater than the parameter",
+			Params:      singleParam("number to compare", PT_Number),
+			ValidOn:     PT_Number,
+		},
+		FT_GreaterOrEqual: {
+			Name:        "GreaterOrEqual",
+			Description: "Checks whether the value is greater than or equal to the parameter",
+			Params:      singleParam("number to compare", PT_Number),
+			ValidOn:     PT_Number,
+		},
+		FT_Contains: {
+			Name:        "Contains",
+			Description: "Checks whether the value contains the parameter",
+			Params:      singleParam("string to match", PT_String),
+			ValidOn:     PT_String,
+		},
+		FT_NotContains: {
+			Name:        "NotContains",
+			Description: "Checks whether the value does not contain the parameter",
+			Params:      singleParam("string to match", PT_String),
+			ValidOn:     PT_String,
+		},
+		FT_Prefix: {
+			Name:        "Prefix",
+			Description: "Checks whether the value has the parameter as a prefix",
+			Params:      singleParam("prefix to match", PT_String),
+			ValidOn:     PT_String,
+		},
+		FT_NotPrefix: {
+			Name:        "NotPrefix",
+			Description: "Checks whether the value does not have the parameter as a prefix",
+			Params:      singleParam("prefix to match", PT_String),
+			ValidOn:     PT_String,
+		},
+		FT_Suffix: {
+			Name:        "Suffix",
+			Description: "Checks whether the value has the parameter as a suffix",
+			Params:      singleParam("suffix to match", PT_String),
+			ValidOn:     PT_String,
+		},
+		FT_NotSuffix: {
+			Name:        "NotSuffix",
+			Description: "Checks whether the value does not have the parameter as a suffix",
+			Params:      singleParam("suffix to match", PT_String),
+			ValidOn:     PT_String,
+		},
+		FT_Count: {
+			Name:        "Count",
+			Description: "Returns the count of elements in the array",
+			Params:      nil,
+			ValidOn:     PT_Array,
+		},
+		FT_First: {
+			Name:        "First",
+			Description: "Returns the first element of the array",
+			Params:      nil,
+			ValidOn:     PT_Array,
+		},
+		FT_Last: {
+			Name:        "Last",
+			Description: "Returns the last element of the array",
+			Params:      nil,
+			ValidOn:     PT_Array,
+		},
+		FT_Index: {
+			Name:        "Index",
+			Description: "Returns the element at the zero based index of the array",
+			Params:      singleParam("index", PT_Number),
+			ValidOn:     PT_Array,
+		},
+		FT_Any: {
+			Name:        "Any",
+			Description: "Checks whether there are any elements in the array",
+			Params:      nil,
+			ValidOn:     PT_Array,
+		},
+		FT_Sum: {
+			Name:        "Sum",
+			Description: "Sums the value along with any extra numbers in the parameters",
+			Params:      singleParam("extra numbers (not required)", PT_ArrayOfNumbers),
+			ValidOn:     PT_NumberOrArrayOfNumbers,
+		},
+		FT_Avg: {
+			Name:        "Avg",
+			Description: "Averages the value along with any extra numbers in the parameters",
+			Params:      singleParam("extra numbers (not required)", PT_ArrayOfNumbers),
+			ValidOn:     PT_NumberOrArrayOfNumbers,
+		},
+		FT_Max: {
+			Name:        "Max",
+			Description: "Returns the maximum of the value along with any extra numbers in the parameters",
+			Params:      singleParam("extra numbers (not required)", PT_ArrayOfNumbers),
+			ValidOn:     PT_NumberOrArrayOfNumbers,
+		},
+		FT_Min: {
+			Name:        "Min",
+			Description: "Returns the minimum of the value along with any extra numbers in the parameters",
+			Params:      singleParam("extra numbers (not required)", PT_ArrayOfNumbers),
+			ValidOn:     PT_NumberOrArrayOfNumbers,
+		},
+		FT_Add: {
+			Name:        "Add",
+			Description: "Adds the parameter to the value",
+			Params:      singleParam("number to add", PT_Number),
+			ValidOn:     PT_Number,
+		},
+		FT_Sub: {
+			Name:        "Sub",
+			Description: "Subtracts the parameter from the value",
+			Params:      singleParam("number to subtract", PT_Number),
+			ValidOn:     PT_Number,
+		},
+		FT_Div: {
+			Name:        "Div",
+			Description: "Divides the value by the parameter",
+			Params:      singleParam("number to divide by", PT_Number),
+			ValidOn:     PT_Number,
+		},
+		FT_Mul: {
+			Name:        "Mul",
+			Description: "Multiplies the value by the parameter",
+			Params:      singleParam("number to multiply by", PT_Number),
+			ValidOn:     PT_Number,
+		},
+		FT_Mod: {
+			Name:        "Mod",
+			Description: "Returns the remainder of the value after dividing the value by the parameter",
+			Params:      singleParam("number to modulo by", PT_Number),
+			ValidOn:     PT_Number,
+		},
+		FT_AnyOf: {
+			Name:        "AnyOf",
+			Description: "Checks whether the value matches any of the parameters",
+			Params:      singleParam("the values to match against", PT_Array),
+			ValidOn:     PT_Any,
+		},
+		FT_TrimRightN: {
+			Name:        "TrimRightN",
+			Description: "Removes the 'n' most characters of the value from the right, where 'n' is the parameter",
+			Params:      singleParam("number of characters", PT_Number),
+			ValidOn:     PT_String,
+		},
+		FT_TrimLeftN: {
+			Name:        "TrimLeftN",
+			Description: "Removes the 'n' most characters of the value from the left, where 'n' is the parameter",
+			Params:      singleParam("number of characters", PT_Number),
+			ValidOn:     PT_String,
+		},
+		FT_RightN: {
+			Name:        "RightN",
+			Description: "Returns the 'n' most characters of the value from the right, where 'n' is the parameter'",
+			Params:      singleParam("number of characters", PT_Number),
+			ValidOn:     PT_String,
+		},
+		FT_LeftN: {
+			Name:        "LeftN",
+			Description: "Returns the 'n' most characters of the value from the left, where 'n' is the parameter",
+			Params:      singleParam("number of characters", PT_Number),
+			ValidOn:     PT_String,
+		},
+		FT_DoesMatchRegex: {
+			Name:        "DoesMatchRegex",
+			Description: "Checks whether the value matches the regular expression in the parameter",
+			Params:      singleParam("regular expression to match", PT_String),
+			ValidOn:     PT_String,
+		},
+		FT_ReplaceRegex: {
+			Name:        "ReplaceRegex",
+			Description: "Replaces any matches of the regular expression parameter in the value with the replacement parameter",
+			Params: []ParameterDescriptor{
+				{
+					Name: "regular expression",
+					Type: PT_String,
+				},
+				{
+					Name: "replacement",
+					Type: PT_String,
+				},
+			},
+			ValidOn: PT_String,
+		},
+		FT_ReplaceAll: {
+			Name:        "ReplaceAll",
+			Description: "Replaces any matches of the string to match parameter in the value with the replacement parameter",
+			Params: []ParameterDescriptor{
+				{
+					Name: "string to match",
+					Type: PT_String,
+				},
+				{
+					Name: "replacement",
+					Type: PT_String,
+				},
+			},
+			ValidOn: PT_String,
+		},
+		FT_AsJSON: {
+			Name:        "AsJSON",
+			Description: "Returns the value represented as JSON",
+			Params:      nil,
+			ValidOn:     PT_Any,
+		},
+		FT_ParseJSON: {
+			Name:        "ParseJSON",
+			Description: "Parses the value as JSON and returns an object or array",
+			Params:      nil,
+			ValidOn:     PT_String,
+		},
+		FT_ParseXML: {
+			Name:        "ParseXML",
+			Description: "Parses the value as XML and returns an object or array",
+			Params:      nil,
+			ValidOn:     PT_String,
+		},
+		FT_ParseYAML: {
+			Name:        "ParseYAML",
+			Description: "Parses the value as YAML and returns an object or array",
+			Params:      nil,
+			ValidOn:     PT_String,
+		},
+		FT_ParseTOML: {
+			Name:        "ParseTOML",
+			Description: "Parses the value as TOML and returns an object or array",
+			Params:      nil,
+			ValidOn:     PT_String,
+		},
+		FT_RemoveKeysByRegex: {
+			Name:        "RemoveKeysByRegex",
+			Description: "Removes any keys that match the regular expression in the parameter",
+			Params:      singleParam("regular expression to match", PT_String),
+			ValidOn:     PT_MapStringOfAny,
+		},
+		FT_RemoveKeysByPrefix: {
+			Name:        "RemoveKeysByPrefix",
+			Description: "Removes any keys that have a prefix as defined by the parameter",
+			Params:      singleParam("prefix to match", PT_String),
+			ValidOn:     PT_MapStringOfAny,
+		},
+		FT_RemoveKeysBySuffix: {
+			Name:        "RemoveKeysBySuffix",
+			Description: "Removes any keys that have a suffix as defined by the parameter",
+			Params:      singleParam("suffix to match", PT_String),
+			ValidOn:     PT_MapStringOfAny,
+		},
 	}
 )
 
@@ -1149,94 +1379,12 @@ func ft_GetByName(name string) (ft FT_FunctionType, err error) {
 }
 
 func ft_GetName(ft FT_FunctionType) (name string) {
-	switch ft {
-	case FT_Equal:
-		name = "Equal"
-	case FT_NotEqual:
-		name = "NotEqual"
-	case FT_Less:
-		name = "Less"
-	case FT_LessOrEqual:
-		name = "LessOrEqual"
-	case FT_Greater:
-		name = "Greater"
-	case FT_GreaterOrEqual:
-		name = "GreaterOrEqual"
-	case FT_Contains:
-		name = "Contains"
-	case FT_NotContains:
-		name = "NotContains"
-	case FT_Prefix:
-		name = "Prefix"
-	case FT_NotPrefix:
-		name = "NotPrefix"
-	case FT_Suffix:
-		name = "Suffix"
-	case FT_NotSuffix:
-		name = "NotSuffix"
-	case FT_Count:
-		name = "Count"
-	case FT_First:
-		name = "First"
-	case FT_Last:
-		name = "Last"
-	case FT_Index:
-		name = "Index"
-	case FT_Any:
-		name = "Any"
-	case FT_Sum:
-		name = "Sum"
-	case FT_Avg:
-		name = "Avg"
-	case FT_Max:
-		name = "Max"
-	case FT_Min:
-		name = "Min"
-	case FT_Add:
-		name = "Add"
-	case FT_Sub:
-		name = "Sub"
-	case FT_Div:
-		name = "Div"
-	case FT_Mul:
-		name = "Mul"
-	case FT_Mod:
-		name = "Mod"
-	case FT_AnyOf:
-		name = "AnyOf"
-
-	case FT_TrimRightN:
-		name = "TrimRightN"
-	case FT_TrimLeftN:
-		name = "TrimLeftN"
-	case FT_RightN:
-		name = "RightN"
-	case FT_LeftN:
-		name = "LeftN"
-	case FT_DoesMatchRegex:
-		name = "DoesMatchRegex"
-	case FT_ReplaceRegex:
-		name = "ReplaceRegex"
-	case FT_ReplaceAll:
-		name = "ReplaceAll"
-
-	case FT_ParseJSON:
-		name = "ParseJSON"
-	case FT_ParseXML:
-		name = "ParseXML"
-	case FT_ParseYAML:
-		name = "ParseYAML"
-	case FT_ParseTOML:
-		name = "ParseTOML"
-	case FT_RemoveKeysByRegex:
-		name = "RemoveKeysByRegex"
-	case FT_RemoveKeysByPrefix:
-		name = "RemoveKeysByPrefix"
-	case FT_RemoveKeysBySuffix:
-		name = "RemoveKeysBySuffix"
+	fm, ok := funcMap[ft]
+	if !ok {
+		return "unknown function"
 	}
 
-	return
+	return fm.Name
 }
 
 func ft_ShouldContinueForPath(ft FT_FunctionType) bool {
