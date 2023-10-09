@@ -20,7 +20,7 @@ const (
 	PT_Number                 PT_ParameterType = "Number"
 	PT_Array                  PT_ParameterType = "Array"
 	PT_ArrayOfNumbers         PT_ParameterType = "ArrayOfNumbers"
-	PT_NumberOrArrayOfNumbers PT_ParameterType = "ArrayOfNumbers"
+	PT_NumberOrArrayOfNumbers PT_ParameterType = "NumberOrArrayOfNumbers"
 	PT_SameAsInput            PT_ParameterType = "SameAsInput"
 	PT_Any                    PT_ParameterType = "Any"
 	PT_MapStringOfAny         PT_ParameterType = "MapStringOfAny"
