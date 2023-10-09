@@ -677,104 +677,12 @@ func (x *opFunction) Do(currentData, originalData any) (dataToUse any, err error
 
 	currentData = convertToDecimalIfNumber(currentData)
 
-	switch x.FunctionType {
-	case FT_Equal:
-		return func_Equal(rtParams, currentData)
-	case FT_NotEqual:
-		return func_NotEqual(rtParams, currentData)
-
-	case FT_Less:
-		return func_Less(rtParams, currentData)
-	case FT_LessOrEqual:
-		return func_LessOrEqual(rtParams, currentData)
-	case FT_Greater:
-		return func_Greater(rtParams, currentData)
-	case FT_GreaterOrEqual:
-		return func_GreaterOrEqual(rtParams, currentData)
-
-	case FT_Contains:
-		return func_Contains(rtParams, currentData)
-	case FT_NotContains:
-		return func_NotContains(rtParams, currentData)
-	case FT_Prefix:
-		return func_Prefix(rtParams, currentData)
-	case FT_NotPrefix:
-		return func_NotPrefix(rtParams, currentData)
-	case FT_Suffix:
-		return func_Suffix(rtParams, currentData)
-	case FT_NotSuffix:
-		return func_NotSuffix(rtParams, currentData)
-
-	case FT_Count:
-		return func_Count(rtParams, currentData)
-	case FT_Any:
-		return func_Any(rtParams, currentData)
-	case FT_First:
-		return func_First(rtParams, currentData)
-	case FT_Last:
-		return func_Last(rtParams, currentData)
-	case FT_Index:
-		return func_Index(rtParams, currentData)
-
-	case FT_Sum:
-		return func_Sum(rtParams, currentData)
-	case FT_Avg:
-		return func_Avg(rtParams, currentData)
-	case FT_Max:
-		return func_Max(rtParams, currentData)
-	case FT_Min:
-		return func_Min(rtParams, currentData)
-
-	case FT_Add:
-		return func_Add(rtParams, currentData)
-	case FT_Sub:
-		return func_Sub(rtParams, currentData)
-	case FT_Div:
-		return func_Div(rtParams, currentData)
-	case FT_Mul:
-		return func_Mul(rtParams, currentData)
-	case FT_Mod:
-		return func_Mod(rtParams, currentData)
-
-	case FT_AnyOf:
-		return func_AnyOf(rtParams, currentData)
-
-	case FT_TrimRightN:
-		return func_TrimRightN(rtParams, currentData)
-	case FT_TrimLeftN:
-		return func_TrimLeftN(rtParams, currentData)
-	case FT_RightN:
-		return func_RightN(rtParams, currentData)
-	case FT_LeftN:
-		return func_LeftN(rtParams, currentData)
-	case FT_DoesMatchRegex:
-		return func_DoesMatchRegex(rtParams, currentData)
-	case FT_ReplaceRegex:
-		return func_ReplaceRegex(rtParams, currentData)
-	case FT_ReplaceAll:
-		return func_ReplaceAll(rtParams, currentData)
-
-	case FT_AsJSON:
-		return func_AsJSON(rtParams, currentData)
-	case FT_ParseJSON:
-		return func_ParseJSON(rtParams, currentData)
-	case FT_ParseXML:
-		return func_ParseXML(rtParams, currentData)
-	case FT_ParseYAML:
-		return func_ParseYAML(rtParams, currentData)
-	case FT_ParseTOML:
-		return func_ParseTOML(rtParams, currentData)
-
-	case FT_RemoveKeysByRegex:
-		return func_RemoveKeysByRegex(rtParams, currentData)
-	case FT_RemoveKeysByPrefix:
-		return func_RemoveKeysByPrefix(rtParams, currentData)
-	case FT_RemoveKeysBySuffix:
-		return func_RemoveKeysBySuffix(rtParams, currentData)
-
+	funcToRun, ok := funcMap[x.FunctionType]
+	if !ok {
+		return nil, fmt.Errorf("unrecognised function")
 	}
 
-	return nil, fmt.Errorf("unrecognised function")
+	return funcToRun.fn(rtParams, currentData)
 }
 
 func (x *opFunction) Parse(s *scanner, r rune) (nextR rune, err error) {

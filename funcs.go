@@ -17,13 +17,14 @@ type PT_ParameterType string
 
 const (
 	PT_String                 PT_ParameterType = "String"
+	PT_Boolean                PT_ParameterType = "Boolean"
 	PT_Number                 PT_ParameterType = "Number"
 	PT_Array                  PT_ParameterType = "Array"
 	PT_ArrayOfNumbers         PT_ParameterType = "ArrayOfNumbers"
 	PT_NumberOrArrayOfNumbers PT_ParameterType = "NumberOrArrayOfNumbers"
 	PT_SameAsInput            PT_ParameterType = "SameAsInput"
 	PT_Any                    PT_ParameterType = "Any"
-	PT_MapStringOfAny         PT_ParameterType = "MapStringOfAny"
+	PT_Object                 PT_ParameterType = "Object"
 )
 
 type FunctionDescriptor struct {
@@ -152,7 +153,7 @@ func func_Equal(rtParams runtimeParams, val any) (any, error) {
 
 const FN_NotEqual = "NotEqual"
 
-func func_NotEqual(rtParams runtimeParams, val any) (bool, error) {
+func func_NotEqual(rtParams runtimeParams, val any) (any, error) {
 	param, err := paramsGetFirstOfAny(rtParams)
 	if err != nil {
 		return errBool(FN_NotEqual, err)
@@ -961,12 +962,41 @@ func singleParam(name string, typ PT_ParameterType) []ParameterDescriptor {
 	}
 }
 
+var functionDescriptorByName map[string]FunctionDescriptor
+var functionTypeByName map[string]FT_FunctionType
+
+func init() {
+	for k, v := range funcMap {
+		functionDescriptorByName[v.Name] = v
+		functionTypeByName[v.Name] = k
+	}
+}
+
+func ft_GetByName(s string) (FT_FunctionType, error) {
+	ft, ok := functionTypeByName[s]
+	if !ok {
+		return FT_NotSet, fmt.Errorf("function '%s' is not a recognised function", s)
+	}
+
+	return ft, nil
+}
+
+func ft_GetName(x FT_FunctionType) string {
+	ft, ok := funcMap[x]
+	if !ok {
+		return "Unknown_Function"
+	}
+
+	return ft.Name
+}
+
 var (
 	funcMap = map[FT_FunctionType]FunctionDescriptor{
 		FT_Equal: {
 			Name:        "Equal",
 			Description: "Checks whether the value equals the parameter",
 			Params:      singleParam("value to match", PT_Any),
+			Returns:     PT_Boolean,
 			ValidOn:     PT_Any,
 			fn:          func_Equal,
 		},
@@ -974,13 +1004,15 @@ var (
 			Name:        "NotEqual",
 			Description: "Checks whether the value does not equal the parameter",
 			Params:      singleParam("value to match", PT_Any),
+			Returns:     PT_Boolean,
 			ValidOn:     PT_Any,
-			fn:          func_Equal,
+			fn:          func_NotEqual,
 		},
 		FT_Less: {
 			Name:        "Less",
 			Description: "Checks whether the value is less than the parameter",
 			Params:      singleParam("number to compare", PT_Number),
+			Returns:     PT_Boolean,
 			ValidOn:     PT_Number,
 			fn:          func_Less,
 		},
@@ -988,6 +1020,7 @@ var (
 			Name:        "LessOrEqual",
 			Description: "Checks whether the value is less than or equal to the parameter",
 			Params:      singleParam("number to compare", PT_Number),
+			Returns:     PT_Boolean,
 			ValidOn:     PT_Number,
 			fn:          func_LessOrEqual,
 		},
@@ -995,6 +1028,7 @@ var (
 			Name:        "Greater",
 			Description: "Checks whether the value is greater than the parameter",
 			Params:      singleParam("number to compare", PT_Number),
+			Returns:     PT_Boolean,
 			ValidOn:     PT_Number,
 			fn:          func_Greater,
 		},
@@ -1002,6 +1036,7 @@ var (
 			Name:        "GreaterOrEqual",
 			Description: "Checks whether the value is greater than or equal to the parameter",
 			Params:      singleParam("number to compare", PT_Number),
+			Returns:     PT_Boolean,
 			ValidOn:     PT_Number,
 			fn:          func_GreaterOrEqual,
 		},
@@ -1009,6 +1044,7 @@ var (
 			Name:        "Contains",
 			Description: "Checks whether the value contains the parameter",
 			Params:      singleParam("string to match", PT_String),
+			Returns:     PT_Boolean,
 			ValidOn:     PT_String,
 			fn:          func_Contains,
 		},
@@ -1016,6 +1052,7 @@ var (
 			Name:        "NotContains",
 			Description: "Checks whether the value does not contain the parameter",
 			Params:      singleParam("string to match", PT_String),
+			Returns:     PT_Boolean,
 			ValidOn:     PT_String,
 			fn:          func_NotContains,
 		},
@@ -1023,6 +1060,7 @@ var (
 			Name:        "Prefix",
 			Description: "Checks whether the value has the parameter as a prefix",
 			Params:      singleParam("prefix to match", PT_String),
+			Returns:     PT_Boolean,
 			ValidOn:     PT_String,
 			fn:          func_Prefix,
 		},
@@ -1030,6 +1068,7 @@ var (
 			Name:        "NotPrefix",
 			Description: "Checks whether the value does not have the parameter as a prefix",
 			Params:      singleParam("prefix to match", PT_String),
+			Returns:     PT_Boolean,
 			ValidOn:     PT_String,
 			fn:          func_NotPrefix,
 		},
@@ -1037,6 +1076,7 @@ var (
 			Name:        "Suffix",
 			Description: "Checks whether the value has the parameter as a suffix",
 			Params:      singleParam("suffix to match", PT_String),
+			Returns:     PT_Boolean,
 			ValidOn:     PT_String,
 			fn:          func_Suffix,
 		},
@@ -1044,6 +1084,7 @@ var (
 			Name:        "NotSuffix",
 			Description: "Checks whether the value does not have the parameter as a suffix",
 			Params:      singleParam("suffix to match", PT_String),
+			Returns:     PT_Boolean,
 			ValidOn:     PT_String,
 			fn:          func_NotSuffix,
 		},
@@ -1051,6 +1092,7 @@ var (
 			Name:        "Count",
 			Description: "Returns the count of elements in the array",
 			Params:      nil,
+			Returns:     PT_Number,
 			ValidOn:     PT_Array,
 			fn:          func_Count,
 		},
@@ -1058,6 +1100,7 @@ var (
 			Name:        "First",
 			Description: "Returns the first element of the array",
 			Params:      nil,
+			Returns:     PT_Any,
 			ValidOn:     PT_Array,
 			fn:          func_First,
 		},
@@ -1065,6 +1108,7 @@ var (
 			Name:        "Last",
 			Description: "Returns the last element of the array",
 			Params:      nil,
+			Returns:     PT_Any,
 			ValidOn:     PT_Array,
 			fn:          func_Last,
 		},
@@ -1072,6 +1116,7 @@ var (
 			Name:        "Index",
 			Description: "Returns the element at the zero based index of the array",
 			Params:      singleParam("index", PT_Number),
+			Returns:     PT_Any,
 			ValidOn:     PT_Array,
 			fn:          func_Index,
 		},
@@ -1079,6 +1124,7 @@ var (
 			Name:        "Any",
 			Description: "Checks whether there are any elements in the array",
 			Params:      nil,
+			Returns:     PT_Boolean,
 			ValidOn:     PT_Array,
 			fn:          func_Any,
 		},
@@ -1086,6 +1132,7 @@ var (
 			Name:        "Sum",
 			Description: "Sums the value along with any extra numbers in the parameters",
 			Params:      singleParam("extra numbers (not required)", PT_ArrayOfNumbers),
+			Returns:     PT_Number,
 			ValidOn:     PT_NumberOrArrayOfNumbers,
 			fn:          func_Sum,
 		},
@@ -1093,6 +1140,7 @@ var (
 			Name:        "Avg",
 			Description: "Averages the value along with any extra numbers in the parameters",
 			Params:      singleParam("extra numbers (not required)", PT_ArrayOfNumbers),
+			Returns:     PT_Number,
 			ValidOn:     PT_NumberOrArrayOfNumbers,
 			fn:          func_Avg,
 		},
@@ -1100,6 +1148,7 @@ var (
 			Name:        "Max",
 			Description: "Returns the maximum of the value along with any extra numbers in the parameters",
 			Params:      singleParam("extra numbers (not required)", PT_ArrayOfNumbers),
+			Returns:     PT_Number,
 			ValidOn:     PT_NumberOrArrayOfNumbers,
 			fn:          func_Max,
 		},
@@ -1107,6 +1156,7 @@ var (
 			Name:        "Min",
 			Description: "Returns the minimum of the value along with any extra numbers in the parameters",
 			Params:      singleParam("extra numbers (not required)", PT_ArrayOfNumbers),
+			Returns:     PT_Number,
 			ValidOn:     PT_NumberOrArrayOfNumbers,
 			fn:          func_Min,
 		},
@@ -1114,6 +1164,7 @@ var (
 			Name:        "Add",
 			Description: "Adds the parameter to the value",
 			Params:      singleParam("number to add", PT_Number),
+			Returns:     PT_Number,
 			ValidOn:     PT_Number,
 			fn:          func_Add,
 		},
@@ -1121,6 +1172,7 @@ var (
 			Name:        "Sub",
 			Description: "Subtracts the parameter from the value",
 			Params:      singleParam("number to subtract", PT_Number),
+			Returns:     PT_Number,
 			ValidOn:     PT_Number,
 			fn:          func_Sub,
 		},
@@ -1128,6 +1180,7 @@ var (
 			Name:        "Div",
 			Description: "Divides the value by the parameter",
 			Params:      singleParam("number to divide by", PT_Number),
+			Returns:     PT_Number,
 			ValidOn:     PT_Number,
 			fn:          func_Div,
 		},
@@ -1135,6 +1188,7 @@ var (
 			Name:        "Mul",
 			Description: "Multiplies the value by the parameter",
 			Params:      singleParam("number to multiply by", PT_Number),
+			Returns:     PT_Number,
 			ValidOn:     PT_Number,
 			fn:          func_Mul,
 		},
@@ -1142,6 +1196,7 @@ var (
 			Name:        "Mod",
 			Description: "Returns the remainder of the value after dividing the value by the parameter",
 			Params:      singleParam("number to modulo by", PT_Number),
+			Returns:     PT_Number,
 			ValidOn:     PT_Number,
 			fn:          func_Mod,
 		},
@@ -1149,6 +1204,7 @@ var (
 			Name:        "AnyOf",
 			Description: "Checks whether the value matches any of the parameters",
 			Params:      singleParam("the values to match against", PT_Array),
+			Returns:     PT_Boolean,
 			ValidOn:     PT_Any,
 			fn:          func_AnyOf,
 		},
@@ -1156,6 +1212,7 @@ var (
 			Name:        "TrimRightN",
 			Description: "Removes the 'n' most characters of the value from the right, where 'n' is the parameter",
 			Params:      singleParam("number of characters", PT_Number),
+			Returns:     PT_String,
 			ValidOn:     PT_String,
 			fn:          func_TrimRightN,
 		},
@@ -1163,6 +1220,7 @@ var (
 			Name:        "TrimLeftN",
 			Description: "Removes the 'n' most characters of the value from the left, where 'n' is the parameter",
 			Params:      singleParam("number of characters", PT_Number),
+			Returns:     PT_String,
 			ValidOn:     PT_String,
 			fn:          func_TrimLeftN,
 		},
@@ -1170,6 +1228,7 @@ var (
 			Name:        "RightN",
 			Description: "Returns the 'n' most characters of the value from the right, where 'n' is the parameter'",
 			Params:      singleParam("number of characters", PT_Number),
+			Returns:     PT_String,
 			ValidOn:     PT_String,
 			fn:          func_RightN,
 		},
@@ -1177,6 +1236,7 @@ var (
 			Name:        "LeftN",
 			Description: "Returns the 'n' most characters of the value from the left, where 'n' is the parameter",
 			Params:      singleParam("number of characters", PT_Number),
+			Returns:     PT_String,
 			ValidOn:     PT_String,
 			fn:          func_LeftN,
 		},
@@ -1184,6 +1244,7 @@ var (
 			Name:        "DoesMatchRegex",
 			Description: "Checks whether the value matches the regular expression in the parameter",
 			Params:      singleParam("regular expression to match", PT_String),
+			Returns:     PT_Boolean,
 			ValidOn:     PT_String,
 			fn:          func_DoesMatchRegex,
 		},
@@ -1200,6 +1261,7 @@ var (
 					Type: PT_String,
 				},
 			},
+			Returns: PT_String,
 			ValidOn: PT_String,
 			fn:      func_ReplaceRegex,
 		},
@@ -1216,6 +1278,7 @@ var (
 					Type: PT_String,
 				},
 			},
+			Returns: PT_String,
 			ValidOn: PT_String,
 			fn:      func_ReplaceAll,
 		},
@@ -1223,6 +1286,7 @@ var (
 			Name:        "AsJSON",
 			Description: "Returns the value represented as JSON",
 			Params:      nil,
+			Returns:     PT_String,
 			ValidOn:     PT_Any,
 			fn:          func_AsJSON,
 		},
@@ -1230,6 +1294,7 @@ var (
 			Name:        "ParseJSON",
 			Description: "Parses the value as JSON and returns an object or array",
 			Params:      nil,
+			Returns:     PT_Object,
 			ValidOn:     PT_String,
 			fn:          func_ParseJSON,
 		},
@@ -1237,6 +1302,7 @@ var (
 			Name:        "ParseXML",
 			Description: "Parses the value as XML and returns an object or array",
 			Params:      nil,
+			Returns:     PT_Object,
 			ValidOn:     PT_String,
 			fn:          func_ParseXML,
 		},
@@ -1244,6 +1310,7 @@ var (
 			Name:        "ParseYAML",
 			Description: "Parses the value as YAML and returns an object or array",
 			Params:      nil,
+			Returns:     PT_Object,
 			ValidOn:     PT_String,
 			fn:          func_ParseYAML,
 		},
@@ -1251,6 +1318,7 @@ var (
 			Name:        "ParseTOML",
 			Description: "Parses the value as TOML and returns an object or array",
 			Params:      nil,
+			Returns:     PT_Object,
 			ValidOn:     PT_String,
 			fn:          func_ParseTOML,
 		},
@@ -1258,131 +1326,28 @@ var (
 			Name:        "RemoveKeysByRegex",
 			Description: "Removes any keys that match the regular expression in the parameter",
 			Params:      singleParam("regular expression to match", PT_String),
-			ValidOn:     PT_MapStringOfAny,
+			Returns:     PT_Object,
+			ValidOn:     PT_Object,
 			fn:          func_RemoveKeysByRegex,
 		},
 		FT_RemoveKeysByPrefix: {
 			Name:        "RemoveKeysByPrefix",
 			Description: "Removes any keys that have a prefix as defined by the parameter",
 			Params:      singleParam("prefix to match", PT_String),
-			ValidOn:     PT_MapStringOfAny,
+			Returns:     PT_Object,
+			ValidOn:     PT_Object,
 			fn:          func_RemoveKeysByPrefix,
 		},
 		FT_RemoveKeysBySuffix: {
 			Name:        "RemoveKeysBySuffix",
 			Description: "Removes any keys that have a suffix as defined by the parameter",
 			Params:      singleParam("suffix to match", PT_String),
-			ValidOn:     PT_MapStringOfAny,
+			Returns:     PT_Object,
+			ValidOn:     PT_Object,
 			fn:          func_RemoveKeysBySuffix,
 		},
 	}
 )
-
-func ft_GetByName(name string) (ft FT_FunctionType, err error) {
-	switch name {
-	case "Equal":
-		ft = FT_Equal
-	case "NotEqual":
-		ft = FT_NotEqual
-	case "Less":
-		ft = FT_Less
-	case "LessOrEqual":
-		ft = FT_LessOrEqual
-	case "Greater":
-		ft = FT_Greater
-	case "GreaterOrEqual":
-		ft = FT_GreaterOrEqual
-	case "Contains":
-		ft = FT_Contains
-	case "NotContains":
-		ft = FT_NotContains
-	case "Prefix":
-		ft = FT_Prefix
-	case "NotPrefix":
-		ft = FT_NotPrefix
-	case "Suffix":
-		ft = FT_Suffix
-	case "NotSuffix":
-		ft = FT_NotSuffix
-	case "Count":
-		ft = FT_Count
-	case "First":
-		ft = FT_First
-	case "Last":
-		ft = FT_Last
-	case "Index":
-		ft = FT_Index
-	case "Any":
-		ft = FT_Any
-	case "Sum":
-		ft = FT_Sum
-	case "Avg":
-		ft = FT_Avg
-	case "Max":
-		ft = FT_Max
-	case "Min":
-		ft = FT_Min
-	case "Add":
-		ft = FT_Add
-	case "Sub":
-		ft = FT_Sub
-	case "Div":
-		ft = FT_Div
-	case "Mul":
-		ft = FT_Mul
-	case "Mod":
-		ft = FT_Mod
-	case "AnyOf":
-		ft = FT_AnyOf
-
-	case "TrimRightN":
-		ft = FT_TrimRightN
-	case "TrimLeftN":
-		ft = FT_TrimLeftN
-	case "RightN":
-		ft = FT_RightN
-	case "LeftN":
-		ft = FT_LeftN
-	case "DoesMatchRegex":
-		ft = FT_DoesMatchRegex
-	case "ReplaceRegex":
-		ft = FT_ReplaceRegex
-	case "ReplaceAll":
-		ft = FT_ReplaceAll
-
-	case "AsJSON":
-		ft = FT_AsJSON
-	case "ParseJSON":
-		ft = FT_ParseJSON
-	case "ParseXML":
-		ft = FT_ParseXML
-	case "ParseYAML":
-		ft = FT_ParseYAML
-	case "ParseTOML":
-		ft = FT_ParseTOML
-
-	case "RemoveKeysByRegex":
-		ft = FT_RemoveKeysByRegex
-	case "RemoveKeysByPrefix":
-		ft = FT_RemoveKeysByPrefix
-	case "RemoveKeysBySuffix":
-		ft = FT_RemoveKeysBySuffix
-
-	default:
-		return 0, fmt.Errorf("unknown function name '%s'", name)
-	}
-
-	return
-}
-
-func ft_GetName(ft FT_FunctionType) (name string) {
-	fm, ok := funcMap[ft]
-	if !ok {
-		return "unknown function"
-	}
-
-	return fm.Name
-}
 
 func ft_ShouldContinueForPath(ft FT_FunctionType) bool {
 	switch ft {
@@ -1391,26 +1356,20 @@ func ft_ShouldContinueForPath(ft FT_FunctionType) bool {
 	}
 
 	return false
+
+	fn, ok := funcMap[ft]
+	if !ok {
+		return false
+	}
+
+	return fn.Returns == PT_Object
 }
 
 func ft_IsBoolFunc(ft FT_FunctionType) bool {
-	switch ft {
-	case FT_Equal,
-		FT_NotEqual,
-		FT_Less,
-		FT_LessOrEqual,
-		FT_Greater,
-		FT_GreaterOrEqual,
-		FT_Contains,
-		FT_NotContains,
-		FT_Prefix,
-		FT_NotPrefix,
-		FT_Suffix,
-		FT_NotSuffix,
-		FT_AnyOf,
-		FT_Any:
-		return true
+	fn, ok := funcMap[ft]
+	if !ok {
+		return false
 	}
 
-	return false
+	return fn.Returns == PT_Boolean
 }
