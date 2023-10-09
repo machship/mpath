@@ -1356,13 +1356,6 @@ func ft_ShouldContinueForPath(ft FT_FunctionType) bool {
 	}
 
 	return false
-
-	fn, ok := funcMap[ft]
-	if !ok {
-		return false
-	}
-
-	return fn.Returns == PT_Object
 }
 
 func ft_IsBoolFunc(ft FT_FunctionType) bool {
