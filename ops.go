@@ -679,98 +679,98 @@ func (x *opFunction) Do(currentData, originalData any) (dataToUse any, err error
 
 	switch x.FunctionType {
 	case FT_Equal:
-		return x.func_Equal(rtParams, currentData)
+		return func_Equal(rtParams, currentData)
 	case FT_NotEqual:
-		return x.func_NotEqual(rtParams, currentData)
+		return func_NotEqual(rtParams, currentData)
 
 	case FT_Less:
-		return x.func_Less(rtParams, currentData)
+		return func_Less(rtParams, currentData)
 	case FT_LessOrEqual:
-		return x.func_LessOrEqual(rtParams, currentData)
+		return func_LessOrEqual(rtParams, currentData)
 	case FT_Greater:
-		return x.func_Greater(rtParams, currentData)
+		return func_Greater(rtParams, currentData)
 	case FT_GreaterOrEqual:
-		return x.func_GreaterOrEqual(rtParams, currentData)
+		return func_GreaterOrEqual(rtParams, currentData)
 
 	case FT_Contains:
-		return x.func_Contains(rtParams, currentData)
+		return func_Contains(rtParams, currentData)
 	case FT_NotContains:
-		return x.func_NotContains(rtParams, currentData)
+		return func_NotContains(rtParams, currentData)
 	case FT_Prefix:
-		return x.func_Prefix(rtParams, currentData)
+		return func_Prefix(rtParams, currentData)
 	case FT_NotPrefix:
-		return x.func_NotPrefix(rtParams, currentData)
+		return func_NotPrefix(rtParams, currentData)
 	case FT_Suffix:
-		return x.func_Suffix(rtParams, currentData)
+		return func_Suffix(rtParams, currentData)
 	case FT_NotSuffix:
-		return x.func_NotSuffix(rtParams, currentData)
+		return func_NotSuffix(rtParams, currentData)
 
 	case FT_Count:
-		return x.func_Count(rtParams, currentData)
+		return func_Count(rtParams, currentData)
 	case FT_Any:
-		return x.func_Any(rtParams, currentData)
+		return func_Any(rtParams, currentData)
 	case FT_First:
-		return x.func_First(rtParams, currentData)
+		return func_First(rtParams, currentData)
 	case FT_Last:
-		return x.func_Last(rtParams, currentData)
+		return func_Last(rtParams, currentData)
 	case FT_Index:
-		return x.func_Index(rtParams, currentData)
+		return func_Index(rtParams, currentData)
 
 	case FT_Sum:
-		return x.func_Sum(rtParams, currentData)
+		return func_Sum(rtParams, currentData)
 	case FT_Avg:
-		return x.func_Avg(rtParams, currentData)
+		return func_Avg(rtParams, currentData)
 	case FT_Max:
-		return x.func_Max(rtParams, currentData)
+		return func_Max(rtParams, currentData)
 	case FT_Min:
-		return x.func_Min(rtParams, currentData)
+		return func_Min(rtParams, currentData)
 
 	case FT_Add:
-		return x.func_Add(rtParams, currentData)
+		return func_Add(rtParams, currentData)
 	case FT_Sub:
-		return x.func_Sub(rtParams, currentData)
+		return func_Sub(rtParams, currentData)
 	case FT_Div:
-		return x.func_Div(rtParams, currentData)
+		return func_Div(rtParams, currentData)
 	case FT_Mul:
-		return x.func_Mul(rtParams, currentData)
+		return func_Mul(rtParams, currentData)
 	case FT_Mod:
-		return x.func_Mod(rtParams, currentData)
+		return func_Mod(rtParams, currentData)
 
 	case FT_AnyOf:
-		return x.func_AnyOf(rtParams, currentData)
+		return func_AnyOf(rtParams, currentData)
 
 	case FT_TrimRightN:
-		return x.func_TrimRightN(rtParams, currentData)
+		return func_TrimRightN(rtParams, currentData)
 	case FT_TrimLeftN:
-		return x.func_TrimLeftN(rtParams, currentData)
+		return func_TrimLeftN(rtParams, currentData)
 	case FT_RightN:
-		return x.func_RightN(rtParams, currentData)
+		return func_RightN(rtParams, currentData)
 	case FT_LeftN:
-		return x.func_LeftN(rtParams, currentData)
+		return func_LeftN(rtParams, currentData)
 	case FT_DoesMatchRegex:
-		return x.func_DoesMatchRegex(rtParams, currentData)
+		return func_DoesMatchRegex(rtParams, currentData)
 	case FT_ReplaceRegex:
-		return x.func_ReplaceRegex(rtParams, currentData)
+		return func_ReplaceRegex(rtParams, currentData)
 	case FT_ReplaceAll:
-		return x.func_ReplaceAll(rtParams, currentData)
+		return func_ReplaceAll(rtParams, currentData)
 
 	case FT_AsJSON:
-		return x.func_AsJSON(rtParams, currentData)
+		return func_AsJSON(rtParams, currentData)
 	case FT_ParseJSON:
-		return x.func_ParseJSON(rtParams, currentData)
+		return func_ParseJSON(rtParams, currentData)
 	case FT_ParseXML:
-		return x.func_ParseXML(rtParams, currentData)
+		return func_ParseXML(rtParams, currentData)
 	case FT_ParseYAML:
-		return x.func_ParseYAML(rtParams, currentData)
+		return func_ParseYAML(rtParams, currentData)
 	case FT_ParseTOML:
-		return x.func_ParseTOML(rtParams, currentData)
+		return func_ParseTOML(rtParams, currentData)
 
 	case FT_RemoveKeysByRegex:
-		return x.func_RemoveKeysByRegex(rtParams, currentData)
+		return func_RemoveKeysByRegex(rtParams, currentData)
 	case FT_RemoveKeysByPrefix:
-		return x.func_RemoveKeysByPrefix(rtParams, currentData)
+		return func_RemoveKeysByPrefix(rtParams, currentData)
 	case FT_RemoveKeysBySuffix:
-		return x.func_RemoveKeysBySuffix(rtParams, currentData)
+		return func_RemoveKeysBySuffix(rtParams, currentData)
 
 	}
 
