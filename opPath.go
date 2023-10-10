@@ -17,7 +17,7 @@ type opPath struct {
 	Operations        []Operation
 }
 
-func (x *opPath) Validate(rootValue, nextValue cue.Value) (parts []*TypeaheadPart, returnedType PT_ParameterType, err error) {
+func (x *opPath) Validate(rootValue, nextValue cue.Value) (parts []*TypeaheadPart, returnedType PT_ParameterType, requiredData []string, err error) {
 	rootPart := &TypeaheadPart{
 		Type: PT_Root,
 	}
@@ -33,7 +33,7 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value) (parts []*TypeaheadPar
 
 	availableFields, err := getAvailableFieldsForValue(nextValue)
 	if err != nil {
-		return nil, returnedType, fmt.Errorf("failed to list available fields from cue: %w", err)
+		return nil, returnedType, nil, fmt.Errorf("failed to list available fields from cue: %w", err)
 	}
 
 	if len(availableFields) > 0 {
@@ -44,6 +44,7 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value) (parts []*TypeaheadPar
 
 	var shouldErrorRemaining bool
 	var part *TypeaheadPart
+	var foundFirstIdent bool
 	for _, op := range x.Operations {
 		if shouldErrorRemaining {
 			var str string
@@ -75,10 +76,15 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value) (parts []*TypeaheadPar
 				}
 			}
 
+			if !foundFirstIdent {
+				requiredData = append(requiredData, t.IdentName)
+				foundFirstIdent = true
+			}
+
 			// opPathIdent Validate advances the next value
 			part, nextValue, returnedType, err = t.Validate(nextValue)
 			if err != nil {
-				return nil, returnedType, err
+				return nil, returnedType, nil, err
 			}
 			parts = append(parts, part)
 
@@ -86,7 +92,7 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value) (parts []*TypeaheadPar
 			// opFilter Validate does not advance the next value
 			part.Filter, err = t.Validate(rootValue, nextValue)
 			if err != nil {
-				return nil, returnedType, err
+				return nil, returnedType, nil, err
 			}
 
 		case *opFunction:

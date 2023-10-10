@@ -3,6 +3,7 @@ package mpath
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	sc "text/scanner"
 
 	"cuelang.org/go/cue"
@@ -14,8 +15,10 @@ type opLogicalOperation struct {
 	Operations           []Operation
 }
 
-func (x *opLogicalOperation) Validate(rootValue, nextValue cue.Value) (operator *LOT_LogicalOperationType, operations []*TypeaheadConfig, err error) {
+func (x *opLogicalOperation) Validate(rootValue, nextValue cue.Value) (operator *LOT_LogicalOperationType, operations []*TypeaheadConfig, requiredData []string, err error) {
 	operator = &x.LogicalOperationType
+
+	rdMap := map[string]struct{}{}
 
 	for _, op := range x.Operations {
 		switch t := op.(type) {
@@ -25,21 +28,28 @@ func (x *opLogicalOperation) Validate(rootValue, nextValue cue.Value) (operator 
 			}
 			operations = append(operations, operation)
 
-			operation.Parts, operation.Type, err = t.Validate(rootValue, nextValue)
+			var rd []string
+			operation.Parts, operation.Type, rd, err = t.Validate(rootValue, nextValue)
 			if err != nil {
 				errMessage := err.Error()
 				operation.Error = &errMessage
+			}
+			for _, rdv := range rd {
+				rdMap[rdv] = struct{}{}
 			}
 
 		case *opLogicalOperation:
 			operation := &TypeaheadConfig{
 				String: op.Sprint(0), // todo: is this correct?
 			}
-			subOperator, subOperations, err := t.Validate(rootValue, nextValue)
+			subOperator, subOperations, rd, err := t.Validate(rootValue, nextValue)
 			if err != nil {
 				errMessage := err.Error()
 				operation.Error = &errMessage
 				continue
+			}
+			for _, rdv := range rd {
+				rdMap[rdv] = struct{}{}
 			}
 
 			operation.Parts = append(operation.Parts, &TypeaheadPart{
@@ -50,6 +60,11 @@ func (x *opLogicalOperation) Validate(rootValue, nextValue cue.Value) (operator 
 			})
 		}
 	}
+
+	for rd := range rdMap {
+		requiredData = append(requiredData, rd)
+	}
+	sort.Strings(requiredData)
 
 	return
 }

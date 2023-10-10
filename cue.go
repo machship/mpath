@@ -3,39 +3,10 @@ package mpath
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
 )
-
-func CueFromString(s string) (err error) {
-	t := time.Now()
-	ctx := cuecontext.New()
-	v := ctx.CompileString(s)
-	if v.Err() != nil {
-		return v.Err()
-	}
-
-	step := v.LookupPath(cue.MakePath(cue.Hid("_b", "_")))
-	stepResult := step.LookupPath(cue.MakePath(cue.Str("results")))
-
-	fmt.Println(step)
-	fmt.Println(stepResult)
-
-	fmt.Println(stepResult.Kind())
-	fieldsx, err := getAvailableFieldsForValue(stepResult)
-	fmt.Println(fieldsx)
-	k, err := getUnderlyingKind(stepResult)
-	fmt.Println(k)
-
-	fmt.Println("------------\ntook:", time.Since(t))
-
-	fields, _ := getAvailableFieldsForValue(v)
-	fmt.Println(fields)
-
-	return
-}
 
 func findValuePath(inputValue cue.Value, name string) (outputValue cue.Value, err error) {
 	var selector cue.Selector
@@ -101,10 +72,15 @@ var (
 	cueValueCache = map[string]cue.Value{}
 )
 
+type RuntimeDataMap struct {
+	String       string
+	RequiredData []string
+}
+
 // query: the mpath query string
 // cueFile: the cue file
 // currentPath: the id of the step for which this query is an input value, or if for the output, leave blank
-func ValidateForTypeahead(query string, cueFile string, currentPath string) (tc *TypeaheadConfig, err error) {
+func CueValidate(query string, cueFile string, currentPath string) (tc *TypeaheadConfig, rdm *RuntimeDataMap, err error) {
 	var ok bool
 
 	// mpath operations are cached to ensure speed of execution as this method is expected to be hit many times
@@ -112,7 +88,7 @@ func ValidateForTypeahead(query string, cueFile string, currentPath string) (tc 
 	if op, ok = mpathOpCache[query]; !ok {
 		op, _, err = ParseString(query)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse mpath query: %w", err)
+			return nil, nil, fmt.Errorf("failed to parse mpath query: %w", err)
 		}
 	}
 
@@ -122,7 +98,7 @@ func ValidateForTypeahead(query string, cueFile string, currentPath string) (tc 
 		ctx := cuecontext.New()
 		v = ctx.CompileString(cueFile)
 		if v.Err() != nil {
-			return nil, fmt.Errorf("failed to parse cue file: %w", v.Err())
+			return nil, nil, fmt.Errorf("failed to parse cue file: %w", v.Err())
 		}
 	}
 
@@ -132,13 +108,15 @@ func ValidateForTypeahead(query string, cueFile string, currentPath string) (tc 
 
 	// We will "walk" through the AST and build a TypeaheadConfig as we go
 	// NB: topOp can only be an opPath or opLogicalOperation
+
+	var requiredData []string
 	switch t := op.(type) {
 	case *opPath:
 		tc = &TypeaheadConfig{
 			String: op.Sprint(0), // todo: is this correct?
 		}
 
-		tc.Parts, tc.Type, err = t.Validate(v, v)
+		tc.Parts, tc.Type, requiredData, err = t.Validate(v, v)
 		if err != nil {
 			errMessage := err.Error()
 			tc.Error = &errMessage
@@ -150,12 +128,12 @@ func ValidateForTypeahead(query string, cueFile string, currentPath string) (tc 
 		}
 
 		var err error
-		subOperator, subOperations, err := t.Validate(v, v)
+		subOperator, subOperations, subRequiredData, err := t.Validate(v, v)
 		if err != nil {
 			errMessage := err.Error()
 			tc.Error = &errMessage
-			return tc, err
 		}
+		requiredData = subRequiredData
 
 		tc.Parts = append(tc.Parts, &TypeaheadPart{
 			String:            op.Sprint(0),
@@ -163,6 +141,11 @@ func ValidateForTypeahead(query string, cueFile string, currentPath string) (tc 
 			LogicalOperator:   subOperator,
 			LogicalOperations: subOperations,
 		})
+	}
+
+	rdm = &RuntimeDataMap{
+		String:       tc.String,
+		RequiredData: requiredData,
 	}
 
 	return
