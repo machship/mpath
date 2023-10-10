@@ -102,6 +102,25 @@ func CueValidate(query string, cueFile string, currentPath string) (tc *Typeahea
 		}
 	}
 
+	//// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ////
+	//// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ////
+	//// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ////
+
+	/*
+
+		//todo have completed forgot to strip out values that aren't available. //todo
+
+			Need a function to do this by walking up through the dependencies from the
+			currentPath input and effectively creating a new file.
+			Essentially, we need to strip out any base values in the cue file that aren't
+			in the prior dependencies, but must keep _input and _variables.
+
+	*/
+
+	//// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ////
+	//// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ////
+	//// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ////
+
 	// If we get to this point, the mpath query and cueFile are both valid,
 	// thus the next steps are to walk through the "paths" in the returned AST
 	// and doubt check that they are valid given the cueFile.
@@ -147,12 +166,6 @@ func CueValidate(query string, cueFile string, currentPath string) (tc *Typeahea
 		String:       tc.String,
 		RequiredData: requiredData,
 	}
-
-	// todo!!!! have completed forgot to strip out values that aren't available.
-	// Need a function to do this by walking up through the dependencies from the
-	// currentPath input and effectively creating a new file.
-	// Essentially, we need to strip out any base values in the cue file that aren't
-	// in the prior dependencies, but must keep _input and _variables.
 
 	return
 }
