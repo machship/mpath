@@ -79,6 +79,7 @@ func Test_Sprint(t *testing.T) {
 		op, _, err := ParseString(test.Query)
 		if err != nil {
 			t.Error(err)
+			t.FailNow()
 		}
 		if len(op.Sprint(0)) == 0 {
 			t.Errorf("Got 0 length Sprint string")
@@ -214,6 +215,7 @@ func Test_ParseAndDo(t *testing.T) {
 
 	onlyRunName := ""
 
+	//`{$.List.Last().SomeSettings[@.Key.Equal("DEF")].Any().Equal(true)}`
 	// onlyRunName = "complex 1"
 
 	for _, data := range datas {
@@ -325,28 +327,28 @@ var (
 		},
 		{
 			Name:               "trim right of string by n",
-			Query:              `$.string.TrimRightN(3)`,
+			Query:              `$.string.TrimRight(3)`,
 			Expect_string:      "abc",
 			ExpectedResultType: RT_string,
 			Expect_ForPath:     [][]string{{"string"}},
 		},
 		{
 			Name:               "trim right of string by n > length of string",
-			Query:              `$.string.TrimRightN(7)`,
+			Query:              `$.string.TrimRight(7)`,
 			Expect_string:      "",
 			ExpectedResultType: RT_string,
 			Expect_ForPath:     [][]string{{"string"}},
 		},
 		{
 			Name:               "trim right of string by n = length of string",
-			Query:              `$.string.TrimRightN(6)`,
+			Query:              `$.string.TrimRight(6)`,
 			Expect_string:      "",
 			ExpectedResultType: RT_string,
 			Expect_ForPath:     [][]string{{"string"}},
 		},
 		{
 			Name:               "trim right of string by n = 0",
-			Query:              `$.string.TrimRightN(0)`,
+			Query:              `$.string.TrimRight(0)`,
 			Expect_string:      "abcDEF",
 			ExpectedResultType: RT_string,
 			Expect_ForPath:     [][]string{{"string"}},
@@ -354,28 +356,28 @@ var (
 
 		{
 			Name:               "trim left of string by n",
-			Query:              `$.string.TrimLeftN(3)`,
+			Query:              `$.string.TrimLeft(3)`,
 			Expect_string:      "DEF",
 			ExpectedResultType: RT_string,
 			Expect_ForPath:     [][]string{{"string"}},
 		},
 		{
 			Name:               "trim left of string by n > length of string",
-			Query:              `$.string.TrimLeftN(7)`,
+			Query:              `$.string.TrimLeft(7)`,
 			Expect_string:      "",
 			ExpectedResultType: RT_string,
 			Expect_ForPath:     [][]string{{"string"}},
 		},
 		{
 			Name:               "trim left of string by n = length of string",
-			Query:              `$.string.TrimLeftN(6)`,
+			Query:              `$.string.TrimLeft(6)`,
 			Expect_string:      "",
 			ExpectedResultType: RT_string,
 			Expect_ForPath:     [][]string{{"string"}},
 		},
 		{
 			Name:               "trim left of string by n = 0",
-			Query:              `$.string.TrimLeftN(0)`,
+			Query:              `$.string.TrimLeft(0)`,
 			Expect_string:      "abcDEF",
 			ExpectedResultType: RT_string,
 			Expect_ForPath:     [][]string{{"string"}},
@@ -383,14 +385,14 @@ var (
 
 		{
 			Name:               "get left n of string",
-			Query:              `$.string.LeftN(2)`,
+			Query:              `$.string.Left(2)`,
 			Expect_string:      "ab",
 			ExpectedResultType: RT_string,
 			Expect_ForPath:     [][]string{{"string"}},
 		},
 		{
 			Name:               "get right n of string",
-			Query:              `$.string.RightN(2)`,
+			Query:              `$.string.Right(2)`,
 			Expect_string:      "EF",
 			ExpectedResultType: RT_string,
 			Expect_ForPath:     [][]string{{"string"}},
@@ -398,14 +400,14 @@ var (
 
 		{
 			Name:               "get left n > len of string",
-			Query:              `$.string.LeftN(7)`,
+			Query:              `$.string.Left(7)`,
 			Expect_string:      "abcDEF",
 			ExpectedResultType: RT_string,
 			Expect_ForPath:     [][]string{{"string"}},
 		},
 		{
 			Name:               "get right n > len of string",
-			Query:              `$.string.RightN(7)`,
+			Query:              `$.string.Right(7)`,
 			Expect_string:      "abcDEF",
 			ExpectedResultType: RT_string,
 			Expect_ForPath:     [][]string{{"string"}},
@@ -799,8 +801,8 @@ var (
 			},
 		},
 		{
-			Name:               "func Avg",
-			Query:              "$.number.Avg(5678)",
+			Name:               "func Average",
+			Query:              "$.number.Average(5678)",
 			Expect_decimal:     decimal.NewFromFloat(3456),
 			ExpectedResultType: RT_decimal,
 			Expect_ForPath: [][]string{
@@ -809,7 +811,7 @@ var (
 		},
 		{
 			Name:               "func Max",
-			Query:              "$.number.Max(9999)",
+			Query:              "$.number.Maximum(9999)",
 			Expect_decimal:     decimal.NewFromFloat(9999),
 			ExpectedResultType: RT_decimal,
 			Expect_ForPath: [][]string{
@@ -818,7 +820,7 @@ var (
 		},
 		{
 			Name:               "func Min",
-			Query:              "$.number.Min(9999)",
+			Query:              "$.number.Minimum(9999)",
 			Expect_decimal:     decimal.NewFromFloat(1234),
 			ExpectedResultType: RT_decimal,
 			Expect_ForPath: [][]string{
@@ -836,7 +838,7 @@ var (
 		},
 		{
 			Name:               "func Sub",
-			Query:              "$.number.Sub(2)",
+			Query:              "$.number.Subtract(2)",
 			Expect_decimal:     decimal.NewFromFloat(1232),
 			ExpectedResultType: RT_decimal,
 			Expect_ForPath: [][]string{
@@ -845,7 +847,7 @@ var (
 		},
 		{
 			Name:               "func Div",
-			Query:              "$.number.Div(2)",
+			Query:              "$.number.Divide(2)",
 			Expect_decimal:     decimal.NewFromFloat(617),
 			ExpectedResultType: RT_decimal,
 			Expect_ForPath: [][]string{
@@ -854,7 +856,7 @@ var (
 		},
 		{
 			Name:               "func Mul",
-			Query:              "$.number.Mul(11)",
+			Query:              "$.number.Multiply(11)",
 			Expect_decimal:     decimal.NewFromFloat(13574),
 			ExpectedResultType: RT_decimal,
 			Expect_ForPath: [][]string{
@@ -863,7 +865,7 @@ var (
 		},
 		{
 			Name:               "func Mod",
-			Query:              "$.number.Mod(100)",
+			Query:              "$.number.Modulo(100)",
 			Expect_decimal:     decimal.NewFromFloat(34),
 			ExpectedResultType: RT_decimal,
 			Expect_ForPath: [][]string{

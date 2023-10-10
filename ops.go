@@ -8,6 +8,7 @@ import (
 	"strings"
 	sc "text/scanner"
 
+	"cuelang.org/go/cue"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 )
@@ -38,22 +39,106 @@ const (
 
 type opPath struct {
 	StartAtRoot       bool
-	DisallowRoot      bool
+	IsFilter          bool
 	MustEndInFunction bool
 	Operations        []Operation
+}
+
+func (x *opPath) Validate(rootValue, nextValue cue.Value) (parts []*TypeaheadPart, returnedType PT_ParameterType, err error) {
+	rootPart := &TypeaheadPart{
+		Type: PT_Root,
+	}
+
+	parts = []*TypeaheadPart{rootPart}
+
+	switch x.StartAtRoot {
+	case true:
+		rootPart.String = "$"
+	case false:
+		rootPart.String = "@"
+	}
+
+	availableFields, err := getAvailableFieldsForValue(nextValue)
+	if err != nil {
+		return nil, returnedType, fmt.Errorf("failed to list available fields from cue: %w", err)
+	}
+
+	if len(availableFields) > 0 {
+		rootPart.Available = &TypeaheadAvailable{
+			Fields: availableFields,
+		}
+	}
+
+	var shouldErrorRemaining bool
+	var part *TypeaheadPart
+	for _, op := range x.Operations {
+		if shouldErrorRemaining {
+			var str string
+			switch t := op.(type) {
+			case *opPathIdent:
+				str = t.IdentName
+			case *opFilter:
+				str = t.Sprint(0) // todo: is this correct?
+			default:
+				continue
+			}
+			errMessage := "cannot continue due to previous error"
+			part = &TypeaheadPart{
+				String: str,
+				Error:  &errMessage,
+			}
+
+			continue
+		}
+
+		switch t := op.(type) {
+		case *opPathIdent:
+			if returnedType.IsPrimitive() {
+				shouldErrorRemaining = true
+				errMessage := "cannot address into primitive value"
+				part = &TypeaheadPart{
+					String: t.IdentName,
+					Error:  &errMessage,
+				}
+			}
+
+			// opPathIdent Validate advances the next value
+			part, nextValue, returnedType, err = t.Validate(nextValue)
+			if err != nil {
+				return nil, returnedType, err
+			}
+			parts = append(parts, part)
+
+		case *opFilter:
+			// opFilter Validate does not advance the next value
+			part.Filter, err = t.Validate(rootValue, nextValue)
+			if err != nil {
+				return nil, returnedType, err
+			}
+
+		case *opFunction:
+			part, nextValue, returnedType, err = t.Validate(rootValue, nextValue)
+			if err != nil {
+				shouldErrorRemaining = true
+			}
+			parts = append(parts, part)
+		}
+	}
+
+	return
 }
 
 func (x *opPath) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
 		Type              string `json:"_type"`
 		StartAtRoot       bool
-		DisallowRoot      bool
+		IsFilter          bool
 		MustEndInFunction bool
 		Operations        []Operation
 	}{
 		Type:              "Path",
 		StartAtRoot:       x.StartAtRoot,
-		DisallowRoot:      x.DisallowRoot,
+		IsFilter:          x.IsFilter,
 		MustEndInFunction: x.MustEndInFunction,
 		Operations:        x.Operations,
 	})
@@ -114,7 +199,7 @@ func (x *opPath) ForPath(current []string) (outCurrent []string, additional [][]
 }
 
 func (x *opPath) Do(currentData, originalData any) (dataToUse any, err error) {
-	if x.StartAtRoot && x.DisallowRoot {
+	if x.StartAtRoot && x.IsFilter {
 		return nil, fmt.Errorf("cannot access root data in filter")
 	}
 
@@ -150,7 +235,7 @@ func (x *opPath) Do(currentData, originalData any) (dataToUse any, err error) {
 func (x *opPath) Parse(s *scanner, r rune) (nextR rune, err error) {
 	switch r {
 	case '$':
-		if x.DisallowRoot {
+		if x.IsFilter {
 			return r, errors.Wrap(erInvalid(s, '@'), "cannot use '$' (root) inside filter")
 		}
 		x.StartAtRoot = true
@@ -221,6 +306,75 @@ func (x *opPath) Parse(s *scanner, r rune) (nextR rune, err error) {
 
 type opPathIdent struct {
 	IdentName string
+}
+
+func (x *opPathIdent) Validate(inputValue cue.Value) (part *TypeaheadPart, nextValue cue.Value, returnedType PT_ParameterType, err error) {
+	part = &TypeaheadPart{}
+
+	// find the cue value for this ident
+	part.String = x.IdentName
+	part.Type = PT_Object
+	nextValue, err = findValuePath(inputValue, x.IdentName)
+	if err != nil {
+		errMessage := err.Error()
+		part.Error = &errMessage
+	}
+
+	k := nextValue.Kind()
+	wasList := false
+loop:
+	switch k {
+	// Primative Kinds:
+	case cue.BoolKind:
+		returnedType = PT_Boolean
+		part.Available.Functions = getAvailableFunctionsForKind(PT_Boolean, false)
+	case cue.StringKind:
+		returnedType = PT_String
+		part.Available.Functions = getAvailableFunctionsForKind(PT_String, false)
+	case cue.NumberKind, cue.IntKind, cue.FloatKind:
+		if wasList {
+			returnedType = PT_ArrayOfNumbers
+			part.Available.Functions = getAvailableFunctionsForKind(PT_ArrayOfNumbers, false)
+		} else {
+			returnedType = PT_Number
+			part.Available.Functions = getAvailableFunctionsForKind(PT_Number, false)
+		}
+		extraFuncs := getAvailableFunctionsForKind(PT_NumberOrArrayOfNumbers, true)
+		part.Available.Functions = append(part.Available.Functions, extraFuncs...)
+	case cue.StructKind:
+		returnedType = PT_Object
+		part.Available.Functions = getAvailableFunctionsForKind(PT_Object, false)
+
+		// Get the fields for the next value:
+		availableFields, err := getAvailableFieldsForValue(nextValue)
+		if err != nil {
+			return nil, nextValue, returnedType, fmt.Errorf("couldn't get fields for struct type to build filters: %w", err)
+		}
+
+		for _, af := range availableFields {
+			part.Available.Filters = append(part.Available.Filters, "@."+af)
+		}
+
+	case cue.ListKind:
+		if wasList {
+			returnedType = PT_Array
+			part.Available.Functions = getAvailableFunctionsForKind(PT_Any, true)
+			return
+		}
+
+		wasList = true
+		// Check what kind of array
+		k, err = getUnderlyingKind(nextValue)
+		if err != nil {
+			return nil, nextValue, returnedType, fmt.Errorf("couldn't ascertain underlying kind of list for field '%s': %w", part.String, err)
+		}
+		goto loop
+
+	default:
+		return nil, nextValue, returnedType, fmt.Errorf("encountered unknown cue kind %v", k)
+	}
+
+	return
 }
 
 func (x *opPathIdent) MarshalJSON() ([]byte, error) {
@@ -299,6 +453,33 @@ type opFilter struct {
 	LogicalOperation *opLogicalOperation
 }
 
+func (x *opFilter) Validate(rootValue, inputValue cue.Value) (filter *TypeaheadFilter, err error) {
+	filter = &TypeaheadFilter{
+		String: x.Sprint(0), // todo: is this right?
+	}
+
+	if inputValue.Kind() != cue.ListKind {
+		errMessage := "not a list; only lists can be filtered"
+		filter.Error = &errMessage
+	}
+
+	it, err := inputValue.List()
+	if err != nil {
+		return nil, fmt.Errorf("couldn't get list iterator for list kind")
+	}
+
+	it.Next()
+	nextValue := it.Value()
+
+	filter.LogicalOperator, filter.LogicalOperations, err = x.LogicalOperation.Validate(rootValue, nextValue)
+	if err != nil {
+		errMessage := err.Error()
+		filter.Error = &errMessage
+	}
+
+	return
+}
+
 func (x *opFilter) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
 		Type             string `json:"_type"`
@@ -366,27 +547,67 @@ func (x *opFilter) Parse(s *scanner, r rune) (nextR rune, err error) {
 	}
 
 	x.LogicalOperation = &opLogicalOperation{}
-	x.LogicalOperation.DisallowRoot = true
+	x.LogicalOperation.IsFilter = true
 	return x.LogicalOperation.Parse(s, r)
 }
 
 ////////////////////////////////////////////////////////////////////////////////////
 
 type opLogicalOperation struct {
-	DisallowRoot         bool
+	IsFilter             bool
 	LogicalOperationType LOT_LogicalOperationType
 	Operations           []Operation
+}
+
+func (x *opLogicalOperation) Validate(rootValue, nextValue cue.Value) (operator *LOT_LogicalOperationType, operations []*TypeaheadConfig, err error) {
+	operator = &x.LogicalOperationType
+
+	for _, op := range x.Operations {
+		switch t := op.(type) {
+		case *opPath:
+			operation := &TypeaheadConfig{
+				String: op.Sprint(0), // todo: is this correct?
+			}
+			operations = append(operations, operation)
+
+			operation.Parts, operation.Type, err = t.Validate(rootValue, nextValue)
+			if err != nil {
+				errMessage := err.Error()
+				operation.Error = &errMessage
+			}
+
+		case *opLogicalOperation:
+			operation := &TypeaheadConfig{
+				String: op.Sprint(0), // todo: is this correct?
+			}
+			subOperator, subOperations, err := t.Validate(rootValue, nextValue)
+			if err != nil {
+				errMessage := err.Error()
+				operation.Error = &errMessage
+				continue
+			}
+
+			operation.Parts = append(operation.Parts, &TypeaheadPart{
+				String:            op.Sprint(0),
+				Type:              PT_Boolean,
+				LogicalOperator:   subOperator,
+				LogicalOperations: subOperations,
+			})
+		}
+	}
+
+	return
 }
 
 func (x *opLogicalOperation) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
 		Type                 string `json:"_type"`
-		DisallowRoot         bool
+		IsFilter             bool
 		LogicalOperationType LOT_LogicalOperationType
 		Operations           []Operation
 	}{
 		Type:                 "LogicalOperation",
-		DisallowRoot:         x.DisallowRoot,
+		IsFilter:             x.IsFilter,
 		LogicalOperationType: x.LogicalOperationType,
 		Operations:           x.Operations,
 	})
@@ -402,7 +623,7 @@ func (x *opLogicalOperation) Type() OT_OpType { return OT_LogicalOperation }
 func (x *opLogicalOperation) Sprint(depth int) (out string) {
 	startChar := "{"
 	endChar := "}"
-	if x.DisallowRoot {
+	if x.IsFilter {
 		startChar = "["
 		endChar = "]"
 	}
@@ -520,7 +741,7 @@ func (x *opLogicalOperation) Parse(s *scanner, r rune) (nextR rune, err error) {
 
 		case '$', '@':
 			// This is an opPath
-			op = &opPath{MustEndInFunction: true, DisallowRoot: x.DisallowRoot}
+			op = &opPath{MustEndInFunction: true, IsFilter: x.IsFilter}
 		case '{':
 			// This is an opLogicalOperation
 			op = &opLogicalOperation{}
@@ -539,22 +760,205 @@ func (x *opLogicalOperation) Parse(s *scanner, r rune) (nextR rune, err error) {
 	return
 }
 
-type LOT_LogicalOperationType int
+type LOT_LogicalOperationType string
 
 const (
-	LOT_And LOT_LogicalOperationType = iota
-	LOT_Or
+	LOT_And LOT_LogicalOperationType = "And"
+	LOT_Or  LOT_LogicalOperationType = "Or"
 )
 
 ////////////////////////////////////////////////////////////////////////////////////
 
+type FunctionParameters []FunctionParameter
+
+func (x FunctionParameters) Numbers() (out []*FP_Number) {
+	for _, fp := range x {
+		switch t := fp.(type) {
+		case *FP_Number:
+			out = append(out, t)
+		}
+	}
+	return
+}
+
+func (x FunctionParameters) Strings() (out []*FP_String) {
+	for _, fp := range x {
+		switch t := fp.(type) {
+		case *FP_String:
+			out = append(out, t)
+		}
+	}
+	return
+}
+
+func (x FunctionParameters) Bools() (out []*FP_Bool) {
+	for _, fp := range x {
+		switch t := fp.(type) {
+		case *FP_Bool:
+			out = append(out, t)
+		}
+	}
+	return
+}
+
+func (x FunctionParameters) Paths() (out []*FP_Path) {
+	for _, fp := range x {
+		switch t := fp.(type) {
+		case *FP_Path:
+			out = append(out, t)
+		}
+	}
+	return
+}
+
+type FunctionParameter interface {
+	IsFuncParam()
+	String() string
+	GetValue() any
+}
+
+func functionParameterMarshalJSON(value any, typeName string) ([]byte, error) {
+	return json.Marshal(struct {
+		Type  string `json:"_type"`
+		Value any    `json:"Value"`
+	}{
+		Type:  typeName,
+		Value: value,
+	})
+}
+
+type FP_Number struct {
+	Value decimal.Decimal
+}
+
+func (p FP_Number) String() string {
+	return p.Value.String()
+}
+
+func (x *FP_Number) IsFuncParam() {}
+
+func (x *FP_Number) GetValue() any { return x.Value }
+
+func (x *FP_Number) MarshalJSON() ([]byte, error) {
+	return functionParameterMarshalJSON(x.Value, "Number")
+}
+
+type FP_String struct {
+	Value string
+}
+
+func (p FP_String) String() string {
+	return fmt.Sprintf(`"%s"`, p.Value)
+}
+
+func (x *FP_String) IsFuncParam() {}
+
+func (x *FP_String) GetValue() any { return x.Value }
+
+func (x *FP_String) MarshalJSON() ([]byte, error) {
+	return functionParameterMarshalJSON(x.Value, "String")
+}
+
+type FP_Bool struct {
+	Value bool
+}
+
+func (p FP_Bool) String() string {
+	return fmt.Sprint(p.Value)
+}
+
+func (x *FP_Bool) IsFuncParam() {}
+
+func (x *FP_Bool) GetValue() any { return x.Value }
+
+func (x *FP_Bool) MarshalJSON() ([]byte, error) {
+	return functionParameterMarshalJSON(x.Value, "Bool")
+}
+
+type FP_Path struct {
+	Value *opPath
+}
+
+func (p FP_Path) String() string {
+	//return strings.TrimLeft(p.Value.Sprint(0), "\t")
+	return p.Value.Sprint(0) // todo: is this correct?
+}
+
+func (x *FP_Path) IsFuncParam() {}
+
+func (x *FP_Path) GetValue() any { return x.Value }
+
+func (x *FP_Path) MarshalJSON() ([]byte, error) {
+	return functionParameterMarshalJSON(x.Value, "Path")
+}
+
+func (x *FP_Path) ForPath(current []string) (outCurrent []string, additional [][]string, shouldStopLoop bool) {
+	return x.Value.ForPath(current)
+}
+
 // Functions can only be part of an opPath
 type opFunction struct {
 	FunctionType FT_FunctionType
-	ParamsNumber []decimal.Decimal
-	ParamsString []string
-	ParamsBool   []bool
-	ParamsPath   []*opPath
+
+	Params FunctionParameters
+}
+
+func (x *opFunction) Validate(rootValue, inputValue cue.Value) (part *TypeaheadPart, nextValue cue.Value, returnedType PT_ParameterType, err error) {
+	part = &TypeaheadPart{
+		String:       x.Sprint(0), //todo: is this correct?
+		FunctionName: (*string)(&x.FunctionType),
+	}
+
+	// Find the function descriptor
+	fd, ok := funcMap[x.FunctionType]
+	if !ok {
+		errMessage := "unknown function"
+		part.Error = &errMessage
+		return
+	}
+
+	returnedType = fd.Returns
+
+	part.Parameters = []*TypeaheadParameter{}
+	for i, p := range x.Params {
+		param := &TypeaheadParameter{
+			String: p.String(),
+		}
+		part.Parameters = append(part.Parameters, param)
+
+		//get the parameter at this position
+		pd, err := fd.GetParamAtPosition(i)
+		if err != nil {
+			errMessage := err.Error()
+			param.Error = &errMessage
+			continue
+		}
+
+		switch t := p.(type) {
+		case *FP_Path:
+			param.Parts, returnedType, err = t.Value.Validate(rootValue, nextValue)
+			if err != nil {
+				errMessage := err.Error()
+				param.Error = &errMessage
+				continue
+			}
+
+		case *FP_Bool:
+			returnedType = PT_Boolean
+		case *FP_Number:
+			returnedType = PT_Number
+		case *FP_String:
+			returnedType = PT_String
+		}
+
+		// Check that the returned type is appropriate
+		if !(pd.Type == PT_Any || returnedType == pd.Type) {
+			errMessage := fmt.Sprintf("incorrect parameter type: wanted '%s'; got '%s'", pd.Type, returnedType)
+			param.Error = &errMessage
+		}
+	}
+
+	return
 }
 
 func (x *opFunction) MarshalJSON() ([]byte, error) {
@@ -562,42 +966,22 @@ func (x *opFunction) MarshalJSON() ([]byte, error) {
 		Type         string `json:"_type"`
 		FunctionName string `json:"_functionName"`
 		FunctionType FT_FunctionType
-		ParamsNumber []decimal.Decimal
-		ParamsString []string
-		ParamsBool   []bool
-		ParamsPath   []*opPath
+		Params       []FunctionParameter
 	}{
 		Type:         "Function",
 		FunctionName: ft_GetName(x.FunctionType),
 		FunctionType: x.FunctionType,
-		ParamsNumber: x.ParamsNumber,
-		ParamsString: x.ParamsString,
-		ParamsBool:   x.ParamsBool,
-		ParamsPath:   x.ParamsPath,
+		Params:       x.Params,
 	})
-}
-
-type runtimeParams struct {
-	paramsNumber []decimal.Decimal
-	paramsString []string
-	paramsBool   []bool
 }
 
 func (x *opFunction) Type() OT_OpType { return OT_Function }
 
 func (x *opFunction) Sprint(depth int) (out string) {
 	paramsAsStrings := []string{}
-	for _, p := range x.ParamsNumber {
-		paramsAsStrings = append(paramsAsStrings, fmt.Sprint(p))
-	}
-	for _, p := range x.ParamsString {
-		paramsAsStrings = append(paramsAsStrings, fmt.Sprintf(`"%s"`, p))
-	}
-	for _, p := range x.ParamsBool {
-		paramsAsStrings = append(paramsAsStrings, fmt.Sprint(p))
-	}
-	for _, p := range x.ParamsPath {
-		paramsAsStrings = append(paramsAsStrings, strings.TrimLeft(p.Sprint(depth), "\t"))
+
+	for _, p := range x.Params {
+		paramsAsStrings = append(paramsAsStrings, p.String())
 	}
 
 	return fmt.Sprintf("%s(%s)", ft_GetName(x.FunctionType), strings.Join(paramsAsStrings, ","))
@@ -610,7 +994,7 @@ func (x *opFunction) ForPath(current []string) (outCurrent []string, additional 
 	}
 	outCurrent = current
 
-	for _, p := range x.ParamsPath {
+	for _, p := range x.Params.Paths() {
 		pp, a, _ := p.ForPath(current)
 		additional = append(additional, pp)
 		additional = append(additional, a...)
@@ -620,52 +1004,63 @@ func (x *opFunction) ForPath(current []string) (outCurrent []string, additional 
 }
 
 func (x *opFunction) Do(currentData, originalData any) (dataToUse any, err error) {
-	rtParams := runtimeParams{}
-
-	rtParams.paramsBool = append(rtParams.paramsBool, x.ParamsBool...)
-	rtParams.paramsNumber = append(rtParams.paramsNumber, x.ParamsNumber...)
-	rtParams.paramsString = append(rtParams.paramsString, x.ParamsString...)
+	var rtParams FunctionParameters
 
 	// get the pathParams and put them in the appropriate bucket
-	for _, ppOp := range x.ParamsPath {
+	for _, param := range x.Params {
+		var ppOp *opPath
+		switch t := param.(type) {
+		case *FP_Number, *FP_String, *FP_Bool:
+			rtParams = append(rtParams, t)
+			continue
+		case *FP_Path:
+			ppOp = t.Value
+		}
+
 		res, err := ppOp.Do(currentData, originalData)
 		if err != nil {
 			return nil, fmt.Errorf("issue with path parameter: %w", err)
 		}
 		switch resType := res.(type) {
 		case decimal.Decimal:
-			rtParams.paramsNumber = append(rtParams.paramsNumber, resType)
+			rtParams = append(rtParams, &FP_Number{resType})
 		case string:
-			rtParams.paramsString = append(rtParams.paramsString, resType)
+			rtParams = append(rtParams, &FP_String{resType})
 		case bool:
-			rtParams.paramsBool = append(rtParams.paramsBool, resType)
+			rtParams = append(rtParams, &FP_Bool{resType})
 		case []decimal.Decimal:
-			rtParams.paramsNumber = append(rtParams.paramsNumber, resType...)
+			for _, rt := range resType {
+				rtParams = append(rtParams, &FP_Number{rt})
+			}
 		case []string:
-			rtParams.paramsString = append(rtParams.paramsString, resType...)
+			for _, rt := range resType {
+				rtParams = append(rtParams, &FP_String{rt})
+			}
 		case []bool:
-			rtParams.paramsBool = append(rtParams.paramsBool, resType...)
+			for _, rt := range resType {
+				rtParams = append(rtParams, &FP_Bool{rt})
+			}
 		case []float64:
 			for _, asFloat := range resType {
-				rtParams.paramsNumber = append(rtParams.paramsNumber, decimal.NewFromFloat(asFloat))
+				rtParams = append(rtParams, &FP_Number{decimal.NewFromFloat(asFloat)})
 			}
 		case []int:
 			for _, asInt := range resType {
-				rtParams.paramsNumber = append(rtParams.paramsNumber, decimal.NewFromInt(int64(asInt)))
+				rtParams = append(rtParams, &FP_Number{decimal.NewFromInt(int64(asInt))})
 			}
 		case []any:
 			for _, pv := range resType {
 				switch pvType := pv.(type) {
 				case float64:
-					rtParams.paramsNumber = append(rtParams.paramsNumber, decimal.NewFromFloat(pvType))
+					rtParams = append(rtParams, &FP_Number{decimal.NewFromFloat(pvType)})
 				case int:
-					rtParams.paramsNumber = append(rtParams.paramsNumber, decimal.NewFromInt(int64(pvType)))
+					rtParams = append(rtParams, &FP_Number{decimal.NewFromInt(int64(pvType))})
 				case decimal.Decimal:
-					rtParams.paramsNumber = append(rtParams.paramsNumber, pvType)
+					rtParams = append(rtParams, &FP_Number{pvType})
 				case string:
-					rtParams.paramsString = append(rtParams.paramsString, pvType)
+					rtParams = append(rtParams, &FP_String{pvType})
 				case bool:
-					rtParams.paramsBool = append(rtParams.paramsBool, pvType)
+					rtParams = append(rtParams, &FP_Bool{pvType})
 				default:
 					return nil, fmt.Errorf("unhandled param path type: %T", pv)
 				}
@@ -721,21 +1116,21 @@ func (x *opFunction) Parse(s *scanner, r rune) (nextR rune, err error) {
 			if len(tt) >= 2 && strings.HasPrefix(tt, `"`) && strings.HasSuffix(tt, `"`) {
 				tt = tt[1 : len(tt)-1]
 			}
-			x.ParamsString = append(x.ParamsString, tt)
+			x.Params = append(x.Params, &FP_String{tt})
 		case sc.Float, sc.Int:
 			f, err := strconv.ParseFloat(s.TokenText(), 64)
 			if err != nil {
 				// This should not be possible, but handle it just in case
 				return r, erAt(s, "couldn't convert number as string '%s' to number", s.TokenText())
 			}
-			x.ParamsNumber = append(x.ParamsNumber, decimal.NewFromFloat(f))
+			x.Params = append(x.Params, &FP_Number{decimal.NewFromFloat(f)})
 		case sc.Ident:
 			//must be bool
 			switch s.TokenText() {
 			case "true":
-				x.ParamsBool = append(x.ParamsBool, true)
+				x.Params = append(x.Params, &FP_Bool{true})
 			case "false":
-				x.ParamsBool = append(x.ParamsBool, false)
+				x.Params = append(x.Params, &FP_Bool{false})
 			default:
 				return r, erInvalid(s)
 			}
@@ -748,6 +1143,6 @@ func (x *opFunction) Parse(s *scanner, r rune) (nextR rune, err error) {
 
 func (x *opFunction) addOpToParamsAndParse(s *scanner, r rune) (nextR rune, err error) {
 	op := &opPath{}
-	x.ParamsPath = append(x.ParamsPath, op)
+	x.Params = append(x.Params, &FP_Path{op})
 	return op.Parse(s, r)
 }

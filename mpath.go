@@ -43,7 +43,7 @@ var (
 					ch != '<' &&
 					ch != '|' &&
 					ch != '!' &&
-					ch != '#' && //todo: implement this as a global variable
+					// ch != '#' && //todo: implement this as a global variable
 					ch != ';' &&
 					ch != '/' &&
 					ch != '*' &&
@@ -65,7 +65,6 @@ var (
 )
 
 func ParseString(ss string) (topOp Operation, forPath [][]string, err error) {
-
 	s := scannerPool.Get().(*scanner)
 	defer scannerPool.Put(s)
 	sr := stringsReaderPool.Get().(*strings.Reader)
