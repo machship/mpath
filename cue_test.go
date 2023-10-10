@@ -1,10 +1,7 @@
 package mpath
 
 import (
-	"encoding/json"
 	"testing"
-
-	"github.com/atotto/clipboard"
 )
 
 func Test_CueFromString(t *testing.T) {
@@ -42,11 +39,11 @@ _variables: {
 
 	var err error
 
-	err = CueFromString(cueString1)
+	tc, rdm, err := CueValidate(`$._b.results[@.example.Equal("something")].example`, cueString1, "_c")
 	if err != nil {
 		t.Error(err)
 	}
 
-	fmJson, _ := json.Marshal(funcMap)
-	clipboard.WriteAll(string(fmJson))
+	_ = tc
+	_ = rdm
 }

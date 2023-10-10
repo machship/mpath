@@ -148,6 +148,12 @@ func CueValidate(query string, cueFile string, currentPath string) (tc *Typeahea
 		RequiredData: requiredData,
 	}
 
+	// todo!!!! have completed forgot to strip out values that aren't available.
+	// Need a function to do this by walking up through the dependencies from the
+	// currentPath input and effectively creating a new file.
+	// Essentially, we need to strip out any base values in the cue file that aren't
+	// in the prior dependencies, but must keep _input and _variables.
+
 	return
 }
 

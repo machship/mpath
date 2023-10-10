@@ -3,6 +3,7 @@ package mpath
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 	sc "text/scanner"
@@ -18,7 +19,7 @@ type opFunction struct {
 	Params FunctionParameters
 }
 
-func (x *opFunction) Validate(rootValue, inputValue cue.Value) (part *TypeaheadPart, nextValue cue.Value, returnedType PT_ParameterType, err error) {
+func (x *opFunction) Validate(rootValue, inputValue cue.Value) (part *TypeaheadPart, nextValue cue.Value, returnedType PT_ParameterType, requiredData []string, err error) {
 	part = &TypeaheadPart{
 		String:       x.Sprint(0), //todo: is this correct?
 		FunctionName: (*string)(&x.FunctionType),
@@ -33,6 +34,8 @@ func (x *opFunction) Validate(rootValue, inputValue cue.Value) (part *TypeaheadP
 	}
 
 	returnedType = fd.Returns
+
+	rdm := map[string]struct{}{}
 
 	part.Parameters = []*TypeaheadParameter{}
 	for i, p := range x.Params {
@@ -51,11 +54,15 @@ func (x *opFunction) Validate(rootValue, inputValue cue.Value) (part *TypeaheadP
 
 		switch t := p.(type) {
 		case *FP_Path:
-			param.Parts, returnedType, err = t.Value.Validate(rootValue, nextValue)
+			var rd []string
+			param.Parts, returnedType, rd, err = t.Value.Validate(rootValue, nextValue)
 			if err != nil {
 				errMessage := err.Error()
 				param.Error = &errMessage
 				continue
+			}
+			for _, rdv := range rd {
+				rdm[rdv] = struct{}{}
 			}
 
 		case *FP_Bool:
@@ -72,6 +79,11 @@ func (x *opFunction) Validate(rootValue, inputValue cue.Value) (part *TypeaheadP
 			param.Error = &errMessage
 		}
 	}
+
+	for rdv := range rdm {
+		requiredData = append(requiredData, rdv)
+	}
+	sort.Strings(requiredData)
 
 	return
 }

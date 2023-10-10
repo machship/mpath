@@ -3,6 +3,7 @@ package mpath
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	sc "text/scanner"
 
@@ -42,6 +43,8 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value) (parts []*TypeaheadPar
 		}
 	}
 
+	rdm := map[string]struct{}{}
+
 	var shouldErrorRemaining bool
 	var part *TypeaheadPart
 	var foundFirstIdent bool
@@ -65,6 +68,7 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value) (parts []*TypeaheadPar
 			continue
 		}
 
+		var rd []string
 		switch t := op.(type) {
 		case *opPathIdent:
 			if returnedType.IsPrimitive() {
@@ -77,7 +81,7 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value) (parts []*TypeaheadPar
 			}
 
 			if !foundFirstIdent {
-				requiredData = append(requiredData, t.IdentName)
+				rdm[t.IdentName] = struct{}{}
 				foundFirstIdent = true
 			}
 
@@ -90,19 +94,27 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value) (parts []*TypeaheadPar
 
 		case *opFilter:
 			// opFilter Validate does not advance the next value
-			part.Filter, err = t.Validate(rootValue, nextValue)
+			part.Filter, rd, err = t.Validate(rootValue, nextValue)
 			if err != nil {
 				return nil, returnedType, nil, err
 			}
 
 		case *opFunction:
-			part, nextValue, returnedType, err = t.Validate(rootValue, nextValue)
+			part, nextValue, returnedType, rd, err = t.Validate(rootValue, nextValue)
 			if err != nil {
 				shouldErrorRemaining = true
 			}
 			parts = append(parts, part)
 		}
+		for _, rdv := range rd {
+			rdm[rdv] = struct{}{}
+		}
 	}
+
+	for rdv := range rdm {
+		requiredData = append(requiredData, rdv)
+	}
+	sort.Strings(requiredData)
 
 	return
 }

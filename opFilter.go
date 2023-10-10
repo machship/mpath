@@ -11,7 +11,7 @@ type opFilter struct {
 	LogicalOperation *opLogicalOperation
 }
 
-func (x *opFilter) Validate(rootValue, inputValue cue.Value) (filter *TypeaheadFilter, err error) {
+func (x *opFilter) Validate(rootValue, inputValue cue.Value) (filter *TypeaheadFilter, requiredData []string, err error) {
 	filter = &TypeaheadFilter{
 		String: x.Sprint(0), // todo: is this right?
 	}
@@ -23,13 +23,13 @@ func (x *opFilter) Validate(rootValue, inputValue cue.Value) (filter *TypeaheadF
 
 	it, err := inputValue.List()
 	if err != nil {
-		return nil, fmt.Errorf("couldn't get list iterator for list kind")
+		return nil, nil, fmt.Errorf("couldn't get list iterator for list kind")
 	}
 
 	it.Next()
 	nextValue := it.Value()
 
-	filter.LogicalOperator, filter.LogicalOperations, err = x.LogicalOperation.Validate(rootValue, nextValue)
+	filter.LogicalOperator, filter.LogicalOperations, requiredData, err = x.LogicalOperation.Validate(rootValue, nextValue)
 	if err != nil {
 		errMessage := err.Error()
 		filter.Error = &errMessage
