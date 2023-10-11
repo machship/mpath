@@ -999,7 +999,7 @@ func getAvailableFunctionsForKind(pt PT_ParameterType, exludeAny bool) (names []
 		if pt == fd.ValidOn {
 			names = append(names, string(fd.Name))
 		}
-		if !exludeAny && pt != PT_Any {
+		if !exludeAny && pt != PT_Any && fd.ValidOn == PT_Any {
 			names = append(names, string(fd.Name))
 		}
 	}

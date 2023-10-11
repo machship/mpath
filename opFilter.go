@@ -66,7 +66,6 @@ func (x *opFilter) ForPath(current []string) (outCurrent []string, additional []
 }
 
 func (x *opFilter) Do(currentData, originalData any) (dataToUse any, err error) {
-
 	val, ok, wasStruct := getAsStructOrSlice(currentData)
 	if !ok {
 		return nil, fmt.Errorf("value was not object or array and cannot be filtered")

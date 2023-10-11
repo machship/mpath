@@ -26,7 +26,7 @@ func findValuePath(inputValue cue.Value, name string) (outputValue cue.Value, er
 }
 
 func getUnderlyingKind(v cue.Value) (kind cue.Kind, err error) {
-	if v.Kind() == cue.ListKind {
+	if v.IncompleteKind() == cue.ListKind {
 		it, err := v.List()
 		if err != nil {
 			return kind, fmt.Errorf("couldn't get list iterator for list kind")
@@ -35,11 +35,11 @@ func getUnderlyingKind(v cue.Value) (kind cue.Kind, err error) {
 		v = it.Value()
 	}
 
-	return v.Kind(), nil
+	return v.IncompleteKind(), nil
 }
 
 func getAvailableFieldsForValue(v cue.Value) (fields []string, err error) {
-	if v.Kind() == cue.ListKind {
+	if v.IncompleteKind() == cue.ListKind {
 		it, err := v.List()
 		if err != nil {
 			return nil, fmt.Errorf("couldn't get list iterator for list kind")
@@ -172,9 +172,9 @@ func CueValidate(query string, cueFile string, currentPath string) (tc *Typeahea
 
 type TypeaheadConfig struct {
 	String string           `json:"string"`
-	Parts  []*TypeaheadPart `json:"parts,omitempty"`
 	Type   PT_ParameterType `json:"type"`
 	Error  *string          `json:"error,omitempty"`
+	Parts  []*TypeaheadPart `json:"parts,omitempty"`
 }
 
 type TypeaheadPart struct {

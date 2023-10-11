@@ -19,7 +19,7 @@ type opFunction struct {
 	Params FunctionParameters
 }
 
-func (x *opFunction) Validate(rootValue, inputValue cue.Value) (part *TypeaheadPart, nextValue cue.Value, returnedType PT_ParameterType, requiredData []string, err error) {
+func (x *opFunction) Validate(rootValue, inputValue cue.Value) (part *TypeaheadPart, returnedType PT_ParameterType, requiredData []string, err error) {
 	part = &TypeaheadPart{
 		String:       x.Sprint(0), //todo: is this correct?
 		FunctionName: (*string)(&x.FunctionType),
@@ -55,7 +55,7 @@ func (x *opFunction) Validate(rootValue, inputValue cue.Value) (part *TypeaheadP
 		switch t := p.(type) {
 		case *FP_Path:
 			var rd []string
-			param.Parts, returnedType, rd, err = t.Value.Validate(rootValue, nextValue)
+			param.Parts, returnedType, rd, err = t.Value.Validate(rootValue, inputValue)
 			if err != nil {
 				errMessage := err.Error()
 				param.Error = &errMessage

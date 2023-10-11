@@ -14,7 +14,9 @@ type opPathIdent struct {
 }
 
 func (x *opPathIdent) Validate(inputValue cue.Value) (part *TypeaheadPart, nextValue cue.Value, returnedType PT_ParameterType, err error) {
-	part = &TypeaheadPart{}
+	part = &TypeaheadPart{
+		Available: &TypeaheadAvailable{},
+	}
 
 	// find the cue value for this ident
 	part.String = x.IdentName
@@ -25,7 +27,7 @@ func (x *opPathIdent) Validate(inputValue cue.Value) (part *TypeaheadPart, nextV
 		part.Error = &errMessage
 	}
 
-	k := nextValue.Kind()
+	k := nextValue.IncompleteKind()
 	wasList := false
 loop:
 	switch k {
@@ -47,7 +49,11 @@ loop:
 		extraFuncs := getAvailableFunctionsForKind(PT_NumberOrArrayOfNumbers, true)
 		part.Available.Functions = append(part.Available.Functions, extraFuncs...)
 	case cue.StructKind:
-		returnedType = PT_Object
+		if wasList {
+			returnedType = PT_Array
+		} else {
+			returnedType = PT_Object
+		}
 		part.Available.Functions = getAvailableFunctionsForKind(PT_Object, false)
 
 		// Get the fields for the next value:
@@ -55,6 +61,8 @@ loop:
 		if err != nil {
 			return nil, nextValue, returnedType, fmt.Errorf("couldn't get fields for struct type to build filters: %w", err)
 		}
+
+		part.Available.Fields = availableFields
 
 		for _, af := range availableFields {
 			part.Available.Filters = append(part.Available.Filters, "@."+af)
@@ -76,6 +84,9 @@ loop:
 		goto loop
 
 	default:
+		sels := nextValue.IncompleteKind()
+		fmt.Println(sels)
+
 		return nil, nextValue, returnedType, fmt.Errorf("encountered unknown cue kind %v", k)
 	}
 

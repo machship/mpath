@@ -85,12 +85,25 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value) (parts []*TypeaheadPar
 				foundFirstIdent = true
 			}
 
+			thisKind := nextValue.IncompleteKind()
+			if thisKind == cue.ListKind {
+				var it cue.Iterator
+				it, err = nextValue.List()
+				if err != nil {
+					err = fmt.Errorf("couldn't get list iterator for list kind")
+					return
+				}
+				it.Next()
+				nextValue = it.Value()
+			}
+
 			// opPathIdent Validate advances the next value
 			part, nextValue, returnedType, err = t.Validate(nextValue)
 			if err != nil {
 				return nil, returnedType, nil, err
 			}
 			parts = append(parts, part)
+			part.Type = returnedType
 
 		case *opFilter:
 			// opFilter Validate does not advance the next value
@@ -100,7 +113,7 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value) (parts []*TypeaheadPar
 			}
 
 		case *opFunction:
-			part, nextValue, returnedType, rd, err = t.Validate(rootValue, nextValue)
+			part, returnedType, rd, err = t.Validate(rootValue, nextValue)
 			if err != nil {
 				shouldErrorRemaining = true
 			}
