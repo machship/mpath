@@ -29,7 +29,7 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []st
 		rootPart.Type = PT_Root
 	case false:
 		rootPart.String = "@"
-		rootPart.Type = PT_UnhandledNeedsToBeFixed
+		rootPart.Type = PT_ElementRoot
 	}
 
 	availableFields, err := getAvailableFieldsForValue(nextValue)

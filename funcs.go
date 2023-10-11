@@ -921,11 +921,11 @@ const (
 	PT_ArrayOfNumbers         PT_ParameterType = "ArrayOfNumbers"
 	PT_Variadic               PT_ParameterType = "Variadic"
 	PT_NumberOrArrayOfNumbers PT_ParameterType = "NumberOrArrayOfNumbers"
+	PT_Any                    PT_ParameterType = "Any"
+	PT_Object                 PT_ParameterType = "Object"
+	PT_Root                   PT_ParameterType = "Root"
+	PT_ElementRoot            PT_ParameterType = "ElementRoot"
 	// PT_SameAsInput            PT_ParameterType = "SameAsInput"
-	PT_Any                     PT_ParameterType = "Any"
-	PT_Object                  PT_ParameterType = "Object"
-	PT_Root                    PT_ParameterType = "Root"
-	PT_UnhandledNeedsToBeFixed PT_ParameterType = "UnhandledNeedsToBeFixed"
 )
 
 func (pt PT_ParameterType) IsPrimitive() bool {
