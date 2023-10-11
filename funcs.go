@@ -919,11 +919,13 @@ const (
 	PT_Number                 PT_ParameterType = "Number"
 	PT_Array                  PT_ParameterType = "Array"
 	PT_ArrayOfNumbers         PT_ParameterType = "ArrayOfNumbers"
+	PT_Variadic               PT_ParameterType = "Variadic"
 	PT_NumberOrArrayOfNumbers PT_ParameterType = "NumberOrArrayOfNumbers"
 	// PT_SameAsInput            PT_ParameterType = "SameAsInput"
-	PT_Any    PT_ParameterType = "Any"
-	PT_Object PT_ParameterType = "Object"
-	PT_Root   PT_ParameterType = "Root"
+	PT_Any                     PT_ParameterType = "Any"
+	PT_Object                  PT_ParameterType = "Object"
+	PT_Root                    PT_ParameterType = "Root"
+	PT_UnhandledNeedsToBeFixed PT_ParameterType = "UnhandledNeedsToBeFixed"
 )
 
 func (pt PT_ParameterType) IsPrimitive() bool {
@@ -941,7 +943,9 @@ type FunctionDescriptor struct {
 	Params      []ParameterDescriptor `json:"params"`
 	ValidOn     PT_ParameterType      `json:"validOn"`
 	Returns     PT_ParameterType      `json:"returns"`
-	fn          func(rtParams FunctionParameters, val any) (any, error)
+
+	fn              func(rtParams FunctionParameters, val any) (any, error)
+	explanationFunc func(tf TypeaheadFunction) string
 }
 
 func (fd FunctionDescriptor) GetParamAtPosition(position int) (pd ParameterDescriptor, err error) {
@@ -1023,6 +1027,13 @@ var (
 			Returns:     PT_Boolean,
 			ValidOn:     PT_Any,
 			fn:          func_Equal,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("is equal to {{%s}}", tf.FunctionParameters[0].String)
+			},
 		},
 		FT_NotEqual: {
 			Name:        FT_NotEqual,
@@ -1031,6 +1042,13 @@ var (
 			Returns:     PT_Boolean,
 			ValidOn:     PT_Any,
 			fn:          func_NotEqual,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("is not equal to {{%s}}", tf.FunctionParameters[0].String)
+			},
 		},
 		FT_Less: {
 			Name:        FT_Less,
@@ -1039,6 +1057,13 @@ var (
 			Returns:     PT_Boolean,
 			ValidOn:     PT_Number,
 			fn:          func_Less,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("is less than {{%s}}", tf.FunctionParameters[0].String)
+			},
 		},
 		FT_LessOrEqual: {
 			Name:        FT_LessOrEqual,
@@ -1047,6 +1072,13 @@ var (
 			Returns:     PT_Boolean,
 			ValidOn:     PT_Number,
 			fn:          func_LessOrEqual,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("is less than or equal to {{%s}}", tf.FunctionParameters[0].String)
+			},
 		},
 		FT_Greater: {
 			Name:        FT_Greater,
@@ -1055,6 +1087,13 @@ var (
 			Returns:     PT_Boolean,
 			ValidOn:     PT_Number,
 			fn:          func_Greater,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("is greater than {{%s}}", tf.FunctionParameters[0].String)
+			},
 		},
 		FT_GreaterOrEqual: {
 			Name:        FT_GreaterOrEqual,
@@ -1063,6 +1102,13 @@ var (
 			Returns:     PT_Boolean,
 			ValidOn:     PT_Number,
 			fn:          func_GreaterOrEqual,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("is greater than or equal to {{%s}}", tf.FunctionParameters[0].String)
+			},
 		},
 		FT_Contains: {
 			Name:        FT_Contains,
@@ -1071,6 +1117,13 @@ var (
 			Returns:     PT_Boolean,
 			ValidOn:     PT_String,
 			fn:          func_Contains,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("contains the string {{%s}}", tf.FunctionParameters[0].String)
+			},
 		},
 		FT_NotContains: {
 			Name:        FT_NotContains,
@@ -1079,6 +1132,13 @@ var (
 			Returns:     PT_Boolean,
 			ValidOn:     PT_String,
 			fn:          func_NotContains,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("does not contain the string {{%s}}", tf.FunctionParameters[0].String)
+			},
 		},
 		FT_Prefix: {
 			Name:        FT_Prefix,
@@ -1087,6 +1147,13 @@ var (
 			Returns:     PT_Boolean,
 			ValidOn:     PT_String,
 			fn:          func_Prefix,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("has the prefix {{%s}}", tf.FunctionParameters[0].String)
+			},
 		},
 		FT_NotPrefix: {
 			Name:        FT_NotPrefix,
@@ -1095,6 +1162,13 @@ var (
 			Returns:     PT_Boolean,
 			ValidOn:     PT_String,
 			fn:          func_NotPrefix,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("does not have the prefix {{%s}}", tf.FunctionParameters[0].String)
+			},
 		},
 		FT_Suffix: {
 			Name:        FT_Suffix,
@@ -1103,6 +1177,13 @@ var (
 			Returns:     PT_Boolean,
 			ValidOn:     PT_String,
 			fn:          func_Suffix,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("has the suffix {{%s}}", tf.FunctionParameters[0].String)
+			},
 		},
 		FT_NotSuffix: {
 			Name:        FT_NotSuffix,
@@ -1111,6 +1192,13 @@ var (
 			Returns:     PT_Boolean,
 			ValidOn:     PT_String,
 			fn:          func_NotSuffix,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("does not have the suffix {{%s}}", tf.FunctionParameters[0].String)
+			},
 		},
 		FT_Count: {
 			Name:        FT_Count,
@@ -1119,6 +1207,9 @@ var (
 			Returns:     PT_Number,
 			ValidOn:     PT_Array,
 			fn:          func_Count,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				return fmt.Sprintf("count of the number of elements")
+			},
 		},
 		FT_First: {
 			Name:        FT_First,
@@ -1127,6 +1218,9 @@ var (
 			Returns:     PT_Any,
 			ValidOn:     PT_Array,
 			fn:          func_First,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				return fmt.Sprintf("the first element")
+			},
 		},
 		FT_Last: {
 			Name:        FT_Last,
@@ -1135,6 +1229,9 @@ var (
 			Returns:     PT_Any,
 			ValidOn:     PT_Array,
 			fn:          func_Last,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				return fmt.Sprintf("the last element")
+			},
 		},
 		FT_Index: {
 			Name:        FT_Index,
@@ -1143,6 +1240,13 @@ var (
 			Returns:     PT_Any,
 			ValidOn:     PT_Array,
 			fn:          func_Index,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("the element at index {{%s}}", tf.FunctionParameters[0].String)
+			},
 		},
 		FT_Any: {
 			Name:        FT_Any,
@@ -1151,6 +1255,9 @@ var (
 			Returns:     PT_Boolean,
 			ValidOn:     PT_Array,
 			fn:          func_Any,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				return fmt.Sprintf("has any elements")
+			},
 		},
 		FT_Sum: {
 			Name:        FT_Sum,
@@ -1159,6 +1266,13 @@ var (
 			Returns:     PT_Number,
 			ValidOn:     PT_NumberOrArrayOfNumbers,
 			fn:          func_Sum,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) > 0 {
+					return fmt.Sprintf("the sum of all elements")
+				}
+
+				return fmt.Sprintf("the sum of all elements, including %s", tf.FunctionParameters[0].String)
+			},
 		},
 		FT_Average: {
 			Name:        FT_Average,
@@ -1167,6 +1281,13 @@ var (
 			Returns:     PT_Number,
 			ValidOn:     PT_NumberOrArrayOfNumbers,
 			fn:          func_Average,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) > 0 {
+					return fmt.Sprintf("the average of all elements")
+				}
+
+				return fmt.Sprintf("the average of all elements, including %s", tf.FunctionParameters[0].String)
+			},
 		},
 		FT_Maximum: {
 			Name:        FT_Maximum,
@@ -1175,6 +1296,13 @@ var (
 			Returns:     PT_Number,
 			ValidOn:     PT_NumberOrArrayOfNumbers,
 			fn:          func_Maximum,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) > 0 {
+					return fmt.Sprintf("the maximum of all elements")
+				}
+
+				return fmt.Sprintf("the maximum of all elements, including %s", tf.FunctionParameters[0].String)
+			},
 		},
 		FT_Minimum: {
 			Name:        FT_Minimum,
@@ -1183,6 +1311,13 @@ var (
 			Returns:     PT_Number,
 			ValidOn:     PT_NumberOrArrayOfNumbers,
 			fn:          func_Minimum,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) > 0 {
+					return fmt.Sprintf("the minimum of all elements")
+				}
+
+				return fmt.Sprintf("the minimum of all elements, including %s", tf.FunctionParameters[0].String)
+			},
 		},
 		FT_Add: {
 			Name:        FT_Add,
@@ -1191,6 +1326,13 @@ var (
 			Returns:     PT_Number,
 			ValidOn:     PT_Number,
 			fn:          func_Add,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("adds {{%s}}", tf.FunctionParameters[0].String)
+			},
 		},
 		FT_Subtract: {
 			Name:        FT_Subtract,
@@ -1199,6 +1341,13 @@ var (
 			Returns:     PT_Number,
 			ValidOn:     PT_Number,
 			fn:          func_Subtract,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("subtracts {{%s}}", tf.FunctionParameters[0].String)
+			},
 		},
 		FT_Divide: {
 			Name:        FT_Divide,
@@ -1207,6 +1356,13 @@ var (
 			Returns:     PT_Number,
 			ValidOn:     PT_Number,
 			fn:          func_Divide,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("divides by {{%s}}", tf.FunctionParameters[0].String)
+			},
 		},
 		FT_Multiply: {
 			Name:        FT_Multiply,
@@ -1215,6 +1371,13 @@ var (
 			Returns:     PT_Number,
 			ValidOn:     PT_Number,
 			fn:          func_Multiply,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("multiplies by {{%s}}", tf.FunctionParameters[0].String)
+			},
 		},
 		FT_Modulo: {
 			Name:        FT_Modulo,
@@ -1223,14 +1386,34 @@ var (
 			Returns:     PT_Number,
 			ValidOn:     PT_Number,
 			fn:          func_Modulo,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("the remainder after dividing by {{%s}}", tf.FunctionParameters[0].String)
+			},
 		},
 		FT_AnyOf: {
 			Name:        FT_AnyOf,
 			Description: "Checks whether the value matches any of the parameters",
-			Params:      singleParam("the values to match against", PT_Array),
+			Params:      singleParam("the values to match against", PT_Variadic),
 			Returns:     PT_Boolean,
 			ValidOn:     PT_Any,
 			fn:          func_AnyOf,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) == 0 {
+					return "needs parameters"
+				}
+
+				paramStrs := []string{}
+
+				for _, ps := range tf.FunctionParameters {
+					paramStrs = append(paramStrs, fmt.Sprintf("{{%s}}", ps.String))
+				}
+
+				return fmt.Sprintf("checks whether the value is any of %s", strings.Join(paramStrs, ", "))
+			},
 		},
 		FT_TrimRight: {
 			Name:        FT_TrimRight,
@@ -1239,6 +1422,13 @@ var (
 			Returns:     PT_String,
 			ValidOn:     PT_String,
 			fn:          func_TrimRight,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("trims the right {{%s}} characters", tf.FunctionParameters[0].String)
+			},
 		},
 		FT_TrimLeft: {
 			Name:        FT_TrimLeft,
@@ -1247,6 +1437,13 @@ var (
 			Returns:     PT_String,
 			ValidOn:     PT_String,
 			fn:          func_TrimLeft,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("trims the left {{%s}} characters", tf.FunctionParameters[0].String)
+			},
 		},
 		FT_Right: {
 			Name:        FT_Right,
@@ -1255,6 +1452,13 @@ var (
 			Returns:     PT_String,
 			ValidOn:     PT_String,
 			fn:          func_Right,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("keeps only the right {{%s}} characters", tf.FunctionParameters[0].String)
+			},
 		},
 		FT_Left: {
 			Name:        FT_Left,
@@ -1263,6 +1467,13 @@ var (
 			Returns:     PT_String,
 			ValidOn:     PT_String,
 			fn:          func_Left,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("keeps only the left {{%s}} characters", tf.FunctionParameters[0].String)
+			},
 		},
 		FT_DoesMatchRegex: {
 			Name:        FT_DoesMatchRegex,
@@ -1271,6 +1482,13 @@ var (
 			Returns:     PT_Boolean,
 			ValidOn:     PT_String,
 			fn:          func_DoesMatchRegex,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("checks whether matches the regex {{%s}}", tf.FunctionParameters[0].String)
+			},
 		},
 		FT_ReplaceRegex: {
 			Name:        FT_ReplaceRegex,
@@ -1288,6 +1506,13 @@ var (
 			Returns: PT_String,
 			ValidOn: PT_String,
 			fn:      func_ReplaceRegex,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) != 2 {
+					return ""
+				}
+
+				return fmt.Sprintf("replaces any matches for the regex {{%s}} with {{%s}}", tf.FunctionParameters[0].String, tf.FunctionParameters[1].String)
+			},
 		},
 		FT_ReplaceAll: {
 			Name:        FT_ReplaceAll,
@@ -1305,6 +1530,13 @@ var (
 			Returns: PT_String,
 			ValidOn: PT_String,
 			fn:      func_ReplaceAll,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) != 2 {
+					return ""
+				}
+
+				return fmt.Sprintf("replaces any matches of {{%s}} with {{%s}}", tf.FunctionParameters[0].String, tf.FunctionParameters[1].String)
+			},
 		},
 		FT_AsJSON: {
 			Name:        FT_AsJSON,
@@ -1313,6 +1545,9 @@ var (
 			Returns:     PT_String,
 			ValidOn:     PT_Any,
 			fn:          func_AsJSON,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				return fmt.Sprintf("converts to a JSON string")
+			},
 		},
 		FT_ParseJSON: {
 			Name:        FT_ParseJSON,
@@ -1321,6 +1556,9 @@ var (
 			Returns:     PT_Object,
 			ValidOn:     PT_String,
 			fn:          func_ParseJSON,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				return fmt.Sprintf("parses as JSON to become an object")
+			},
 		},
 		FT_ParseXML: {
 			Name:        FT_ParseXML,
@@ -1329,6 +1567,9 @@ var (
 			Returns:     PT_Object,
 			ValidOn:     PT_String,
 			fn:          func_ParseXML,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				return fmt.Sprintf("parses as XML to become an object")
+			},
 		},
 		FT_ParseYAML: {
 			Name:        FT_ParseYAML,
@@ -1337,6 +1578,9 @@ var (
 			Returns:     PT_Object,
 			ValidOn:     PT_String,
 			fn:          func_ParseYAML,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				return fmt.Sprintf("parses as YAML to become an object")
+			},
 		},
 		FT_ParseTOML: {
 			Name:        FT_ParseTOML,
@@ -1345,6 +1589,9 @@ var (
 			Returns:     PT_Object,
 			ValidOn:     PT_String,
 			fn:          func_ParseTOML,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				return fmt.Sprintf("parses as TOML to become an object")
+			},
 		},
 		FT_RemoveKeysByRegex: {
 			Name:        FT_RemoveKeysByRegex,
@@ -1353,6 +1600,13 @@ var (
 			Returns:     PT_Object,
 			ValidOn:     PT_Object,
 			fn:          func_RemoveKeysByRegex,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("removes keys matching regex {{%s}}", tf.FunctionParameters[0].String)
+			},
 		},
 		FT_RemoveKeysByPrefix: {
 			Name:        FT_RemoveKeysByPrefix,
@@ -1361,6 +1615,13 @@ var (
 			Returns:     PT_Object,
 			ValidOn:     PT_Object,
 			fn:          func_RemoveKeysByPrefix,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("removes any keys with prefix {{%s}}", tf.FunctionParameters[0].String)
+			},
 		},
 		FT_RemoveKeysBySuffix: {
 			Name:        FT_RemoveKeysBySuffix,
@@ -1369,6 +1630,13 @@ var (
 			Returns:     PT_Object,
 			ValidOn:     PT_Object,
 			fn:          func_RemoveKeysBySuffix,
+			explanationFunc: func(tf TypeaheadFunction) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("removes any keys with suffix {{%s}}", tf.FunctionParameters[0].String)
+			},
 		},
 	}
 )

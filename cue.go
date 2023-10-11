@@ -77,6 +77,112 @@ type RuntimeDataMap struct {
 	RequiredData []string
 }
 
+type BP_BasePath string
+
+const (
+	BP_Dependencies BP_BasePath = "_dependencies"
+	BP_Input        BP_BasePath = "_input"
+	BP_Variables    BP_BasePath = "_variables"
+)
+
+func getConcreteValuesForListOfStringValueAtPath(inputValue cue.Value, path string) (output []string, err error) {
+	foundValue, err := findValuePath(inputValue, path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find output in cue value: %w", err)
+	}
+
+	if dk := foundValue.Kind(); dk != cue.ListKind {
+		return nil, fmt.Errorf("output was of the wrong kind: wanted List")
+	}
+
+	uk, err := getUnderlyingKind(foundValue)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get underlying kind of output: %w", err)
+	}
+
+	if uk != cue.StringKind {
+		if uk == cue.BottomKind {
+			return
+		}
+
+		return nil, fmt.Errorf("output was of the wrong underlying kind: wanted String")
+	}
+
+	it, err := foundValue.List()
+	if err != nil {
+		return nil, fmt.Errorf("failed to access list of strings as cue List type: %w", err)
+	}
+
+	for it.Next() {
+		thisString, err := it.Value().String()
+		if err != nil {
+			return nil, fmt.Errorf("failed to access String for cue value: %w", err)
+		}
+
+		output = append(output, thisString)
+	}
+
+	return
+}
+
+func getBlockedRootFields(rootValue cue.Value, currentPath string) (blockedFields []string, err error) {
+	// Find the current path:
+	nextValue, err := findValuePath(rootValue, currentPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find currentPath in cue value: %w", err)
+	}
+
+	// We need to recursively get the dependencies of the currentPath
+	dependencies, err := getConcreteValuesForListOfStringValueAtPath(nextValue, string(BP_Dependencies))
+	if err != nil {
+		return nil, fmt.Errorf("failed to find dependencies in cue value: %w", err)
+	}
+
+	validFields := map[string]struct{}{
+		currentPath:          struct{}{},
+		string(BP_Input):     struct{}{},
+		string(BP_Variables): struct{}{},
+	}
+	for _, dep := range dependencies {
+		validFields[dep] = struct{}{}
+	}
+
+	var nextDependencies []string
+loop:
+	for _, d := range dependencies {
+		nextValue, err = findValuePath(rootValue, d)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find dependency '%s' in cue value: %w", d, err)
+		}
+
+		nextDependencies, err = getConcreteValuesForListOfStringValueAtPath(nextValue, string(BP_Dependencies))
+		if err != nil {
+			return nil, fmt.Errorf("failed to find nextDependencies in cue value: %w", err)
+		}
+
+		for _, dep := range nextDependencies {
+			validFields[dep] = struct{}{}
+		}
+	}
+	if len(nextDependencies) > 0 {
+		dependencies = nextDependencies
+		goto loop
+	}
+
+	allFields, err := getAvailableFieldsForValue(rootValue)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list fields in cue value: %w", err)
+	}
+
+	for _, fieldName := range allFields {
+		if _, ok := validFields[fieldName]; !ok {
+			blockedFields = append(blockedFields, fieldName)
+		}
+	}
+
+	return
+}
+
 // query: the mpath query string
 // cueFile: the cue file
 // currentPath: the id of the step for which this query is an input value, or if for the output, leave blank
@@ -93,33 +199,19 @@ func CueValidate(query string, cueFile string, currentPath string) (tc *Typeahea
 	}
 
 	// cue values are cached to ensure speed of execution as this method is expected to be hit many times
-	var v cue.Value
-	if v, ok = cueValueCache[cueFile]; !ok {
+	var rootValue cue.Value
+	if rootValue, ok = cueValueCache[cueFile]; !ok {
 		ctx := cuecontext.New()
-		v = ctx.CompileString(cueFile)
-		if v.Err() != nil {
-			return nil, nil, fmt.Errorf("failed to parse cue file: %w", v.Err())
+		rootValue = ctx.CompileString(cueFile)
+		if rootValue.Err() != nil {
+			return nil, nil, fmt.Errorf("failed to parse cue file: %w", rootValue.Err())
 		}
 	}
 
-	//// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ////
-	//// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ////
-	//// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ////
-
-	/*
-
-		//todo have completed forgot to strip out values that aren't available. //todo
-
-			Need a function to do this by walking up through the dependencies from the
-			currentPath input and effectively creating a new file.
-			Essentially, we need to strip out any base values in the cue file that aren't
-			in the prior dependencies, but must keep _input and _variables.
-
-	*/
-
-	//// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ////
-	//// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ////
-	//// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ////
+	blockedRootFields, err := getBlockedRootFields(rootValue, currentPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get blocked fields for rootValue: %w", err)
+	}
 
 	// If we get to this point, the mpath query and cueFile are both valid,
 	// thus the next steps are to walk through the "paths" in the returned AST
@@ -132,62 +224,79 @@ func CueValidate(query string, cueFile string, currentPath string) (tc *Typeahea
 	switch t := op.(type) {
 	case *opPath:
 		tc = &TypeaheadConfig{
-			String: op.Sprint(0), // todo: is this correct?
+			String: query, // todo: is this correct?
 		}
 
-		tc.Parts, tc.Type, requiredData, err = t.Validate(v, v)
-		if err != nil {
-			errMessage := err.Error()
-			tc.Error = &errMessage
+		parts, typ, rd, subErr := t.Validate(rootValue, rootValue, blockedRootFields)
+		if subErr != nil {
+			err = subErr
+			return
+		}
+
+		requiredData = rd
+		tc.Type = typ
+		for _, prt := range parts {
+			tc.Parts = append(tc.Parts, prt)
 		}
 
 	case *opLogicalOperation:
 		tc = &TypeaheadConfig{
-			String: op.Sprint(0), // todo: is this correct?
+			String: query, // todo: is this correct?
 		}
 
-		var err error
-		subOperator, subOperations, subRequiredData, err := t.Validate(v, v)
+		logicalOperation, subRequiredData, subErr := t.Validate(rootValue, rootValue, blockedRootFields)
 		if err != nil {
-			errMessage := err.Error()
-			tc.Error = &errMessage
+			err = subErr
+			return
 		}
 		requiredData = subRequiredData
 
-		tc.Parts = append(tc.Parts, &TypeaheadPart{
-			String:            op.Sprint(0),
-			Type:              PT_Boolean,
-			LogicalOperator:   subOperator,
-			LogicalOperations: subOperations,
-		})
+		tc.Parts = append(tc.Parts, logicalOperation)
 	}
 
 	rdm = &RuntimeDataMap{
-		String:       tc.String,
+		String:       query,
 		RequiredData: requiredData,
 	}
 
 	return
 }
 
+type CanBeAPart interface {
+	CanBeAPart()
+}
+
 type TypeaheadConfig struct {
 	String string           `json:"string"`
 	Type   PT_ParameterType `json:"type"`
 	Error  *string          `json:"error,omitempty"`
-	Parts  []*TypeaheadPart `json:"parts,omitempty"`
+	Parts  []CanBeAPart     `json:"parts,omitempty"`
 }
 
+func (x *TypeaheadConfig) CanBeAPart() {}
+
 type TypeaheadPart struct {
-	String            string                    `json:"string"`
-	Error             *string                   `json:"error,omitempty"`
-	FunctionName      *string                   `json:"functionName,omitempty"`
-	Type              PT_ParameterType          `json:"type"`
-	Available         *TypeaheadAvailable       `json:"available,omitempty"`
-	Filter            *TypeaheadFilter          `json:"filter,omitempty"`
-	Parameters        []*TypeaheadParameter     `json:"parameters,omitempty"`
-	LogicalOperator   *LOT_LogicalOperationType `json:"logicalOperationType,omitempty"`
-	LogicalOperations []*TypeaheadConfig        `json:"logicalOperations,omitempty"`
+	String           string                     `json:"string"`
+	Error            *string                    `json:"error,omitempty"`
+	Type             PT_ParameterType           `json:"type"`
+	Available        *TypeaheadAvailable        `json:"available,omitempty"`
+	Filter           *TypeaheadFilter           `json:"filter,omitempty"`
+	LogicalOperation *TypeaheadLogicalOperation `json:"logicalOperation,omitempty"`
 }
+
+func (x *TypeaheadPart) CanBeAPart() {}
+
+type TypeaheadFunction struct {
+	String              string                `json:"string"`
+	Error               *string               `json:"error,omitempty"`
+	Type                PT_ParameterType      `json:"type"`
+	Available           *TypeaheadAvailable   `json:"available,omitempty"`
+	FunctionName        *string               `json:"functionName,omitempty"`
+	FunctionExplanation *string               `json:"functionExplanation,omitempty"`
+	FunctionParameters  []*TypeaheadParameter `json:"functionParameters,omitempty"`
+}
+
+func (x *TypeaheadFunction) CanBeAPart() {}
 
 type TypeaheadAvailable struct {
 	Fields    []string `json:"fields,omitempty"`
@@ -196,16 +305,24 @@ type TypeaheadAvailable struct {
 }
 
 type TypeaheadFilter struct {
-	String            string                    `json:"string"`
-	Error             *string                   `json:"error,omitempty"`
-	LogicalOperator   *LOT_LogicalOperationType `json:"logicalOperationType,omitempty"`
-	LogicalOperations []*TypeaheadConfig        `json:"logicalOperations,omitempty"`
+	String           string                     `json:"string"`
+	Error            *string                    `json:"error,omitempty"`
+	LogicalOperation *TypeaheadLogicalOperation `json:"logicalOperation,omitempty"`
 }
+
+type TypeaheadLogicalOperation struct {
+	String          string                    `json:"string"`
+	Error           *string                   `json:"error,omitempty"`
+	LogicalOperator *LOT_LogicalOperationType `json:"logicalOperator,omitempty"`
+	Parts           []CanBeAPart              `json:"parts,omitempty"`
+}
+
+func (x *TypeaheadLogicalOperation) CanBeAPart() {}
 
 type TypeaheadParameter struct {
 	String    string              `json:"string"`
 	Error     *string             `json:"error,omitempty"`
-	Parts     []*TypeaheadPart    `json:"parts,omitempty"`
+	Parts     []CanBeAPart        `json:"parts,omitempty"`
 	Available *TypeaheadAvailable `json:"available,omitempty"`
 }
 

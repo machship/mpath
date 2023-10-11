@@ -1,7 +1,6 @@
 package mpath
 
 import (
-	"encoding/json"
 	"fmt"
 	"sort"
 	sc "text/scanner"
@@ -13,10 +12,14 @@ type opLogicalOperation struct {
 	IsFilter             bool
 	LogicalOperationType LOT_LogicalOperationType
 	Operations           []Operation
+	opCommon
 }
 
-func (x *opLogicalOperation) Validate(rootValue, nextValue cue.Value) (operator *LOT_LogicalOperationType, operations []*TypeaheadConfig, requiredData []string, err error) {
-	operator = &x.LogicalOperationType
+func (x *opLogicalOperation) Validate(rootValue, nextValue cue.Value, blockedRootFields []string) (logicalOperation *TypeaheadLogicalOperation, requiredData []string, err error) {
+	logicalOperation = &TypeaheadLogicalOperation{
+		String:          x.UserString(),
+		LogicalOperator: &x.LogicalOperationType,
+	}
 
 	rdMap := map[string]struct{}{}
 
@@ -24,12 +27,11 @@ func (x *opLogicalOperation) Validate(rootValue, nextValue cue.Value) (operator 
 		switch t := op.(type) {
 		case *opPath:
 			operation := &TypeaheadConfig{
-				String: op.Sprint(0), // todo: is this correct?
+				String: t.UserString(),
 			}
-			operations = append(operations, operation)
-
+			logicalOperation.Parts = append(logicalOperation.Parts, operation)
 			var rd []string
-			operation.Parts, operation.Type, rd, err = t.Validate(rootValue, nextValue)
+			operation.Parts, operation.Type, rd, err = t.Validate(rootValue, nextValue, blockedRootFields)
 			if err != nil {
 				errMessage := err.Error()
 				operation.Error = &errMessage
@@ -39,25 +41,17 @@ func (x *opLogicalOperation) Validate(rootValue, nextValue cue.Value) (operator 
 			}
 
 		case *opLogicalOperation:
-			operation := &TypeaheadConfig{
-				String: op.Sprint(0), // todo: is this correct?
-			}
-			subOperator, subOperations, rd, err := t.Validate(rootValue, nextValue)
+			subLogicalOperation, rd, err := t.Validate(rootValue, nextValue, blockedRootFields)
 			if err != nil {
 				errMessage := err.Error()
-				operation.Error = &errMessage
+				subLogicalOperation.Error = &errMessage
 				continue
 			}
 			for _, rdv := range rd {
 				rdMap[rdv] = struct{}{}
 			}
 
-			operation.Parts = append(operation.Parts, &TypeaheadPart{
-				String:            op.Sprint(0),
-				Type:              PT_Boolean,
-				LogicalOperator:   subOperator,
-				LogicalOperations: subOperations,
-			})
+			logicalOperation.Parts = append(logicalOperation.Parts, subLogicalOperation)
 		}
 	}
 
@@ -69,23 +63,11 @@ func (x *opLogicalOperation) Validate(rootValue, nextValue cue.Value) (operator 
 	return
 }
 
-func (x *opLogicalOperation) MarshalJSON() ([]byte, error) {
-	return json.Marshal(struct {
-		Type                 string `json:"_type"`
-		IsFilter             bool
-		LogicalOperationType LOT_LogicalOperationType
-		Operations           []Operation
-	}{
-		Type:                 "LogicalOperation",
-		IsFilter:             x.IsFilter,
-		LogicalOperationType: x.LogicalOperationType,
-		Operations:           x.Operations,
-	})
-}
-
 func (x *opLogicalOperation) addOpToOperationsAndParse(op Operation, s *scanner, r rune) (nextR rune, err error) {
 	x.Operations = append(x.Operations, op)
-	return op.Parse(s, r)
+	nextR, err = op.Parse(s, r)
+	x.userString += op.UserString()
+	return
 }
 
 func (x *opLogicalOperation) Type() OT_OpType { return OT_LogicalOperation }
@@ -180,10 +162,12 @@ func (x *opLogicalOperation) Parse(s *scanner, r rune) (nextR rune, err error) {
 	if !(r == '{' || r == '[') {
 		return r, erInvalid(s, '{', '[')
 	}
+	x.userString += string(r)
 	r = s.Scan()
 
 	tokenText := s.TokenText()
 	if r == sc.Ident && (tokenText == "AND" || tokenText == "OR") {
+		x.userString += tokenText
 		switch tokenText {
 		case "AND":
 			x.LogicalOperationType = LOT_And
@@ -205,6 +189,7 @@ func (x *opLogicalOperation) Parse(s *scanner, r rune) (nextR rune, err error) {
 
 		switch r {
 		case ',':
+			x.userString += string(r)
 			// This is the separator, we can move on
 			r = s.Scan()
 			continue
@@ -216,8 +201,12 @@ func (x *opLogicalOperation) Parse(s *scanner, r rune) (nextR rune, err error) {
 			// This is an opLogicalOperation
 			op = &opLogicalOperation{}
 		case '}', ']':
+			x.userString += string(r)
+
 			// This is the end of this logical operation
-			return s.Scan(), nil
+			r = s.Scan()
+
+			return r, nil
 		default:
 			return r, erInvalid(s)
 		}

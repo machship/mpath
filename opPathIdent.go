@@ -1,7 +1,6 @@
 package mpath
 
 import (
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -11,6 +10,7 @@ import (
 
 type opPathIdent struct {
 	IdentName string
+	opCommon
 }
 
 func (x *opPathIdent) Validate(inputValue cue.Value) (part *TypeaheadPart, nextValue cue.Value, returnedType PT_ParameterType, err error) {
@@ -19,7 +19,7 @@ func (x *opPathIdent) Validate(inputValue cue.Value) (part *TypeaheadPart, nextV
 	}
 
 	// find the cue value for this ident
-	part.String = x.IdentName
+	part.String = x.UserString()
 	part.Type = PT_Object
 	nextValue, err = findValuePath(inputValue, x.IdentName)
 	if err != nil {
@@ -41,20 +41,19 @@ loop:
 	case cue.NumberKind, cue.IntKind, cue.FloatKind:
 		if wasList {
 			returnedType = PT_ArrayOfNumbers
-			part.Available.Functions = getAvailableFunctionsForKind(PT_ArrayOfNumbers, false)
+			part.Available.Functions = append(part.Available.Functions, getAvailableFunctionsForKind(PT_ArrayOfNumbers, false)...)
 		} else {
 			returnedType = PT_Number
-			part.Available.Functions = getAvailableFunctionsForKind(PT_Number, false)
+			part.Available.Functions = append(part.Available.Functions, getAvailableFunctionsForKind(PT_Number, false)...)
 		}
-		extraFuncs := getAvailableFunctionsForKind(PT_NumberOrArrayOfNumbers, true)
-		part.Available.Functions = append(part.Available.Functions, extraFuncs...)
+		part.Available.Functions = append(part.Available.Functions, getAvailableFunctionsForKind(PT_NumberOrArrayOfNumbers, true)...)
 	case cue.StructKind:
 		if wasList {
 			returnedType = PT_Array
 		} else {
 			returnedType = PT_Object
 		}
-		part.Available.Functions = getAvailableFunctionsForKind(PT_Object, false)
+		part.Available.Functions = append(part.Available.Functions, getAvailableFunctionsForKind(PT_Object, false)...)
 
 		// Get the fields for the next value:
 		availableFields, err := getAvailableFieldsForValue(nextValue)
@@ -62,7 +61,9 @@ loop:
 			return nil, nextValue, returnedType, fmt.Errorf("couldn't get fields for struct type to build filters: %w", err)
 		}
 
-		part.Available.Fields = availableFields
+		if !wasList {
+			part.Available.Fields = availableFields
+		}
 
 		for _, af := range availableFields {
 			part.Available.Filters = append(part.Available.Filters, "@."+af)
@@ -74,6 +75,8 @@ loop:
 			part.Available.Functions = getAvailableFunctionsForKind(PT_Any, true)
 			return
 		}
+
+		part.Available.Functions = append(part.Available.Functions, getAvailableFunctionsForKind(PT_Array, true)...)
 
 		wasList = true
 		// Check what kind of array
@@ -91,16 +94,6 @@ loop:
 	}
 
 	return
-}
-
-func (x *opPathIdent) MarshalJSON() ([]byte, error) {
-	return json.Marshal(struct {
-		Type      string `json:"_type"`
-		IdentName string
-	}{
-		Type:      "PathIdent",
-		IdentName: x.IdentName,
-	})
 }
 
 func (x *opPathIdent) Type() OT_OpType { return OT_PathIdent }
@@ -159,6 +152,7 @@ func (x *opPathIdent) Do(currentData, _ any) (dataToUse any, err error) {
 }
 func (x *opPathIdent) Parse(s *scanner, r rune) (nextR rune, err error) {
 	x.IdentName = s.TokenText()
+	x.userString = x.IdentName
 
 	return s.Scan(), nil
 }

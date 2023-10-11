@@ -1,7 +1,6 @@
 package mpath
 
 import (
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -16,20 +15,21 @@ type opPath struct {
 	IsFilter          bool
 	MustEndInFunction bool
 	Operations        []Operation
+	opCommon
 }
 
-func (x *opPath) Validate(rootValue, nextValue cue.Value) (parts []*TypeaheadPart, returnedType PT_ParameterType, requiredData []string, err error) {
-	rootPart := &TypeaheadPart{
-		Type: PT_Root,
-	}
+func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []string) (parts []CanBeAPart, returnedType PT_ParameterType, requiredData []string, err error) {
+	rootPart := &TypeaheadPart{}
 
-	parts = []*TypeaheadPart{rootPart}
+	parts = []CanBeAPart{rootPart}
 
 	switch x.StartAtRoot {
 	case true:
 		rootPart.String = "$"
+		rootPart.Type = PT_Root
 	case false:
 		rootPart.String = "@"
+		rootPart.Type = PT_UnhandledNeedsToBeFixed
 	}
 
 	availableFields, err := getAvailableFieldsForValue(nextValue)
@@ -46,16 +46,16 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value) (parts []*TypeaheadPar
 	rdm := map[string]struct{}{}
 
 	var shouldErrorRemaining bool
-	var part *TypeaheadPart
+	var part CanBeAPart
 	var foundFirstIdent bool
 	for _, op := range x.Operations {
 		if shouldErrorRemaining {
 			var str string
 			switch t := op.(type) {
 			case *opPathIdent:
-				str = t.IdentName
+				str = t.UserString()
 			case *opFilter:
-				str = t.Sprint(0) // todo: is this correct?
+				str = t.UserString()
 			default:
 				continue
 			}
@@ -74,15 +74,26 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value) (parts []*TypeaheadPar
 			if returnedType.IsPrimitive() {
 				shouldErrorRemaining = true
 				errMessage := "cannot address into primitive value"
-				part = &TypeaheadPart{
-					String: t.IdentName,
+				parts = append(parts, &TypeaheadPart{
+					String: t.UserString(),
 					Error:  &errMessage,
-				}
+				})
+				continue
 			}
 
 			if !foundFirstIdent {
 				rdm[t.IdentName] = struct{}{}
 				foundFirstIdent = true
+				for _, brf := range blockedRootFields {
+					if t.IdentName == brf {
+						errMessage := fmt.Sprintf("field %s is not available", t.IdentName)
+						parts = append(parts, &TypeaheadPart{
+							String: t.UserString(),
+							Error:  &errMessage,
+						})
+						continue
+					}
+				}
 			}
 
 			thisKind := nextValue.IncompleteKind()
@@ -103,17 +114,17 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value) (parts []*TypeaheadPar
 				return nil, returnedType, nil, err
 			}
 			parts = append(parts, part)
-			part.Type = returnedType
+			part.(*TypeaheadPart).Type = returnedType
 
 		case *opFilter:
 			// opFilter Validate does not advance the next value
-			part.Filter, rd, err = t.Validate(rootValue, nextValue)
+			part.(*TypeaheadPart).Filter, rd, err = t.Validate(rootValue, nextValue, blockedRootFields)
 			if err != nil {
 				return nil, returnedType, nil, err
 			}
 
 		case *opFunction:
-			part, returnedType, rd, err = t.Validate(rootValue, nextValue)
+			part, returnedType, rd, err = t.Validate(rootValue, nextValue, blockedRootFields)
 			if err != nil {
 				shouldErrorRemaining = true
 			}
@@ -132,25 +143,11 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value) (parts []*TypeaheadPar
 	return
 }
 
-func (x *opPath) MarshalJSON() ([]byte, error) {
-	return json.Marshal(struct {
-		Type              string `json:"_type"`
-		StartAtRoot       bool
-		IsFilter          bool
-		MustEndInFunction bool
-		Operations        []Operation
-	}{
-		Type:              "Path",
-		StartAtRoot:       x.StartAtRoot,
-		IsFilter:          x.IsFilter,
-		MustEndInFunction: x.MustEndInFunction,
-		Operations:        x.Operations,
-	})
-}
-
 func (x *opPath) addOpToOperationsAndParse(op Operation, s *scanner, r rune) (nextR rune, err error) {
 	x.Operations = append(x.Operations, op)
-	return op.Parse(s, r)
+	nextR, err = op.Parse(s, r)
+	x.userString += op.UserString()
+	return
 }
 
 func (x *opPath) Type() OT_OpType { return OT_Path }
@@ -248,6 +245,7 @@ func (x *opPath) Parse(s *scanner, r rune) (nextR rune, err error) {
 	default:
 		return r, erInvalid(s, '$', '@')
 	}
+	x.userString += string(r)
 
 	r = s.Scan()
 
@@ -259,11 +257,17 @@ func (x *opPath) Parse(s *scanner, r rune) (nextR rune, err error) {
 
 		switch r {
 		case '.':
+			x.userString += string(r)
 			// This is the separator, we can move on
 			r = s.Scan()
 			continue
 
 		case ',', ')', ']', '}':
+			switch r {
+			case ',', ')':
+				x.userString += string(r)
+			}
+
 			// This should mean we are finished the path
 			if x.MustEndInFunction {
 				if len(x.Operations) > 0 && x.Operations[len(x.Operations)-1].Type() == OT_Function {
@@ -290,6 +294,7 @@ func (x *opPath) Parse(s *scanner, r rune) (nextR rune, err error) {
 			}
 
 		case '[':
+			x.userString += string(r)
 			// This is a filter
 			op = &opFilter{}
 

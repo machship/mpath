@@ -1,7 +1,6 @@
 package mpath
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"cuelang.org/go/cue"
@@ -9,16 +8,17 @@ import (
 
 type opFilter struct {
 	LogicalOperation *opLogicalOperation
+	opCommon
 }
 
-func (x *opFilter) Validate(rootValue, inputValue cue.Value) (filter *TypeaheadFilter, requiredData []string, err error) {
+func (x *opFilter) Validate(rootValue, inputValue cue.Value, blockedRootFields []string) (filter *TypeaheadFilter, requiredData []string, err error) {
 	filter = &TypeaheadFilter{
-		String: x.Sprint(0), // todo: is this right?
+		String: x.UserString(),
 	}
-
 	if inputValue.Kind() != cue.ListKind {
 		errMessage := "not a list; only lists can be filtered"
 		filter.Error = &errMessage
+		return
 	}
 
 	it, err := inputValue.List()
@@ -29,23 +29,13 @@ func (x *opFilter) Validate(rootValue, inputValue cue.Value) (filter *TypeaheadF
 	it.Next()
 	nextValue := it.Value()
 
-	filter.LogicalOperator, filter.LogicalOperations, requiredData, err = x.LogicalOperation.Validate(rootValue, nextValue)
+	filter.LogicalOperation, requiredData, err = x.LogicalOperation.Validate(rootValue, nextValue, blockedRootFields)
 	if err != nil {
 		errMessage := err.Error()
 		filter.Error = &errMessage
 	}
 
 	return
-}
-
-func (x *opFilter) MarshalJSON() ([]byte, error) {
-	return json.Marshal(struct {
-		Type             string `json:"_type"`
-		LogicalOperation *opLogicalOperation
-	}{
-		Type:             "Filter",
-		LogicalOperation: x.LogicalOperation,
-	})
 }
 
 func (x *opFilter) Type() OT_OpType { return OT_Filter }
@@ -105,5 +95,9 @@ func (x *opFilter) Parse(s *scanner, r rune) (nextR rune, err error) {
 
 	x.LogicalOperation = &opLogicalOperation{}
 	x.LogicalOperation.IsFilter = true
-	return x.LogicalOperation.Parse(s, r)
+	nextR, err = x.LogicalOperation.Parse(s, r)
+	if x.LogicalOperation != nil {
+		x.userString += x.LogicalOperation.UserString()
+	}
+	return
 }

@@ -17,11 +17,12 @@ type opFunction struct {
 	FunctionType FT_FunctionType
 
 	Params FunctionParameters
+	opCommon
 }
 
-func (x *opFunction) Validate(rootValue, inputValue cue.Value) (part *TypeaheadPart, returnedType PT_ParameterType, requiredData []string, err error) {
-	part = &TypeaheadPart{
-		String:       x.Sprint(0), //todo: is this correct?
+func (x *opFunction) Validate(rootValue, inputValue cue.Value, blockedRootFields []string) (part *TypeaheadFunction, returnedType PT_ParameterType, requiredData []string, err error) {
+	part = &TypeaheadFunction{
+		String:       x.UserString(),
 		FunctionName: (*string)(&x.FunctionType),
 	}
 
@@ -34,28 +35,26 @@ func (x *opFunction) Validate(rootValue, inputValue cue.Value) (part *TypeaheadP
 	}
 
 	returnedType = fd.Returns
+	part.Type = fd.Returns
+
+	var isVariadic bool
+	if len(fd.Params) == 1 && fd.Params[0].Type == PT_Variadic {
+		isVariadic = true
+	}
 
 	rdm := map[string]struct{}{}
 
-	part.Parameters = []*TypeaheadParameter{}
+	part.FunctionParameters = []*TypeaheadParameter{}
 	for i, p := range x.Params {
 		param := &TypeaheadParameter{
 			String: p.String(),
 		}
-		part.Parameters = append(part.Parameters, param)
-
-		//get the parameter at this position
-		pd, err := fd.GetParamAtPosition(i)
-		if err != nil {
-			errMessage := err.Error()
-			param.Error = &errMessage
-			continue
-		}
+		part.FunctionParameters = append(part.FunctionParameters, param)
 
 		switch t := p.(type) {
 		case *FP_Path:
 			var rd []string
-			param.Parts, returnedType, rd, err = t.Value.Validate(rootValue, inputValue)
+			param.Parts, _, rd, err = t.Value.Validate(rootValue, inputValue, blockedRootFields)
 			if err != nil {
 				errMessage := err.Error()
 				param.Error = &errMessage
@@ -64,13 +63,22 @@ func (x *opFunction) Validate(rootValue, inputValue cue.Value) (part *TypeaheadP
 			for _, rdv := range rd {
 				rdm[rdv] = struct{}{}
 			}
+		}
 
-		case *FP_Bool:
-			returnedType = PT_Boolean
-		case *FP_Number:
-			returnedType = PT_Number
-		case *FP_String:
-			returnedType = PT_String
+		if isVariadic {
+			// This means that there can be as many parameters as you want
+			// todo: we should validate that variadic parameters are the same type
+			// as the type that the function was called on (e.g. AnyOf needs parameters
+			// that are the same as the input to the function)
+			continue
+		}
+
+		//get the parameter at this position
+		pd, err := fd.GetParamAtPosition(i)
+		if err != nil {
+			errMessage := err.Error()
+			param.Error = &errMessage
+			continue
 		}
 
 		// Check that the returned type is appropriate
@@ -85,21 +93,10 @@ func (x *opFunction) Validate(rootValue, inputValue cue.Value) (part *TypeaheadP
 	}
 	sort.Strings(requiredData)
 
-	return
-}
+	explanation := fd.explanationFunc(*part)
+	part.FunctionExplanation = &explanation
 
-func (x *opFunction) MarshalJSON() ([]byte, error) {
-	return json.Marshal(struct {
-		Type         string `json:"_type"`
-		FunctionName string `json:"_functionName"`
-		FunctionType FT_FunctionType
-		Params       []FunctionParameter
-	}{
-		Type:         "Function",
-		FunctionName: ft_GetName(x.FunctionType),
-		FunctionType: x.FunctionType,
-		Params:       x.Params,
-	})
+	return
 }
 
 func (x *opFunction) Type() OT_OpType { return OT_Function }
@@ -216,8 +213,10 @@ func (x *opFunction) Parse(s *scanner, r rune) (nextR rune, err error) {
 	if err != nil {
 		return r, erAt(s, err.Error())
 	}
+	x.userString += string(x.FunctionType)
 
 	r = s.Scan()
+	x.userString += string(r)
 
 	for {
 		if r == sc.EOF {
@@ -226,10 +225,12 @@ func (x *opFunction) Parse(s *scanner, r rune) (nextR rune, err error) {
 
 		switch r {
 		case ',':
+			x.userString += string(r)
 			// This is the separator, we can move on
 			r = s.Scan()
 			continue
 		case ')':
+			x.userString += string(r)
 			// This is the end of the function
 			return s.Scan(), nil
 		case '$', '@':
@@ -240,12 +241,17 @@ func (x *opFunction) Parse(s *scanner, r rune) (nextR rune, err error) {
 			continue
 		case sc.String, sc.RawString, sc.Char:
 			tt := s.TokenText()
+			x.userString += string(tt)
+
 			if len(tt) >= 2 && strings.HasPrefix(tt, `"`) && strings.HasSuffix(tt, `"`) {
 				tt = tt[1 : len(tt)-1]
 			}
 			x.Params = append(x.Params, &FP_String{tt})
 		case sc.Float, sc.Int:
-			f, err := strconv.ParseFloat(s.TokenText(), 64)
+			tt := s.TokenText()
+			x.userString += string(tt)
+
+			f, err := strconv.ParseFloat(tt, 64)
 			if err != nil {
 				// This should not be possible, but handle it just in case
 				return r, erAt(s, "couldn't convert number as string '%s' to number", s.TokenText())
@@ -253,10 +259,13 @@ func (x *opFunction) Parse(s *scanner, r rune) (nextR rune, err error) {
 			x.Params = append(x.Params, &FP_Number{decimal.NewFromFloat(f)})
 		case sc.Ident:
 			//must be bool
-			switch s.TokenText() {
+			tt := s.TokenText()
+			switch tt {
 			case "true":
+				x.userString += tt
 				x.Params = append(x.Params, &FP_Bool{true})
 			case "false":
+				x.userString += tt
 				x.Params = append(x.Params, &FP_Bool{false})
 			default:
 				return r, erInvalid(s)
@@ -271,7 +280,9 @@ func (x *opFunction) Parse(s *scanner, r rune) (nextR rune, err error) {
 func (x *opFunction) addOpToParamsAndParse(s *scanner, r rune) (nextR rune, err error) {
 	op := &opPath{}
 	x.Params = append(x.Params, &FP_Path{op})
-	return op.Parse(s, r)
+	nextR, err = op.Parse(s, r)
+	x.userString += op.UserString()
+	return
 }
 
 type FunctionParameters []FunctionParameter
@@ -385,8 +396,7 @@ type FP_Path struct {
 }
 
 func (p FP_Path) String() string {
-	//return strings.TrimLeft(p.Value.Sprint(0), "\t")
-	return p.Value.Sprint(0) // todo: is this correct?
+	return p.Value.UserString()
 }
 
 func (x *FP_Path) IsFuncParam() {}

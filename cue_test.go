@@ -42,13 +42,14 @@ _variables: {
 
 	var err error
 
-	tc, rdm, err := CueValidate(`$._b.results[@.example.Equal("something")].example`, cueString1, "_c")
-	// tc, rdm, err := CueValidate(`$._b.results.First().example`, cueString1, "_c")
+	tc, rdm, err := CueValidate(`$._b.results[{AND,{OR,@.example.Equal("or op")},@.example.Equal("something")}].example.AnyOf("bob","jones")`, cueString1, "_c")
+	// tc, rdm, err := CueValidate(`$._b.results[@.example.Equal("something")].example`, cueString1, "_c")
+	// tc, rdm, err := CueValidate(`$._b.results.First().example.AnyOf("bob","jones")`, cueString1, "_c")
 	if err != nil {
 		t.Error(err)
 	}
 
-	jstr, _ := json.MarshalIndent(tc, "", "  ")
+	jstr, _ := json.MarshalIndent(tc, "", "\t")
 	clipboard.WriteAll(string(jstr))
 
 	_ = tc

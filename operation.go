@@ -9,7 +9,15 @@ type Operation interface {
 	Sprint(depth int) (out string)
 	ForPath(current []string) (outCurrent []string, additional [][]string, shouldStopLoop bool)
 	Type() OT_OpType
-	MarshalJSON() ([]byte, error)
+	UserString() string
+}
+
+type opCommon struct {
+	userString string
+}
+
+func (x opCommon) UserString() string {
+	return x.userString
 }
 
 ////////////////////////////////////////////////////////////////////////////////////
