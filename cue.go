@@ -8,6 +8,85 @@ import (
 	"cuelang.org/go/cue/cuecontext"
 )
 
+// query: the mpath query string
+// cueFile: the cue file
+// currentPath: the id of the step for which this query is an input value, or if for the output, leave blank
+func CueValidate(query, cueFile, currentPath string) (tc *TypeaheadConfig, rdm *RuntimeDataMap, err error) {
+	var ok bool
+
+	// mpath operations are cached to ensure speed of execution as this method is expected to be hit many times
+	var op Operation
+	if op, ok = mpathOpCache[query]; !ok {
+		op, _, err = ParseString(query)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to parse mpath query: %w", err)
+		}
+	}
+
+	// cue values are cached to ensure speed of execution as this method is expected to be hit many times
+	var rootValue cue.Value
+	if rootValue, ok = cueValueCache[cueFile]; !ok {
+		ctx := cuecontext.New()
+		rootValue = ctx.CompileString(cueFile)
+		if rootValue.Err() != nil {
+			return nil, nil, fmt.Errorf("failed to parse cue file: %w", rootValue.Err())
+		}
+	}
+
+	blockedRootFields, err := getBlockedRootFields(rootValue, currentPath)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to get blocked fields for rootValue: %w", err)
+	}
+
+	// If we get to this point, the mpath query and cueFile are both valid,
+	// thus the next steps are to walk through the "paths" in the returned AST
+	// and doubt check that they are valid given the cueFile.
+
+	// We will "walk" through the AST and build a TypeaheadConfig as we go
+	// NB: topOp can only be an opPath or opLogicalOperation
+
+	var requiredData []string
+	switch t := op.(type) {
+	case *opPath:
+		tc = &TypeaheadConfig{
+			String: query,
+		}
+
+		parts, typ, rd, subErr := t.Validate(rootValue, rootValue, blockedRootFields)
+		if subErr != nil {
+			err = subErr
+			return
+		}
+
+		requiredData = rd
+		tc.Type = typ
+		for _, prt := range parts {
+			tc.Parts = append(tc.Parts, prt)
+		}
+
+	case *opLogicalOperation:
+		tc = &TypeaheadConfig{
+			String: query,
+		}
+
+		logicalOperation, subRequiredData, subErr := t.Validate(rootValue, rootValue, blockedRootFields)
+		if err != nil {
+			err = subErr
+			return
+		}
+		requiredData = subRequiredData
+
+		tc.Parts = append(tc.Parts, logicalOperation)
+	}
+
+	rdm = &RuntimeDataMap{
+		String:       query,
+		RequiredData: requiredData,
+	}
+
+	return
+}
+
 func findValuePath(inputValue cue.Value, name string) (outputValue cue.Value, err error) {
 	var selector cue.Selector
 	switch strings.HasPrefix(name, "_") {
@@ -178,85 +257,6 @@ loop:
 		if _, ok := validFields[fieldName]; !ok {
 			blockedFields = append(blockedFields, fieldName)
 		}
-	}
-
-	return
-}
-
-// query: the mpath query string
-// cueFile: the cue file
-// currentPath: the id of the step for which this query is an input value, or if for the output, leave blank
-func CueValidate(query string, cueFile string, currentPath string) (tc *TypeaheadConfig, rdm *RuntimeDataMap, err error) {
-	var ok bool
-
-	// mpath operations are cached to ensure speed of execution as this method is expected to be hit many times
-	var op Operation
-	if op, ok = mpathOpCache[query]; !ok {
-		op, _, err = ParseString(query)
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed to parse mpath query: %w", err)
-		}
-	}
-
-	// cue values are cached to ensure speed of execution as this method is expected to be hit many times
-	var rootValue cue.Value
-	if rootValue, ok = cueValueCache[cueFile]; !ok {
-		ctx := cuecontext.New()
-		rootValue = ctx.CompileString(cueFile)
-		if rootValue.Err() != nil {
-			return nil, nil, fmt.Errorf("failed to parse cue file: %w", rootValue.Err())
-		}
-	}
-
-	blockedRootFields, err := getBlockedRootFields(rootValue, currentPath)
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get blocked fields for rootValue: %w", err)
-	}
-
-	// If we get to this point, the mpath query and cueFile are both valid,
-	// thus the next steps are to walk through the "paths" in the returned AST
-	// and doubt check that they are valid given the cueFile.
-
-	// We will "walk" through the AST and build a TypeaheadConfig as we go
-	// NB: topOp can only be an opPath or opLogicalOperation
-
-	var requiredData []string
-	switch t := op.(type) {
-	case *opPath:
-		tc = &TypeaheadConfig{
-			String: query,
-		}
-
-		parts, typ, rd, subErr := t.Validate(rootValue, rootValue, blockedRootFields)
-		if subErr != nil {
-			err = subErr
-			return
-		}
-
-		requiredData = rd
-		tc.Type = typ
-		for _, prt := range parts {
-			tc.Parts = append(tc.Parts, prt)
-		}
-
-	case *opLogicalOperation:
-		tc = &TypeaheadConfig{
-			String: query,
-		}
-
-		logicalOperation, subRequiredData, subErr := t.Validate(rootValue, rootValue, blockedRootFields)
-		if err != nil {
-			err = subErr
-			return
-		}
-		requiredData = subRequiredData
-
-		tc.Parts = append(tc.Parts, logicalOperation)
-	}
-
-	rdm = &RuntimeDataMap{
-		String:       query,
-		RequiredData: requiredData,
 	}
 
 	return
