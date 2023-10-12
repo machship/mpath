@@ -937,6 +937,15 @@ func (pt PT_ParameterType) IsPrimitive() bool {
 	return false
 }
 
+func (pt PT_ParameterType) IsArray() bool {
+	switch pt {
+	case PT_Array, PT_ArrayOfNumbers:
+		return true
+	}
+
+	return false
+}
+
 type FunctionDescriptor struct {
 	Name        FT_FunctionType       `json:"name"`
 	Description string                `json:"description"`
@@ -1638,6 +1647,14 @@ var (
 				return fmt.Sprintf("removes any keys with suffix {{%s}}", tf.FunctionParameters[0].String)
 			},
 		},
+		/*
+			- Functions to add:
+				-	Not()
+					This will invert a boolean
+				-	Select(fieldName string)
+					This will return an array of [whatever the field type is] by selecting
+					only that field from an array of objects
+		*/
 	}
 )
 

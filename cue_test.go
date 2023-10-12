@@ -42,11 +42,12 @@ _variables: {
 
 	var err error
 
+	bigQuery := `$._b.results[{AND,{OR,@.example.Equal("or op")},@.example.Equal("something")}].example.AnyOf("bob","jones")`
+
 	// tc, rdm, err := CueValidate(`$._b.results[{AND,{OR,@.example.Equal("or op")},@.example.Equal("something")}].example.AnyOf("bob","jones")`, cueString1, "_c")
 	// tc, rdm, err := CueValidate(`$._b.results[@.example.Equal("something")].example`, cueString1, "_c")
 	// tc, rdm, err := CueValidate(`$._b.results.First().example.AnyOf("bob","jones")`, cueString1, "_c")
-	tc, rdm, err := CueValidate(`$._b.results[@.example.Equal("something"), @.example.NotEqual("something")]`, cueString1, "_c")
-
+	tc, rdm, err := CueValidate(bigQuery, cueString1, "_c")
 	if err != nil {
 		t.Error(err)
 	}

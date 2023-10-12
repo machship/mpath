@@ -81,6 +81,16 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []st
 				continue
 			}
 
+			if returnedType.IsArray() {
+				shouldErrorRemaining = true
+				errMessage := "cannot address into array value"
+				parts = append(parts, &TypeaheadPart{
+					String: t.UserString(),
+					Error:  &errMessage,
+				})
+				continue
+			}
+
 			if !foundFirstIdent {
 				rdm[t.IdentName] = struct{}{}
 				foundFirstIdent = true

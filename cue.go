@@ -224,7 +224,7 @@ func CueValidate(query string, cueFile string, currentPath string) (tc *Typeahea
 	switch t := op.(type) {
 	case *opPath:
 		tc = &TypeaheadConfig{
-			String: query, // todo: is this correct?
+			String: query,
 		}
 
 		parts, typ, rd, subErr := t.Validate(rootValue, rootValue, blockedRootFields)
@@ -241,7 +241,7 @@ func CueValidate(query string, cueFile string, currentPath string) (tc *Typeahea
 
 	case *opLogicalOperation:
 		tc = &TypeaheadConfig{
-			String: query, // todo: is this correct?
+			String: query,
 		}
 
 		logicalOperation, subRequiredData, subErr := t.Validate(rootValue, rootValue, blockedRootFields)
@@ -325,34 +325,3 @@ type TypeaheadParameter struct {
 	Parts     []CanBeAPart        `json:"parts,omitempty"`
 	Available *TypeaheadAvailable `json:"available,omitempty"`
 }
-
-/*
-	todo:
-			- 	Need to recognise structure of OpenAPI 3.0 structure
-				and build AST style model to compare mpath query to, or
-				we need to use cue directly to query the structure
-
-			-	If mpath gets to an unrecognised part of the path (not including an errored function name),
-				we need to return suggestions for available options based on the current point in the
-				structure, along with valid available functions. This will effectively provide
-				a typeahead structure.
-
-
-			-	mpath method:
-
-			// query: the mpath query string
-			// cueFile: the cue file
-			// currentPath: the id of the step for which this query is an input value, or if for the output, leave blank
-			func validateForTypeahead(query string, cueFile string, currentPath string) (tc TypeaheadConfig, err error) {
-				...
-			}
-
-			type TypeaheadConfig struct {
-				...
-			}
-
-			func validateForRuntime(query string, cueFile string, currentPath string) (rdm RuntimeDataMap, err error) {
-				//
-				...
-			}
-*/

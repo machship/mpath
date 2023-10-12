@@ -43,7 +43,6 @@ var (
 					ch != '<' &&
 					ch != '|' &&
 					ch != '!' &&
-					// ch != '#' && //todo: implement this as a global variable
 					ch != ';' &&
 					ch != '/' &&
 					ch != '*' &&
