@@ -86,6 +86,11 @@ loop:
 		}
 		goto loop
 
+	case cue.BottomKind:
+		errMessage := "unable to find field"
+		part.Error = &errMessage
+		return
+
 	default:
 		sels := nextValue.IncompleteKind()
 		fmt.Println(sels)
