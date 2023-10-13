@@ -10,6 +10,10 @@ import (
 	"github.com/google/uuid"
 )
 
+func ListFunctions() (funcs map[FT_FunctionType]FunctionDescriptor) {
+	return funcMap
+}
+
 // query: the mpath query string
 // cueFile: the cue file
 // currentPath: the id of the step for which this query is an input value, or if for the output, leave blank
