@@ -7,7 +7,6 @@ import (
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
-	"github.com/atotto/clipboard"
 	"github.com/google/uuid"
 )
 
@@ -113,7 +112,6 @@ func findValuePath(inputValue cue.Value, name string) (outputValue cue.Value, er
 
 	outputValue = inputValue.LookupPath(cue.MakePath(selector))
 	if outputValue.Err() != nil {
-		clipboard.WriteAll(fmt.Sprint(inputValue))
 		return outputValue, fmt.Errorf("unknown field '%s'", name)
 	}
 
