@@ -23,6 +23,13 @@ _b: {
 		result:     float  
 		"example": string
 		"bool": bool
+		array: [{
+			object: {
+				nested: {
+					boolean: bool
+				}
+			}
+		}]
 	}]
 	_dependencies: ["_a"]
 }
@@ -46,19 +53,19 @@ _variables: {
 	var err error
 
 	// bigQuery := `$._b.results[{AND,{OR,@.example.Equal("or op")},@.example.Equal("something")}].example.AnyOf("bob","jones")`
-	// bigQuery := `
-	// {
-	// 	OR,
-	// 	$._a.result.Multiply(12).GreaterOrEqual($._input.num),
-	// 	$._b.results[
-	// 		AND,
-	// 		@.example.Equal("Something"),
-	// 		@.example.NotEqual("Test")
-	// 	].First().array.First().object.nested.boolean.Equal(true)
-	// }
-	// `
+	bigQuery := `
+	{
+		OR,
+		$._a.result.Multiply(12).GreaterOrEqual($._input.num),
+		$._b.results[
+			AND,
+			@.example.Equal("Something"),
+			@.example.NotEqual("Test")
+		].First().array.First().object.nested.boolean.Equal(true)
+	}
+	`
 	// bigQuery := `$._b.results[@.bool].Any()`
-	bigQuery := `$._b.results[@.bool].First().Multiply(12).GreaterOrEqual($._input.num)`
+	// bigQuery := `$._b.results[@.bool].First().Multiply(12).GreaterOrEqual($._input.num)`
 	tc, rdm, err := CueValidate(bigQuery, cueString1, "_c")
 
 	// tc, rdm, err := CueValidate(`{OR,$._b.results.First().bool}`, cueString1, "_c")

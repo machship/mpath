@@ -27,6 +27,7 @@ func (x *opPathIdent) Validate(inputValue cue.Value) (part *TypeaheadPart, nextV
 	if err != nil {
 		errMessage := err.Error()
 		part.Error = &errMessage
+		err = nil
 	}
 
 	k := nextValue.IncompleteKind()
