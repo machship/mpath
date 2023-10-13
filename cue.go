@@ -44,14 +44,11 @@ func CueValidate(query, cueFile, currentPath string) (tc CanBeAPart, rdm *Runtim
 	// thus the next steps are to walk through the "paths" in the returned AST
 	// and doubt check that they are valid given the cueFile.
 
-	// We will "walk" through the AST and build a TypeaheadConfig as we go
-	// NB: topOp can only be an opPath or opLogicalOperation
-
 	var requiredData []string
 	switch t := op.(type) {
 	case *opPath:
-		ptc := &TypeaheadPath{
-			typeaheadPathFields: typeaheadPathFields{
+		ptc := &Path{
+			pathFields: pathFields{
 				String: query,
 			},
 		}
@@ -68,8 +65,8 @@ func CueValidate(query, cueFile, currentPath string) (tc CanBeAPart, rdm *Runtim
 		tc = ptc
 
 	case *opLogicalOperation:
-		tc = &TypeaheadPath{
-			typeaheadPathFields: typeaheadPathFields{
+		tc = &Path{
+			pathFields: pathFields{
 				String: query,
 			},
 		}
@@ -283,146 +280,146 @@ type CanBeAPart interface {
 	ReturnType() PT_ParameterType
 }
 
-type typeaheadPathFields struct {
+type pathFields struct {
 	String string           `json:"string"`
 	Type   PT_ParameterType `json:"type"`
 	Error  *string          `json:"error,omitempty"`
 	Parts  []CanBeAPart     `json:"parts,omitempty"`
 }
 
-type TypeaheadPath struct {
-	typeaheadPathFields
+type Path struct {
+	pathFields
 }
 
-func (x *TypeaheadPath) CanBeAPart() {}
-func (x *TypeaheadPath) ReturnType() PT_ParameterType {
+func (x *Path) CanBeAPart() {}
+func (x *Path) ReturnType() PT_ParameterType {
 	return x.Type
 }
-func (x *TypeaheadPath) PartType() string {
-	return "TypeaheadPath"
+func (x *Path) PartType() string {
+	return "Path"
 }
-func (x *TypeaheadPath) MarshalJSON() ([]byte, error) {
+func (x *Path) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
 		ID       string `json:"id"`
 		PartType string `json:"partType"`
-		typeaheadPathFields
+		pathFields
 	}{
-		ID:                  uuid.New().String(),
-		PartType:            x.PartType(),
-		typeaheadPathFields: x.typeaheadPathFields,
+		ID:         uuid.New().String(),
+		PartType:   x.PartType(),
+		pathFields: x.pathFields,
 	})
 }
 
-type typeaheadPathIdentFields struct {
-	String          string              `json:"string"`
-	Error           *string             `json:"error,omitempty"`
-	Type            PT_ParameterType    `json:"type"`
-	Available       *TypeaheadAvailable `json:"available,omitempty"`
-	TypeaheadFilter *TypeaheadFilter    `json:"typeaheadFilter,omitempty"`
+type pathIdentFields struct {
+	String    string           `json:"string"`
+	Error     *string          `json:"error,omitempty"`
+	Type      PT_ParameterType `json:"type"`
+	Available *Available       `json:"available,omitempty"`
+	Filter    *Filter          `json:"filter,omitempty"`
 }
 
-type TypeaheadPathIdent struct {
-	typeaheadPathIdentFields
+type PathIdent struct {
+	pathIdentFields
 }
 
-func (x *TypeaheadPathIdent) CanBeAPart() {}
-func (x *TypeaheadPathIdent) ReturnType() PT_ParameterType {
+func (x *PathIdent) CanBeAPart() {}
+func (x *PathIdent) ReturnType() PT_ParameterType {
 	return x.Type
 }
-func (x *TypeaheadPathIdent) PartType() string {
-	return "TypeaheadPathIdent"
+func (x *PathIdent) PartType() string {
+	return "PathIdent"
 }
-func (x *TypeaheadPathIdent) MarshalJSON() ([]byte, error) {
+func (x *PathIdent) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
 		ID       string `json:"id"`
 		PartType string `json:"partType"`
-		typeaheadPathIdentFields
+		pathIdentFields
 	}{
-		ID:                       uuid.New().String(),
-		PartType:                 x.PartType(),
-		typeaheadPathIdentFields: x.typeaheadPathIdentFields,
+		ID:              uuid.New().String(),
+		PartType:        x.PartType(),
+		pathIdentFields: x.pathIdentFields,
 	})
 }
 
-type typeaheadFunctionFields struct {
-	String              string                `json:"string"`
-	Error               *string               `json:"error,omitempty"`
-	Type                PT_ParameterType      `json:"type"`
-	Available           *TypeaheadAvailable   `json:"available,omitempty"`
-	FunctionName        *string               `json:"functionName,omitempty"`
-	FunctionExplanation *string               `json:"functionExplanation,omitempty"`
-	FunctionParameters  []*TypeaheadParameter `json:"functionParameters,omitempty"`
+type functionFields struct {
+	String              string               `json:"string"`
+	Error               *string              `json:"error,omitempty"`
+	Type                PT_ParameterType     `json:"type"`
+	Available           *Available           `json:"available,omitempty"`
+	FunctionName        *string              `json:"functionName,omitempty"`
+	FunctionExplanation *string              `json:"functionExplanation,omitempty"`
+	FunctionParameters  []*FunctionParameter `json:"functionParameters,omitempty"`
 }
 
-type TypeaheadFunction struct {
-	typeaheadFunctionFields
+type Function struct {
+	functionFields
 }
 
-func (x *TypeaheadFunction) CanBeAPart() {}
-func (x *TypeaheadFunction) ReturnType() PT_ParameterType {
+func (x *Function) CanBeAPart() {}
+func (x *Function) ReturnType() PT_ParameterType {
 	return x.Type
 }
-func (x *TypeaheadFunction) PartType() string {
-	return "TypeaheadFunction"
+func (x *Function) PartType() string {
+	return "Function"
 }
-func (x *TypeaheadFunction) MarshalJSON() ([]byte, error) {
+func (x *Function) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
 		ID       string `json:"id"`
 		PartType string `json:"partType"`
-		typeaheadFunctionFields
+		functionFields
 	}{
-		ID:                      uuid.New().String(),
-		PartType:                x.PartType(),
-		typeaheadFunctionFields: x.typeaheadFunctionFields,
+		ID:             uuid.New().String(),
+		PartType:       x.PartType(),
+		functionFields: x.functionFields,
 	})
 }
 
-type TypeaheadAvailable struct {
+type Available struct {
 	Fields    []string `json:"fields,omitempty"`
 	Functions []string `json:"functions,omitempty"`
 	Filters   []string `json:"filters,omitempty"`
 }
 
-type TypeaheadFilter struct {
-	String           string                     `json:"string"`
-	Error            *string                    `json:"error,omitempty"`
-	LogicalOperation *TypeaheadLogicalOperation `json:"logicalOperation,omitempty"`
+type Filter struct {
+	String           string            `json:"string"`
+	Error            *string           `json:"error,omitempty"`
+	LogicalOperation *LogicalOperation `json:"logicalOperation,omitempty"`
 }
 
-type typeaheadLogicalOperationFields struct {
+type logicalOperationFields struct {
 	String          string                    `json:"string"`
 	Error           *string                   `json:"error,omitempty"`
 	LogicalOperator *LOT_LogicalOperationType `json:"logicalOperator,omitempty"`
 	Parts           []CanBeAPart              `json:"parts,omitempty"`
 }
 
-type TypeaheadLogicalOperation struct {
-	typeaheadLogicalOperationFields
+type LogicalOperation struct {
+	logicalOperationFields
 }
 
-func (x *TypeaheadLogicalOperation) CanBeAPart() {}
-func (x *TypeaheadLogicalOperation) ReturnType() PT_ParameterType {
+func (x *LogicalOperation) CanBeAPart() {}
+func (x *LogicalOperation) ReturnType() PT_ParameterType {
 	return PT_Boolean
 }
-func (x *TypeaheadLogicalOperation) PartType() string {
-	return "TypeaheadLogicalOperation"
+func (x *LogicalOperation) PartType() string {
+	return "LogicalOperation"
 }
-func (x *TypeaheadLogicalOperation) MarshalJSON() ([]byte, error) {
+func (x *LogicalOperation) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
 		ID       string `json:"id"`
 		PartType string `json:"partType"`
-		typeaheadLogicalOperationFields
+		logicalOperationFields
 	}{
-		ID:                              uuid.New().String(),
-		PartType:                        x.PartType(),
-		typeaheadLogicalOperationFields: x.typeaheadLogicalOperationFields,
+		ID:                     uuid.New().String(),
+		PartType:               x.PartType(),
+		logicalOperationFields: x.logicalOperationFields,
 	})
 }
 
-type TypeaheadParameter struct {
-	String    string              `json:"string"`
-	Type      PT_ParameterType    `json:"type"`
-	Error     *string             `json:"error,omitempty"`
-	Parts     []CanBeAPart        `json:"parts,omitempty"`
-	Available *TypeaheadAvailable `json:"available,omitempty"`
+type FunctionParameter struct {
+	String    string           `json:"string"`
+	Type      PT_ParameterType `json:"type"`
+	Error     *string          `json:"error,omitempty"`
+	Parts     []CanBeAPart     `json:"parts,omitempty"`
+	Available *Available       `json:"available,omitempty"`
 }

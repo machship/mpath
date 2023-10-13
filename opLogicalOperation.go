@@ -15,9 +15,9 @@ type opLogicalOperation struct {
 	opCommon
 }
 
-func (x *opLogicalOperation) Validate(rootValue, nextValue cue.Value, blockedRootFields []string) (logicalOperation *TypeaheadLogicalOperation, requiredData []string, err error) {
-	logicalOperation = &TypeaheadLogicalOperation{
-		typeaheadLogicalOperationFields: typeaheadLogicalOperationFields{
+func (x *opLogicalOperation) Validate(rootValue, nextValue cue.Value, blockedRootFields []string) (logicalOperation *LogicalOperation, requiredData []string, err error) {
+	logicalOperation = &LogicalOperation{
+		logicalOperationFields: logicalOperationFields{
 			String:          x.UserString(),
 			LogicalOperator: &x.LogicalOperationType,
 		},
@@ -28,8 +28,8 @@ func (x *opLogicalOperation) Validate(rootValue, nextValue cue.Value, blockedRoo
 	for _, op := range x.Operations {
 		switch t := op.(type) {
 		case *opPath:
-			operation := &TypeaheadPath{
-				typeaheadPathFields: typeaheadPathFields{
+			operation := &Path{
+				pathFields: pathFields{
 					String: t.UserString(),
 				},
 			}

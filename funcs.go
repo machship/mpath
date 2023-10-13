@@ -15,7 +15,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-func paramsGetFirstOfAny(rtParams FunctionParameters) (val any, err error) {
+func paramsGetFirstOfAny(rtParams FunctionParameterTypes) (val any, err error) {
 	if got, ok := rtParams.checkLengthOfParams(1); !ok {
 		return nil, fmt.Errorf("expected %d params, got %d", 1, got)
 	}
@@ -27,7 +27,7 @@ func paramsGetFirstOfAny(rtParams FunctionParameters) (val any, err error) {
 	return nil, fmt.Errorf("no parameters found")
 }
 
-func paramsGetFirstOfNumber(rtParams FunctionParameters) (val decimal.Decimal, err error) {
+func paramsGetFirstOfNumber(rtParams FunctionParameterTypes) (val decimal.Decimal, err error) {
 	if got, ok := rtParams.checkLengthOfParams(1); !ok {
 		return val, fmt.Errorf("expected %d params, got %d", 1, got)
 	}
@@ -45,7 +45,7 @@ func paramsGetFirstOfNumber(rtParams FunctionParameters) (val decimal.Decimal, e
 	return val, fmt.Errorf("no number parameter found")
 }
 
-func paramsGetFirstOfString(rtParams FunctionParameters) (val string, err error) {
+func paramsGetFirstOfString(rtParams FunctionParameterTypes) (val string, err error) {
 	if got, ok := rtParams.checkLengthOfParams(1); !ok {
 		return val, fmt.Errorf("expected %d params, got %d", 1, got)
 	}
@@ -57,7 +57,7 @@ func paramsGetFirstOfString(rtParams FunctionParameters) (val string, err error)
 	return val, fmt.Errorf("no string parameter found")
 }
 
-func paramsGetAll(rtParams FunctionParameters) (val []any, err error) {
+func paramsGetAll(rtParams FunctionParameterTypes) (val []any, err error) {
 	for _, p := range rtParams.Numbers() {
 		val = append(val, p.Value)
 	}
@@ -73,7 +73,7 @@ func paramsGetAll(rtParams FunctionParameters) (val []any, err error) {
 	return
 }
 
-func (rtParams *FunctionParameters) checkLengthOfParams(allowed int) (got int, ok bool) {
+func (rtParams *FunctionParameterTypes) checkLengthOfParams(allowed int) (got int, ok bool) {
 	for _, p := range *rtParams {
 		switch p.(type) {
 		case *FP_Path:
@@ -103,7 +103,7 @@ func errNumParams(name FT_FunctionType, expected, got int) error {
 
 const FT_Equal FT_FunctionType = "Equal"
 
-func func_Equal(rtParams FunctionParameters, val any) (any, error) {
+func func_Equal(rtParams FunctionParameterTypes, val any) (any, error) {
 	param, err := paramsGetFirstOfAny(rtParams)
 	if err != nil {
 		return errBool(FT_Equal, err)
@@ -123,7 +123,7 @@ func func_Equal(rtParams FunctionParameters, val any) (any, error) {
 
 const FT_NotEqual FT_FunctionType = "NotEqual"
 
-func func_NotEqual(rtParams FunctionParameters, val any) (any, error) {
+func func_NotEqual(rtParams FunctionParameterTypes, val any) (any, error) {
 	param, err := paramsGetFirstOfAny(rtParams)
 	if err != nil {
 		return errBool(FT_NotEqual, err)
@@ -141,7 +141,7 @@ func func_NotEqual(rtParams FunctionParameters, val any) (any, error) {
 	return val != param, nil
 }
 
-func decimalBoolFunc(rtParams FunctionParameters, val any, fn func(d1, d2 decimal.Decimal) bool, fnName FT_FunctionType) (bool, error) {
+func decimalBoolFunc(rtParams FunctionParameterTypes, val any, fn func(d1, d2 decimal.Decimal) bool, fnName FT_FunctionType) (bool, error) {
 	param, err := paramsGetFirstOfNumber(rtParams)
 	if err != nil {
 		return errBool(fnName, err)
@@ -156,7 +156,7 @@ func decimalBoolFunc(rtParams FunctionParameters, val any, fn func(d1, d2 decima
 
 const FT_Less FT_FunctionType = "Less"
 
-func func_Less(rtParams FunctionParameters, val any) (any, error) {
+func func_Less(rtParams FunctionParameterTypes, val any) (any, error) {
 	return decimalBoolFunc(rtParams, val, func(d1, d2 decimal.Decimal) bool {
 		return d1.LessThan(d2)
 	}, FT_Less)
@@ -164,7 +164,7 @@ func func_Less(rtParams FunctionParameters, val any) (any, error) {
 
 const FT_LessOrEqual FT_FunctionType = "LessOrEqual"
 
-func func_LessOrEqual(rtParams FunctionParameters, val any) (any, error) {
+func func_LessOrEqual(rtParams FunctionParameterTypes, val any) (any, error) {
 	return decimalBoolFunc(rtParams, val, func(d1, d2 decimal.Decimal) bool {
 		return d1.LessThanOrEqual(d2)
 	}, FT_LessOrEqual)
@@ -172,7 +172,7 @@ func func_LessOrEqual(rtParams FunctionParameters, val any) (any, error) {
 
 const FT_Greater FT_FunctionType = "Greater"
 
-func func_Greater(rtParams FunctionParameters, val any) (any, error) {
+func func_Greater(rtParams FunctionParameterTypes, val any) (any, error) {
 	return decimalBoolFunc(rtParams, val, func(d1, d2 decimal.Decimal) bool {
 		return d1.GreaterThan(d2)
 	}, FT_Greater)
@@ -180,13 +180,13 @@ func func_Greater(rtParams FunctionParameters, val any) (any, error) {
 
 const FT_GreaterOrEqual FT_FunctionType = "GreaterOrEqual"
 
-func func_GreaterOrEqual(rtParams FunctionParameters, val any) (any, error) {
+func func_GreaterOrEqual(rtParams FunctionParameterTypes, val any) (any, error) {
 	return decimalBoolFunc(rtParams, val, func(d1, d2 decimal.Decimal) bool {
 		return d1.GreaterThanOrEqual(d2)
 	}, FT_GreaterOrEqual)
 }
 
-func stringBoolFunc(rtParams FunctionParameters, val any, fn func(string, string) bool, invert bool, fnName FT_FunctionType) (bool, error) {
+func stringBoolFunc(rtParams FunctionParameterTypes, val any, fn func(string, string) bool, invert bool, fnName FT_FunctionType) (bool, error) {
 	param, err := paramsGetFirstOfString(rtParams)
 	if err != nil {
 		return errBool(fnName, err)
@@ -207,43 +207,43 @@ func stringBoolFunc(rtParams FunctionParameters, val any, fn func(string, string
 
 const FT_Contains FT_FunctionType = "Contains"
 
-func func_Contains(rtParams FunctionParameters, val any) (any, error) {
+func func_Contains(rtParams FunctionParameterTypes, val any) (any, error) {
 	return stringBoolFunc(rtParams, val, strings.Contains, false, FT_Contains)
 }
 
 const FT_NotContains FT_FunctionType = "NotContains"
 
-func func_NotContains(rtParams FunctionParameters, val any) (any, error) {
+func func_NotContains(rtParams FunctionParameterTypes, val any) (any, error) {
 	return stringBoolFunc(rtParams, val, strings.Contains, true, FT_NotContains)
 }
 
 const FT_Prefix FT_FunctionType = "Prefix"
 
-func func_Prefix(rtParams FunctionParameters, val any) (any, error) {
+func func_Prefix(rtParams FunctionParameterTypes, val any) (any, error) {
 	return stringBoolFunc(rtParams, val, strings.HasPrefix, false, FT_Prefix)
 }
 
 const FT_NotPrefix FT_FunctionType = "NotPrefix"
 
-func func_NotPrefix(rtParams FunctionParameters, val any) (any, error) {
+func func_NotPrefix(rtParams FunctionParameterTypes, val any) (any, error) {
 	return stringBoolFunc(rtParams, val, strings.HasPrefix, true, FT_NotPrefix)
 }
 
 const FT_Suffix FT_FunctionType = "Suffix"
 
-func func_Suffix(rtParams FunctionParameters, val any) (any, error) {
+func func_Suffix(rtParams FunctionParameterTypes, val any) (any, error) {
 	return stringBoolFunc(rtParams, val, strings.HasSuffix, false, FT_Suffix)
 }
 
 const FT_NotSuffix FT_FunctionType = "NotSuffix"
 
-func func_NotSuffix(rtParams FunctionParameters, val any) (any, error) {
+func func_NotSuffix(rtParams FunctionParameterTypes, val any) (any, error) {
 	return stringBoolFunc(rtParams, val, strings.HasSuffix, true, FT_NotSuffix)
 }
 
 const FT_Count FT_FunctionType = "Count"
 
-func func_Count(rtParams FunctionParameters, val any) (any, error) {
+func func_Count(rtParams FunctionParameterTypes, val any) (any, error) {
 	if got, ok := rtParams.checkLengthOfParams(0); !ok {
 		return decimal.Zero, fmt.Errorf("(%s) expected %d params, got %d", FT_Count, 0, got)
 	}
@@ -268,7 +268,7 @@ func func_Count(rtParams FunctionParameters, val any) (any, error) {
 
 const FT_Any FT_FunctionType = "Any"
 
-func func_Any(rtParams FunctionParameters, val any) (any, error) {
+func func_Any(rtParams FunctionParameterTypes, val any) (any, error) {
 	if got, ok := rtParams.checkLengthOfParams(0); !ok {
 		return false, errNumParams(FT_Any, 0, got)
 	}
@@ -295,7 +295,7 @@ func func_Any(rtParams FunctionParameters, val any) (any, error) {
 
 const FT_First FT_FunctionType = "First"
 
-func func_First(rtParams FunctionParameters, val any) (any, error) {
+func func_First(rtParams FunctionParameterTypes, val any) (any, error) {
 	if got, ok := rtParams.checkLengthOfParams(0); !ok {
 		return false, errNumParams(FT_First, 0, got)
 	}
@@ -324,7 +324,7 @@ func func_First(rtParams FunctionParameters, val any) (any, error) {
 
 const FT_Last FT_FunctionType = "Last"
 
-func func_Last(rtParams FunctionParameters, val any) (any, error) {
+func func_Last(rtParams FunctionParameterTypes, val any) (any, error) {
 	if got, ok := rtParams.checkLengthOfParams(0); !ok {
 		return false, errNumParams(FT_Last, 0, got)
 	}
@@ -353,7 +353,7 @@ func func_Last(rtParams FunctionParameters, val any) (any, error) {
 
 const FT_Index FT_FunctionType = "Index"
 
-func func_Index(rtParams FunctionParameters, val any) (any, error) {
+func func_Index(rtParams FunctionParameterTypes, val any) (any, error) {
 	param, err := paramsGetFirstOfNumber(rtParams)
 	if err != nil {
 		return errBool(FT_Index, err)
@@ -381,7 +381,7 @@ func func_Index(rtParams FunctionParameters, val any) (any, error) {
 	return false, fmt.Errorf("not array")
 }
 
-func func_decimalSlice(rtParams FunctionParameters, val any, decimalSliceFunction func(decimal.Decimal, ...decimal.Decimal) decimal.Decimal) (any, error) {
+func func_decimalSlice(rtParams FunctionParameterTypes, val any, decimalSliceFunction func(decimal.Decimal, ...decimal.Decimal) decimal.Decimal) (any, error) {
 	if vd, ok := val.(decimal.Decimal); ok {
 		val = []decimal.Decimal{vd}
 	}
@@ -436,29 +436,29 @@ notArrayOfNumbers:
 
 const FT_Sum FT_FunctionType = "Sum"
 
-func func_Sum(rtParams FunctionParameters, val any) (any, error) {
+func func_Sum(rtParams FunctionParameterTypes, val any) (any, error) {
 	return func_decimalSlice(rtParams, val, decimal.Sum)
 }
 
 const FT_Average FT_FunctionType = "Average"
 
-func func_Average(rtParams FunctionParameters, val any) (any, error) {
+func func_Average(rtParams FunctionParameterTypes, val any) (any, error) {
 	return func_decimalSlice(rtParams, val, decimal.Avg)
 }
 
 const FT_Minimum FT_FunctionType = "Minimum"
 
-func func_Minimum(rtParams FunctionParameters, val any) (any, error) {
+func func_Minimum(rtParams FunctionParameterTypes, val any) (any, error) {
 	return func_decimalSlice(rtParams, val, decimal.Min)
 }
 
 const FT_Maximum FT_FunctionType = "Maximum"
 
-func func_Maximum(rtParams FunctionParameters, val any) (any, error) {
+func func_Maximum(rtParams FunctionParameterTypes, val any) (any, error) {
 	return func_decimalSlice(rtParams, val, decimal.Max)
 }
 
-func func_decimal(rtParams FunctionParameters, val any, decSlcFunc func(decimal.Decimal, decimal.Decimal) decimal.Decimal, name FT_FunctionType) (any, error) {
+func func_decimal(rtParams FunctionParameterTypes, val any, decSlcFunc func(decimal.Decimal, decimal.Decimal) decimal.Decimal, name FT_FunctionType) (any, error) {
 	param, err := paramsGetFirstOfNumber(rtParams)
 	if err != nil {
 		return errBool(name, err)
@@ -473,37 +473,37 @@ func func_decimal(rtParams FunctionParameters, val any, decSlcFunc func(decimal.
 
 const FT_Add FT_FunctionType = "Add"
 
-func func_Add(rtParams FunctionParameters, val any) (any, error) {
+func func_Add(rtParams FunctionParameterTypes, val any) (any, error) {
 	return func_decimal(rtParams, val, decimal.Decimal.Add, FT_Add)
 }
 
 const FT_Subtract FT_FunctionType = "Subtract"
 
-func func_Subtract(rtParams FunctionParameters, val any) (any, error) {
+func func_Subtract(rtParams FunctionParameterTypes, val any) (any, error) {
 	return func_decimal(rtParams, val, decimal.Decimal.Sub, FT_Subtract)
 }
 
 const FT_Divide FT_FunctionType = "Divide"
 
-func func_Divide(rtParams FunctionParameters, val any) (any, error) {
+func func_Divide(rtParams FunctionParameterTypes, val any) (any, error) {
 	return func_decimal(rtParams, val, decimal.Decimal.Div, FT_Divide)
 }
 
 const FT_Multiply FT_FunctionType = "Multiply"
 
-func func_Multiply(rtParams FunctionParameters, val any) (any, error) {
+func func_Multiply(rtParams FunctionParameterTypes, val any) (any, error) {
 	return func_decimal(rtParams, val, decimal.Decimal.Mul, FT_Multiply)
 }
 
 const FT_Modulo FT_FunctionType = "Modulo"
 
-func func_Modulo(rtParams FunctionParameters, val any) (any, error) {
+func func_Modulo(rtParams FunctionParameterTypes, val any) (any, error) {
 	return func_decimal(rtParams, val, decimal.Decimal.Mod, FT_Modulo)
 }
 
 const FT_AnyOf FT_FunctionType = "AnyOf"
 
-func func_AnyOf(rtParams FunctionParameters, val any) (any, error) {
+func func_AnyOf(rtParams FunctionParameterTypes, val any) (any, error) {
 	params, err := paramsGetAll(rtParams)
 	if err != nil {
 		return errBool(FT_AnyOf, err)
@@ -530,7 +530,7 @@ func func_AnyOf(rtParams FunctionParameters, val any) (any, error) {
 	return false, nil
 }
 
-func stringPartFunc(rtParams FunctionParameters, val any, fn func(string, int) (string, error), fnName FT_FunctionType) (string, error) {
+func stringPartFunc(rtParams FunctionParameterTypes, val any, fn func(string, int) (string, error), fnName FT_FunctionType) (string, error) {
 	param, err := paramsGetFirstOfNumber(rtParams)
 	if err != nil {
 		return errString(fnName, err)
@@ -551,7 +551,7 @@ func stringPartFunc(rtParams FunctionParameters, val any, fn func(string, int) (
 
 const FT_TrimRight FT_FunctionType = "TrimRight"
 
-func func_TrimRight(rtParams FunctionParameters, val any) (any, error) {
+func func_TrimRight(rtParams FunctionParameterTypes, val any) (any, error) {
 	return stringPartFunc(rtParams, val, func(s string, i int) (string, error) {
 		if len(s) <= i {
 			return "", nil
@@ -563,7 +563,7 @@ func func_TrimRight(rtParams FunctionParameters, val any) (any, error) {
 
 const FT_TrimLeft FT_FunctionType = "TrimLeft"
 
-func func_TrimLeft(rtParams FunctionParameters, val any) (any, error) {
+func func_TrimLeft(rtParams FunctionParameterTypes, val any) (any, error) {
 	return stringPartFunc(rtParams, val, func(s string, i int) (string, error) {
 		if len(s) <= i {
 			return "", nil
@@ -575,7 +575,7 @@ func func_TrimLeft(rtParams FunctionParameters, val any) (any, error) {
 
 const FT_Right FT_FunctionType = "Right"
 
-func func_Right(rtParams FunctionParameters, val any) (any, error) {
+func func_Right(rtParams FunctionParameterTypes, val any) (any, error) {
 	return stringPartFunc(rtParams, val, func(s string, i int) (string, error) {
 		if len(s) < i {
 			return s, nil
@@ -587,7 +587,7 @@ func func_Right(rtParams FunctionParameters, val any) (any, error) {
 
 const FT_Left FT_FunctionType = "Left"
 
-func func_Left(rtParams FunctionParameters, val any) (any, error) {
+func func_Left(rtParams FunctionParameterTypes, val any) (any, error) {
 	return stringPartFunc(rtParams, val, func(s string, i int) (string, error) {
 		if len(s) < i {
 			return s, nil
@@ -599,7 +599,7 @@ func func_Left(rtParams FunctionParameters, val any) (any, error) {
 
 const FT_DoesMatchRegex FT_FunctionType = "DoesMatchRegex"
 
-func func_DoesMatchRegex(rtParams FunctionParameters, val any) (any, error) {
+func func_DoesMatchRegex(rtParams FunctionParameterTypes, val any) (any, error) {
 	param, err := paramsGetFirstOfString(rtParams)
 	if err != nil {
 		return errBool(FT_DoesMatchRegex, err)
@@ -619,7 +619,7 @@ func func_DoesMatchRegex(rtParams FunctionParameters, val any) (any, error) {
 
 const FT_ReplaceRegex FT_FunctionType = "ReplaceRegex"
 
-func func_ReplaceRegex(rtParams FunctionParameters, val any) (any, error) {
+func func_ReplaceRegex(rtParams FunctionParameterTypes, val any) (any, error) {
 	if got, ok := rtParams.checkLengthOfParams(2); !ok {
 		return "", errNumParams(FT_ReplaceRegex, 1, got)
 	}
@@ -661,7 +661,7 @@ func func_ReplaceRegex(rtParams FunctionParameters, val any) (any, error) {
 
 const FT_ReplaceAll FT_FunctionType = "ReplaceAll"
 
-func func_ReplaceAll(rtParams FunctionParameters, val any) (any, error) {
+func func_ReplaceAll(rtParams FunctionParameterTypes, val any) (any, error) {
 	if got, ok := rtParams.checkLengthOfParams(2); !ok {
 		return "", errNumParams(FT_ReplaceAll, 1, got)
 	}
@@ -699,7 +699,7 @@ func func_ReplaceAll(rtParams FunctionParameters, val any) (any, error) {
 
 const FT_AsJSON FT_FunctionType = "AsJSON"
 
-func func_AsJSON(rtParams FunctionParameters, val any) (any, error) {
+func func_AsJSON(rtParams FunctionParameterTypes, val any) (any, error) {
 	if got, ok := rtParams.checkLengthOfParams(0); !ok {
 		return "", errNumParams(FT_AsJSON, 0, got)
 	}
@@ -717,7 +717,7 @@ func func_AsJSON(rtParams FunctionParameters, val any) (any, error) {
 	return string(outBytes), nil
 }
 
-func stringToObjectFunc(rtParams FunctionParameters, val any, fn func(s string) (map[string]any, error), name FT_FunctionType) (map[string]any, error) {
+func stringToObjectFunc(rtParams FunctionParameterTypes, val any, fn func(s string) (map[string]any, error), name FT_FunctionType) (map[string]any, error) {
 	if got, ok := rtParams.checkLengthOfParams(0); !ok {
 		return nil, errNumParams(FT_ParseJSON, 0, got)
 	}
@@ -744,7 +744,7 @@ func stringToObjectFunc(rtParams FunctionParameters, val any, fn func(s string) 
 
 const FT_ParseJSON FT_FunctionType = "ParseJSON"
 
-func func_ParseJSON(rtParams FunctionParameters, val any) (any, error) {
+func func_ParseJSON(rtParams FunctionParameterTypes, val any) (any, error) {
 	return stringToObjectFunc(rtParams, val, func(s string) (map[string]any, error) {
 		nm := map[string]any{}
 		err := json.Unmarshal([]byte(s), &nm)
@@ -758,7 +758,7 @@ func func_ParseJSON(rtParams FunctionParameters, val any) (any, error) {
 
 const FT_ParseXML FT_FunctionType = "ParseXML"
 
-func func_ParseXML(rtParams FunctionParameters, val any) (any, error) {
+func func_ParseXML(rtParams FunctionParameterTypes, val any) (any, error) {
 	return stringToObjectFunc(rtParams, val, func(s string) (map[string]any, error) {
 		xml := strings.NewReader(s)
 		jsn, err := xj.Convert(xml)
@@ -780,7 +780,7 @@ func func_ParseXML(rtParams FunctionParameters, val any) (any, error) {
 
 const FT_ParseYAML FT_FunctionType = "ParseYAML"
 
-func func_ParseYAML(rtParams FunctionParameters, val any) (any, error) {
+func func_ParseYAML(rtParams FunctionParameterTypes, val any) (any, error) {
 	return stringToObjectFunc(rtParams, val, func(s string) (map[string]any, error) {
 		nm := map[string]any{}
 		err := yaml.Unmarshal([]byte(s), &nm)
@@ -794,7 +794,7 @@ func func_ParseYAML(rtParams FunctionParameters, val any) (any, error) {
 
 const FT_ParseTOML FT_FunctionType = "ParseTOML"
 
-func func_ParseTOML(rtParams FunctionParameters, val any) (any, error) {
+func func_ParseTOML(rtParams FunctionParameterTypes, val any) (any, error) {
 	return stringToObjectFunc(rtParams, val, func(s string) (map[string]any, error) {
 		nm := map[string]any{}
 		err := toml.Unmarshal([]byte(s), &nm)
@@ -808,7 +808,7 @@ func func_ParseTOML(rtParams FunctionParameters, val any) (any, error) {
 
 const FT_RemoveKeysByRegex FT_FunctionType = "RemoveKeysByRegex"
 
-func func_RemoveKeysByRegex(rtParams FunctionParameters, val any) (any, error) {
+func func_RemoveKeysByRegex(rtParams FunctionParameterTypes, val any) (any, error) {
 	if got, ok := rtParams.checkLengthOfParams(1); !ok {
 		return nil, errNumParams(FT_RemoveKeysByRegex, 1, got)
 	}
@@ -835,7 +835,7 @@ func func_RemoveKeysByRegex(rtParams FunctionParameters, val any) (any, error) {
 
 const FT_RemoveKeysByPrefix FT_FunctionType = "RemoveKeysByPrefix"
 
-func func_RemoveKeysByPrefix(rtParams FunctionParameters, val any) (any, error) {
+func func_RemoveKeysByPrefix(rtParams FunctionParameterTypes, val any) (any, error) {
 	if got, ok := rtParams.checkLengthOfParams(1); !ok {
 		return nil, errNumParams(FT_RemoveKeysByPrefix, 1, got)
 	}
@@ -857,7 +857,7 @@ func func_RemoveKeysByPrefix(rtParams FunctionParameters, val any) (any, error) 
 
 const FT_RemoveKeysBySuffix FT_FunctionType = "RemoveKeysBySuffix"
 
-func func_RemoveKeysBySuffix(rtParams FunctionParameters, val any) (any, error) {
+func func_RemoveKeysBySuffix(rtParams FunctionParameterTypes, val any) (any, error) {
 	if got, ok := rtParams.checkLengthOfParams(1); !ok {
 		return nil, errNumParams(FT_RemoveKeysBySuffix, 1, got)
 	}
@@ -953,8 +953,8 @@ type FunctionDescriptor struct {
 	ValidOn     PT_ParameterType      `json:"validOn"`
 	Returns     PT_ParameterType      `json:"returns"`
 
-	fn              func(rtParams FunctionParameters, val any) (any, error)
-	explanationFunc func(tf TypeaheadFunction) string
+	fn              func(rtParams FunctionParameterTypes, val any) (any, error)
+	explanationFunc func(tf Function) string
 }
 
 func (fd FunctionDescriptor) GetParamAtPosition(position int) (pd ParameterDescriptor, err error) {
@@ -1036,7 +1036,7 @@ var (
 			Returns:     PT_Boolean,
 			ValidOn:     PT_Any,
 			fn:          func_Equal,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
 					return ""
 				}
@@ -1051,7 +1051,7 @@ var (
 			Returns:     PT_Boolean,
 			ValidOn:     PT_Any,
 			fn:          func_NotEqual,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
 					return ""
 				}
@@ -1066,7 +1066,7 @@ var (
 			Returns:     PT_Boolean,
 			ValidOn:     PT_Number,
 			fn:          func_Less,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
 					return ""
 				}
@@ -1081,7 +1081,7 @@ var (
 			Returns:     PT_Boolean,
 			ValidOn:     PT_Number,
 			fn:          func_LessOrEqual,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
 					return ""
 				}
@@ -1096,7 +1096,7 @@ var (
 			Returns:     PT_Boolean,
 			ValidOn:     PT_Number,
 			fn:          func_Greater,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
 					return ""
 				}
@@ -1111,7 +1111,7 @@ var (
 			Returns:     PT_Boolean,
 			ValidOn:     PT_Number,
 			fn:          func_GreaterOrEqual,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
 					return ""
 				}
@@ -1126,7 +1126,7 @@ var (
 			Returns:     PT_Boolean,
 			ValidOn:     PT_String,
 			fn:          func_Contains,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
 					return ""
 				}
@@ -1141,7 +1141,7 @@ var (
 			Returns:     PT_Boolean,
 			ValidOn:     PT_String,
 			fn:          func_NotContains,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
 					return ""
 				}
@@ -1156,7 +1156,7 @@ var (
 			Returns:     PT_Boolean,
 			ValidOn:     PT_String,
 			fn:          func_Prefix,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
 					return ""
 				}
@@ -1171,7 +1171,7 @@ var (
 			Returns:     PT_Boolean,
 			ValidOn:     PT_String,
 			fn:          func_NotPrefix,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
 					return ""
 				}
@@ -1186,7 +1186,7 @@ var (
 			Returns:     PT_Boolean,
 			ValidOn:     PT_String,
 			fn:          func_Suffix,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
 					return ""
 				}
@@ -1201,7 +1201,7 @@ var (
 			Returns:     PT_Boolean,
 			ValidOn:     PT_String,
 			fn:          func_NotSuffix,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
 					return ""
 				}
@@ -1216,7 +1216,7 @@ var (
 			Returns:     PT_Number,
 			ValidOn:     PT_Array,
 			fn:          func_Count,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				return "count of the number of elements"
 			},
 		},
@@ -1227,7 +1227,7 @@ var (
 			Returns:     PT_Any,
 			ValidOn:     PT_Array,
 			fn:          func_First,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				return "the first element"
 			},
 		},
@@ -1238,7 +1238,7 @@ var (
 			Returns:     PT_Any,
 			ValidOn:     PT_Array,
 			fn:          func_Last,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				return "the last element"
 			},
 		},
@@ -1249,7 +1249,7 @@ var (
 			Returns:     PT_Any,
 			ValidOn:     PT_Array,
 			fn:          func_Index,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
 					return ""
 				}
@@ -1264,7 +1264,7 @@ var (
 			Returns:     PT_Boolean,
 			ValidOn:     PT_Array,
 			fn:          func_Any,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				return "has any elements"
 			},
 		},
@@ -1275,7 +1275,7 @@ var (
 			Returns:     PT_Number,
 			ValidOn:     PT_NumberOrArrayOfNumbers,
 			fn:          func_Sum,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) > 0 {
 					return "the sum of all elements"
 				}
@@ -1290,7 +1290,7 @@ var (
 			Returns:     PT_Number,
 			ValidOn:     PT_NumberOrArrayOfNumbers,
 			fn:          func_Average,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) > 0 {
 					return "the average of all elements"
 				}
@@ -1305,7 +1305,7 @@ var (
 			Returns:     PT_Number,
 			ValidOn:     PT_NumberOrArrayOfNumbers,
 			fn:          func_Maximum,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) > 0 {
 					return "the maximum of all elements"
 				}
@@ -1320,7 +1320,7 @@ var (
 			Returns:     PT_Number,
 			ValidOn:     PT_NumberOrArrayOfNumbers,
 			fn:          func_Minimum,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) > 0 {
 					return "the minimum of all elements"
 				}
@@ -1335,7 +1335,7 @@ var (
 			Returns:     PT_Number,
 			ValidOn:     PT_Number,
 			fn:          func_Add,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
 					return ""
 				}
@@ -1350,7 +1350,7 @@ var (
 			Returns:     PT_Number,
 			ValidOn:     PT_Number,
 			fn:          func_Subtract,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
 					return ""
 				}
@@ -1365,7 +1365,7 @@ var (
 			Returns:     PT_Number,
 			ValidOn:     PT_Number,
 			fn:          func_Divide,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
 					return ""
 				}
@@ -1380,7 +1380,7 @@ var (
 			Returns:     PT_Number,
 			ValidOn:     PT_Number,
 			fn:          func_Multiply,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
 					return ""
 				}
@@ -1395,7 +1395,7 @@ var (
 			Returns:     PT_Number,
 			ValidOn:     PT_Number,
 			fn:          func_Modulo,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
 					return ""
 				}
@@ -1410,7 +1410,7 @@ var (
 			Returns:     PT_Boolean,
 			ValidOn:     PT_Any,
 			fn:          func_AnyOf,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) == 0 {
 					return "needs parameters"
 				}
@@ -1431,7 +1431,7 @@ var (
 			Returns:     PT_String,
 			ValidOn:     PT_String,
 			fn:          func_TrimRight,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
 					return ""
 				}
@@ -1446,7 +1446,7 @@ var (
 			Returns:     PT_String,
 			ValidOn:     PT_String,
 			fn:          func_TrimLeft,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
 					return ""
 				}
@@ -1461,7 +1461,7 @@ var (
 			Returns:     PT_String,
 			ValidOn:     PT_String,
 			fn:          func_Right,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
 					return ""
 				}
@@ -1476,7 +1476,7 @@ var (
 			Returns:     PT_String,
 			ValidOn:     PT_String,
 			fn:          func_Left,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
 					return ""
 				}
@@ -1491,7 +1491,7 @@ var (
 			Returns:     PT_Boolean,
 			ValidOn:     PT_String,
 			fn:          func_DoesMatchRegex,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
 					return ""
 				}
@@ -1515,7 +1515,7 @@ var (
 			Returns: PT_String,
 			ValidOn: PT_String,
 			fn:      func_ReplaceRegex,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 2 {
 					return ""
 				}
@@ -1539,7 +1539,7 @@ var (
 			Returns: PT_String,
 			ValidOn: PT_String,
 			fn:      func_ReplaceAll,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 2 {
 					return ""
 				}
@@ -1554,7 +1554,7 @@ var (
 			Returns:     PT_String,
 			ValidOn:     PT_Any,
 			fn:          func_AsJSON,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				return "converts to a JSON string"
 			},
 		},
@@ -1565,7 +1565,7 @@ var (
 			Returns:     PT_Object,
 			ValidOn:     PT_String,
 			fn:          func_ParseJSON,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				return "parses as JSON to become an object"
 			},
 		},
@@ -1576,7 +1576,7 @@ var (
 			Returns:     PT_Object,
 			ValidOn:     PT_String,
 			fn:          func_ParseXML,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				return "parses as XML to become an object"
 			},
 		},
@@ -1587,7 +1587,7 @@ var (
 			Returns:     PT_Object,
 			ValidOn:     PT_String,
 			fn:          func_ParseYAML,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				return "parses as YAML to become an object"
 			},
 		},
@@ -1598,7 +1598,7 @@ var (
 			Returns:     PT_Object,
 			ValidOn:     PT_String,
 			fn:          func_ParseTOML,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				return "parses as TOML to become an object"
 			},
 		},
@@ -1609,7 +1609,7 @@ var (
 			Returns:     PT_Object,
 			ValidOn:     PT_Object,
 			fn:          func_RemoveKeysByRegex,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
 					return ""
 				}
@@ -1624,7 +1624,7 @@ var (
 			Returns:     PT_Object,
 			ValidOn:     PT_Object,
 			fn:          func_RemoveKeysByPrefix,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
 					return ""
 				}
@@ -1639,7 +1639,7 @@ var (
 			Returns:     PT_Object,
 			ValidOn:     PT_Object,
 			fn:          func_RemoveKeysBySuffix,
-			explanationFunc: func(tf TypeaheadFunction) string {
+			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
 					return ""
 				}

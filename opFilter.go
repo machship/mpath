@@ -11,8 +11,8 @@ type opFilter struct {
 	opCommon
 }
 
-func (x *opFilter) Validate(rootValue, inputValue cue.Value, blockedRootFields []string) (filter *TypeaheadFilter, requiredData []string, err error) {
-	filter = &TypeaheadFilter{
+func (x *opFilter) Validate(rootValue, inputValue cue.Value, blockedRootFields []string) (filter *Filter, requiredData []string, err error) {
+	filter = &Filter{
 		String: x.UserString(),
 	}
 	if inputValue.Kind() != cue.ListKind {

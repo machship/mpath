@@ -16,13 +16,13 @@ import (
 type opFunction struct {
 	FunctionType FT_FunctionType
 
-	Params FunctionParameters
+	Params FunctionParameterTypes
 	opCommon
 }
 
-func (x *opFunction) Validate(rootValue, inputValue cue.Value, blockedRootFields []string) (part *TypeaheadFunction, returnedType PT_ParameterType, requiredData []string, err error) {
-	part = &TypeaheadFunction{
-		typeaheadFunctionFields: typeaheadFunctionFields{
+func (x *opFunction) Validate(rootValue, inputValue cue.Value, blockedRootFields []string) (part *Function, returnedType PT_ParameterType, requiredData []string, err error) {
+	part = &Function{
+		functionFields: functionFields{
 			String:       x.UserString(),
 			FunctionName: (*string)(&x.FunctionType),
 		},
@@ -46,9 +46,9 @@ func (x *opFunction) Validate(rootValue, inputValue cue.Value, blockedRootFields
 
 	rdm := map[string]struct{}{}
 
-	part.FunctionParameters = []*TypeaheadParameter{}
+	part.FunctionParameters = []*FunctionParameter{}
 	for i, p := range x.Params {
-		param := &TypeaheadParameter{
+		param := &FunctionParameter{
 			String: p.String(),
 		}
 		part.FunctionParameters = append(part.FunctionParameters, param)
@@ -141,7 +141,7 @@ func (x *opFunction) ForPath(current []string) (outCurrent []string, additional 
 }
 
 func (x *opFunction) Do(currentData, originalData any) (dataToUse any, err error) {
-	var rtParams FunctionParameters
+	var rtParams FunctionParameterTypes
 
 	// get the pathParams and put them in the appropriate bucket
 	for _, param := range x.Params {
@@ -298,9 +298,9 @@ func (x *opFunction) addOpToParamsAndParse(s *scanner, r rune) (nextR rune, err 
 	return
 }
 
-type FunctionParameters []FunctionParameter
+type FunctionParameterTypes []FunctionParameterType
 
-func (x FunctionParameters) Numbers() (out []*FP_Number) {
+func (x FunctionParameterTypes) Numbers() (out []*FP_Number) {
 	for _, fp := range x {
 		switch t := fp.(type) {
 		case *FP_Number:
@@ -310,7 +310,7 @@ func (x FunctionParameters) Numbers() (out []*FP_Number) {
 	return
 }
 
-func (x FunctionParameters) Strings() (out []*FP_String) {
+func (x FunctionParameterTypes) Strings() (out []*FP_String) {
 	for _, fp := range x {
 		switch t := fp.(type) {
 		case *FP_String:
@@ -320,7 +320,7 @@ func (x FunctionParameters) Strings() (out []*FP_String) {
 	return
 }
 
-func (x FunctionParameters) Bools() (out []*FP_Bool) {
+func (x FunctionParameterTypes) Bools() (out []*FP_Bool) {
 	for _, fp := range x {
 		switch t := fp.(type) {
 		case *FP_Bool:
@@ -330,7 +330,7 @@ func (x FunctionParameters) Bools() (out []*FP_Bool) {
 	return
 }
 
-func (x FunctionParameters) Paths() (out []*FP_Path) {
+func (x FunctionParameterTypes) Paths() (out []*FP_Path) {
 	for _, fp := range x {
 		switch t := fp.(type) {
 		case *FP_Path:
@@ -340,7 +340,7 @@ func (x FunctionParameters) Paths() (out []*FP_Path) {
 	return
 }
 
-type FunctionParameter interface {
+type FunctionParameterType interface {
 	IsFuncParam() (returns PT_ParameterType)
 	String() string
 	GetValue() any
