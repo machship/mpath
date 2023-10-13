@@ -28,8 +28,8 @@ func (x *opLogicalOperation) Validate(rootValue, nextValue cue.Value, blockedRoo
 	for _, op := range x.Operations {
 		switch t := op.(type) {
 		case *opPath:
-			operation := &TypeaheadConfig{
-				typeaheadConfigFields: typeaheadConfigFields{
+			operation := &TypeaheadPath{
+				typeaheadPathFields: typeaheadPathFields{
 					String: t.UserString(),
 				},
 			}

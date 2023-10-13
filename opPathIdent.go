@@ -13,9 +13,9 @@ type opPathIdent struct {
 	opCommon
 }
 
-func (x *opPathIdent) Validate(inputValue cue.Value) (part *TypeaheadPart, nextValue cue.Value, returnedType PT_ParameterType, err error) {
-	part = &TypeaheadPart{
-		typeaheadPartFields: typeaheadPartFields{
+func (x *opPathIdent) Validate(inputValue cue.Value) (part *TypeaheadPathIdent, nextValue cue.Value, returnedType PT_ParameterType, err error) {
+	part = &TypeaheadPathIdent{
+		typeaheadPathIdentFields: typeaheadPathIdentFields{
 			Available: &TypeaheadAvailable{},
 		},
 	}

@@ -19,7 +19,7 @@ type opPath struct {
 }
 
 func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []string) (parts []CanBeAPart, returnedType PT_ParameterType, requiredData []string, err error) {
-	rootPart := &TypeaheadPart{}
+	rootPart := &TypeaheadPathIdent{}
 
 	parts = []CanBeAPart{rootPart}
 
@@ -60,8 +60,8 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []st
 				continue
 			}
 			errMessage := "cannot continue due to previous error"
-			part = &TypeaheadPart{
-				typeaheadPartFields: typeaheadPartFields{
+			part = &TypeaheadPathIdent{
+				typeaheadPathIdentFields: typeaheadPathIdentFields{
 					String: str,
 					Error:  &errMessage,
 				},
@@ -76,8 +76,8 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []st
 			if returnedType.IsPrimitive() {
 				shouldErrorRemaining = true
 				errMessage := "cannot address into primitive value"
-				parts = append(parts, &TypeaheadPart{
-					typeaheadPartFields: typeaheadPartFields{
+				parts = append(parts, &TypeaheadPathIdent{
+					typeaheadPathIdentFields: typeaheadPathIdentFields{
 						String: t.UserString(),
 						Error:  &errMessage,
 					},
@@ -88,8 +88,8 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []st
 			if returnedType.IsArray() {
 				shouldErrorRemaining = true
 				errMessage := "cannot address into array value"
-				parts = append(parts, &TypeaheadPart{
-					typeaheadPartFields: typeaheadPartFields{
+				parts = append(parts, &TypeaheadPathIdent{
+					typeaheadPathIdentFields: typeaheadPathIdentFields{
 						String: t.UserString(),
 						Error:  &errMessage,
 					},
@@ -103,8 +103,8 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []st
 				for _, brf := range blockedRootFields {
 					if t.IdentName == brf {
 						errMessage := fmt.Sprintf("field %s is not available", t.IdentName)
-						parts = append(parts, &TypeaheadPart{
-							typeaheadPartFields: typeaheadPartFields{
+						parts = append(parts, &TypeaheadPathIdent{
+							typeaheadPathIdentFields: typeaheadPathIdentFields{
 								String: t.UserString(),
 								Error:  &errMessage,
 							},
@@ -132,11 +132,11 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []st
 				return nil, returnedType, nil, err
 			}
 			parts = append(parts, part)
-			part.(*TypeaheadPart).Type = returnedType
+			part.(*TypeaheadPathIdent).Type = returnedType
 
 		case *opFilter:
 			// opFilter Validate does not advance the next value
-			part.(*TypeaheadPart).Filter, rd, err = t.Validate(rootValue, nextValue, blockedRootFields)
+			part.(*TypeaheadPathIdent).TypeaheadFilter, rd, err = t.Validate(rootValue, nextValue, blockedRootFields)
 			if err != nil {
 				return nil, returnedType, nil, err
 			}
