@@ -22,8 +22,10 @@ type opFunction struct {
 
 func (x *opFunction) Validate(rootValue, inputValue cue.Value, blockedRootFields []string) (part *TypeaheadFunction, returnedType PT_ParameterType, requiredData []string, err error) {
 	part = &TypeaheadFunction{
-		String:       x.UserString(),
-		FunctionName: (*string)(&x.FunctionType),
+		typeaheadFunctionFields: typeaheadFunctionFields{
+			String:       x.UserString(),
+			FunctionName: (*string)(&x.FunctionType),
+		},
 	}
 
 	// Find the function descriptor
@@ -51,10 +53,12 @@ func (x *opFunction) Validate(rootValue, inputValue cue.Value, blockedRootFields
 		}
 		part.FunctionParameters = append(part.FunctionParameters, param)
 
+		paramReturns := p.IsFuncParam()
+
 		switch t := p.(type) {
 		case *FP_Path:
 			var rd []string
-			param.Parts, _, rd, err = t.Value.Validate(rootValue, inputValue, blockedRootFields)
+			param.Parts, _, rd, err = t.Value.Validate(rootValue, rootValue, blockedRootFields)
 			if err != nil {
 				errMessage := err.Error()
 				param.Error = &errMessage
@@ -63,6 +67,13 @@ func (x *opFunction) Validate(rootValue, inputValue cue.Value, blockedRootFields
 			for _, rdv := range rd {
 				rdm[rdv] = struct{}{}
 			}
+			if len(param.Parts) == 0 {
+				errMessage := "no parts returned for path"
+				param.Error = &errMessage
+				continue
+			}
+
+			paramReturns = param.Parts[len(param.Parts)-1].ReturnType()
 		}
 
 		if isVariadic {
@@ -82,10 +93,12 @@ func (x *opFunction) Validate(rootValue, inputValue cue.Value, blockedRootFields
 		}
 
 		// Check that the returned type is appropriate
-		if !(pd.Type == PT_Any || returnedType == pd.Type) {
-			errMessage := fmt.Sprintf("incorrect parameter type: wanted '%s'; got '%s'", pd.Type, returnedType)
+		if !(pd.Type == PT_Any || pd.Type == paramReturns) {
+			errMessage := fmt.Sprintf("incorrect parameter type: wanted '%s'; got '%s'", pd.Type, paramReturns)
 			param.Error = &errMessage
 		}
+
+		param.Type = paramReturns
 	}
 
 	for rdv := range rdm {
@@ -328,7 +341,7 @@ func (x FunctionParameters) Paths() (out []*FP_Path) {
 }
 
 type FunctionParameter interface {
-	IsFuncParam()
+	IsFuncParam() (returns PT_ParameterType)
 	String() string
 	GetValue() any
 }
@@ -351,7 +364,9 @@ func (p FP_Number) String() string {
 	return p.Value.String()
 }
 
-func (x *FP_Number) IsFuncParam() {}
+func (x *FP_Number) IsFuncParam() (returns PT_ParameterType) {
+	return PT_Number
+}
 
 func (x *FP_Number) GetValue() any { return x.Value }
 
@@ -367,7 +382,9 @@ func (p FP_String) String() string {
 	return fmt.Sprintf(`"%s"`, p.Value)
 }
 
-func (x *FP_String) IsFuncParam() {}
+func (x *FP_String) IsFuncParam() (returns PT_ParameterType) {
+	return PT_String
+}
 
 func (x *FP_String) GetValue() any { return x.Value }
 
@@ -383,7 +400,9 @@ func (p FP_Bool) String() string {
 	return fmt.Sprint(p.Value)
 }
 
-func (x *FP_Bool) IsFuncParam() {}
+func (x *FP_Bool) IsFuncParam() (returns PT_ParameterType) {
+	return PT_Boolean
+}
 
 func (x *FP_Bool) GetValue() any { return x.Value }
 
@@ -399,7 +418,9 @@ func (p FP_Path) String() string {
 	return p.Value.UserString()
 }
 
-func (x *FP_Path) IsFuncParam() {}
+func (x *FP_Path) IsFuncParam() (returns PT_ParameterType) {
+	return PT_Any
+}
 
 func (x *FP_Path) GetValue() any { return x.Value }
 

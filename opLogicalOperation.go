@@ -17,8 +17,10 @@ type opLogicalOperation struct {
 
 func (x *opLogicalOperation) Validate(rootValue, nextValue cue.Value, blockedRootFields []string) (logicalOperation *TypeaheadLogicalOperation, requiredData []string, err error) {
 	logicalOperation = &TypeaheadLogicalOperation{
-		String:          x.UserString(),
-		LogicalOperator: &x.LogicalOperationType,
+		typeaheadLogicalOperationFields: typeaheadLogicalOperationFields{
+			String:          x.UserString(),
+			LogicalOperator: &x.LogicalOperationType,
+		},
 	}
 
 	rdMap := map[string]struct{}{}
@@ -27,7 +29,9 @@ func (x *opLogicalOperation) Validate(rootValue, nextValue cue.Value, blockedRoo
 		switch t := op.(type) {
 		case *opPath:
 			operation := &TypeaheadConfig{
-				String: t.UserString(),
+				typeaheadConfigFields: typeaheadConfigFields{
+					String: t.UserString(),
+				},
 			}
 			logicalOperation.Parts = append(logicalOperation.Parts, operation)
 			var rd []string
@@ -38,6 +42,14 @@ func (x *opLogicalOperation) Validate(rootValue, nextValue cue.Value, blockedRoo
 			}
 			for _, rdv := range rd {
 				rdMap[rdv] = struct{}{}
+			}
+
+			// We need to check that the return type is boolean
+			if opLen := len(operation.Parts); opLen > 0 {
+				if operation.Parts[opLen-1].ReturnType() != PT_Boolean {
+					errMessage := "paths that are part of a logical operation must end in a boolean function"
+					operation.Error = &errMessage
+				}
 			}
 
 		case *opLogicalOperation:
@@ -196,7 +208,7 @@ func (x *opLogicalOperation) Parse(s *scanner, r rune) (nextR rune, err error) {
 
 		case '$', '@':
 			// This is an opPath
-			op = &opPath{MustEndInFunction: true, IsFilter: x.IsFilter}
+			op = &opPath{MustEndInFunctionOrIdent: true, IsFilter: x.IsFilter}
 		case '{':
 			// This is an opLogicalOperation
 			op = &opLogicalOperation{}

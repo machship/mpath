@@ -1,17 +1,20 @@
 package mpath
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
+	"github.com/atotto/clipboard"
+	"github.com/google/uuid"
 )
 
 // query: the mpath query string
 // cueFile: the cue file
 // currentPath: the id of the step for which this query is an input value, or if for the output, leave blank
-func CueValidate(query, cueFile, currentPath string) (tc *TypeaheadConfig, rdm *RuntimeDataMap, err error) {
+func CueValidate(query, cueFile, currentPath string) (tc CanBeAPart, rdm *RuntimeDataMap, err error) {
 	var ok bool
 
 	// mpath operations are cached to ensure speed of execution as this method is expected to be hit many times
@@ -48,8 +51,10 @@ func CueValidate(query, cueFile, currentPath string) (tc *TypeaheadConfig, rdm *
 	var requiredData []string
 	switch t := op.(type) {
 	case *opPath:
-		tc = &TypeaheadConfig{
-			String: query,
+		ptc := &TypeaheadConfig{
+			typeaheadConfigFields: typeaheadConfigFields{
+				String: query,
+			},
 		}
 
 		parts, typ, rd, subErr := t.Validate(rootValue, rootValue, blockedRootFields)
@@ -59,14 +64,15 @@ func CueValidate(query, cueFile, currentPath string) (tc *TypeaheadConfig, rdm *
 		}
 
 		requiredData = rd
-		tc.Type = typ
-		for _, prt := range parts {
-			tc.Parts = append(tc.Parts, prt)
-		}
+		ptc.Type = typ
+		ptc.Parts = append(ptc.Parts, parts...)
+		tc = ptc
 
 	case *opLogicalOperation:
 		tc = &TypeaheadConfig{
-			String: query,
+			typeaheadConfigFields: typeaheadConfigFields{
+				String: query,
+			},
 		}
 
 		logicalOperation, subRequiredData, subErr := t.Validate(rootValue, rootValue, blockedRootFields)
@@ -76,7 +82,7 @@ func CueValidate(query, cueFile, currentPath string) (tc *TypeaheadConfig, rdm *
 		}
 		requiredData = subRequiredData
 
-		tc.Parts = append(tc.Parts, logicalOperation)
+		tc = logicalOperation
 	}
 
 	rdm = &RuntimeDataMap{
@@ -96,8 +102,18 @@ func findValuePath(inputValue cue.Value, name string) (outputValue cue.Value, er
 		selector = cue.Str(name)
 	}
 
+	if inputValue.IncompleteKind() == cue.ListKind {
+		it, err := inputValue.List()
+		if err != nil {
+			return outputValue, fmt.Errorf("couldn't get list iterator for list kind")
+		}
+		it.Next()
+		inputValue = it.Value()
+	}
+
 	outputValue = inputValue.LookupPath(cue.MakePath(selector))
 	if outputValue.Err() != nil {
+		clipboard.WriteAll(fmt.Sprint(inputValue))
 		return outputValue, fmt.Errorf("unknown field '%s'", name)
 	}
 
@@ -218,9 +234,9 @@ func getBlockedRootFields(rootValue cue.Value, currentPath string) (blockedField
 	}
 
 	validFields := map[string]struct{}{
-		currentPath:          struct{}{},
-		string(BP_Input):     struct{}{},
-		string(BP_Variables): struct{}{},
+		currentPath:          {},
+		string(BP_Input):     {},
+		string(BP_Variables): {},
 	}
 	for _, dep := range dependencies {
 		validFields[dep] = struct{}{}
@@ -264,18 +280,42 @@ loop:
 
 type CanBeAPart interface {
 	CanBeAPart()
+	PartType() string
+	MarshalJSON() ([]byte, error)
+	ReturnType() PT_ParameterType
 }
 
-type TypeaheadConfig struct {
+type typeaheadConfigFields struct {
 	String string           `json:"string"`
 	Type   PT_ParameterType `json:"type"`
 	Error  *string          `json:"error,omitempty"`
 	Parts  []CanBeAPart     `json:"parts,omitempty"`
 }
 
-func (x *TypeaheadConfig) CanBeAPart() {}
+type TypeaheadConfig struct {
+	typeaheadConfigFields
+}
 
-type TypeaheadPart struct {
+func (x *TypeaheadConfig) CanBeAPart() {}
+func (x *TypeaheadConfig) ReturnType() PT_ParameterType {
+	return x.Type
+}
+func (x *TypeaheadConfig) PartType() string {
+	return "TypeaheadConfig"
+}
+func (x *TypeaheadConfig) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		ID       string `json:"id"`
+		PartType string `json:"partType"`
+		typeaheadConfigFields
+	}{
+		ID:                    uuid.New().String(),
+		PartType:              x.PartType(),
+		typeaheadConfigFields: x.typeaheadConfigFields,
+	})
+}
+
+type typeaheadPartFields struct {
 	String           string                     `json:"string"`
 	Error            *string                    `json:"error,omitempty"`
 	Type             PT_ParameterType           `json:"type"`
@@ -284,9 +324,30 @@ type TypeaheadPart struct {
 	LogicalOperation *TypeaheadLogicalOperation `json:"logicalOperation,omitempty"`
 }
 
-func (x *TypeaheadPart) CanBeAPart() {}
+type TypeaheadPart struct {
+	typeaheadPartFields
+}
 
-type TypeaheadFunction struct {
+func (x *TypeaheadPart) CanBeAPart() {}
+func (x *TypeaheadPart) ReturnType() PT_ParameterType {
+	return x.Type
+}
+func (x *TypeaheadPart) PartType() string {
+	return "TypeaheadPart"
+}
+func (x *TypeaheadPart) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		ID       string `json:"id"`
+		PartType string `json:"partType"`
+		typeaheadPartFields
+	}{
+		ID:                  uuid.New().String(),
+		PartType:            x.PartType(),
+		typeaheadPartFields: x.typeaheadPartFields,
+	})
+}
+
+type typeaheadFunctionFields struct {
 	String              string                `json:"string"`
 	Error               *string               `json:"error,omitempty"`
 	Type                PT_ParameterType      `json:"type"`
@@ -296,7 +357,28 @@ type TypeaheadFunction struct {
 	FunctionParameters  []*TypeaheadParameter `json:"functionParameters,omitempty"`
 }
 
+type TypeaheadFunction struct {
+	typeaheadFunctionFields
+}
+
 func (x *TypeaheadFunction) CanBeAPart() {}
+func (x *TypeaheadFunction) ReturnType() PT_ParameterType {
+	return x.Type
+}
+func (x *TypeaheadFunction) PartType() string {
+	return "TypeaheadFunction"
+}
+func (x *TypeaheadFunction) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		ID       string `json:"id"`
+		PartType string `json:"partType"`
+		typeaheadFunctionFields
+	}{
+		ID:                      uuid.New().String(),
+		PartType:                x.PartType(),
+		typeaheadFunctionFields: x.typeaheadFunctionFields,
+	})
+}
 
 type TypeaheadAvailable struct {
 	Fields    []string `json:"fields,omitempty"`
@@ -310,17 +392,39 @@ type TypeaheadFilter struct {
 	LogicalOperation *TypeaheadLogicalOperation `json:"logicalOperation,omitempty"`
 }
 
-type TypeaheadLogicalOperation struct {
+type typeaheadLogicalOperationFields struct {
 	String          string                    `json:"string"`
 	Error           *string                   `json:"error,omitempty"`
 	LogicalOperator *LOT_LogicalOperationType `json:"logicalOperator,omitempty"`
 	Parts           []CanBeAPart              `json:"parts,omitempty"`
 }
 
+type TypeaheadLogicalOperation struct {
+	typeaheadLogicalOperationFields
+}
+
 func (x *TypeaheadLogicalOperation) CanBeAPart() {}
+func (x *TypeaheadLogicalOperation) ReturnType() PT_ParameterType {
+	return PT_Boolean
+}
+func (x *TypeaheadLogicalOperation) PartType() string {
+	return "TypeaheadLogicalOperation"
+}
+func (x *TypeaheadLogicalOperation) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		ID       string `json:"id"`
+		PartType string `json:"partType"`
+		typeaheadLogicalOperationFields
+	}{
+		ID:                              uuid.New().String(),
+		PartType:                        x.PartType(),
+		typeaheadLogicalOperationFields: x.typeaheadLogicalOperationFields,
+	})
+}
 
 type TypeaheadParameter struct {
 	String    string              `json:"string"`
+	Type      PT_ParameterType    `json:"type"`
 	Error     *string             `json:"error,omitempty"`
 	Parts     []CanBeAPart        `json:"parts,omitempty"`
 	Available *TypeaheadAvailable `json:"available,omitempty"`

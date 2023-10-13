@@ -1217,7 +1217,7 @@ var (
 			ValidOn:     PT_Array,
 			fn:          func_Count,
 			explanationFunc: func(tf TypeaheadFunction) string {
-				return fmt.Sprintf("count of the number of elements")
+				return "count of the number of elements"
 			},
 		},
 		FT_First: {
@@ -1228,7 +1228,7 @@ var (
 			ValidOn:     PT_Array,
 			fn:          func_First,
 			explanationFunc: func(tf TypeaheadFunction) string {
-				return fmt.Sprintf("the first element")
+				return "the first element"
 			},
 		},
 		FT_Last: {
@@ -1239,7 +1239,7 @@ var (
 			ValidOn:     PT_Array,
 			fn:          func_Last,
 			explanationFunc: func(tf TypeaheadFunction) string {
-				return fmt.Sprintf("the last element")
+				return "the last element"
 			},
 		},
 		FT_Index: {
@@ -1265,7 +1265,7 @@ var (
 			ValidOn:     PT_Array,
 			fn:          func_Any,
 			explanationFunc: func(tf TypeaheadFunction) string {
-				return fmt.Sprintf("has any elements")
+				return "has any elements"
 			},
 		},
 		FT_Sum: {
@@ -1277,7 +1277,7 @@ var (
 			fn:          func_Sum,
 			explanationFunc: func(tf TypeaheadFunction) string {
 				if len(tf.FunctionParameters) > 0 {
-					return fmt.Sprintf("the sum of all elements")
+					return "the sum of all elements"
 				}
 
 				return fmt.Sprintf("the sum of all elements, including %s", tf.FunctionParameters[0].String)
@@ -1292,7 +1292,7 @@ var (
 			fn:          func_Average,
 			explanationFunc: func(tf TypeaheadFunction) string {
 				if len(tf.FunctionParameters) > 0 {
-					return fmt.Sprintf("the average of all elements")
+					return "the average of all elements"
 				}
 
 				return fmt.Sprintf("the average of all elements, including %s", tf.FunctionParameters[0].String)
@@ -1307,7 +1307,7 @@ var (
 			fn:          func_Maximum,
 			explanationFunc: func(tf TypeaheadFunction) string {
 				if len(tf.FunctionParameters) > 0 {
-					return fmt.Sprintf("the maximum of all elements")
+					return "the maximum of all elements"
 				}
 
 				return fmt.Sprintf("the maximum of all elements, including %s", tf.FunctionParameters[0].String)
@@ -1322,7 +1322,7 @@ var (
 			fn:          func_Minimum,
 			explanationFunc: func(tf TypeaheadFunction) string {
 				if len(tf.FunctionParameters) > 0 {
-					return fmt.Sprintf("the minimum of all elements")
+					return "the minimum of all elements"
 				}
 
 				return fmt.Sprintf("the minimum of all elements, including %s", tf.FunctionParameters[0].String)
@@ -1555,7 +1555,7 @@ var (
 			ValidOn:     PT_Any,
 			fn:          func_AsJSON,
 			explanationFunc: func(tf TypeaheadFunction) string {
-				return fmt.Sprintf("converts to a JSON string")
+				return "converts to a JSON string"
 			},
 		},
 		FT_ParseJSON: {
@@ -1566,7 +1566,7 @@ var (
 			ValidOn:     PT_String,
 			fn:          func_ParseJSON,
 			explanationFunc: func(tf TypeaheadFunction) string {
-				return fmt.Sprintf("parses as JSON to become an object")
+				return "parses as JSON to become an object"
 			},
 		},
 		FT_ParseXML: {
@@ -1577,7 +1577,7 @@ var (
 			ValidOn:     PT_String,
 			fn:          func_ParseXML,
 			explanationFunc: func(tf TypeaheadFunction) string {
-				return fmt.Sprintf("parses as XML to become an object")
+				return "parses as XML to become an object"
 			},
 		},
 		FT_ParseYAML: {
@@ -1588,7 +1588,7 @@ var (
 			ValidOn:     PT_String,
 			fn:          func_ParseYAML,
 			explanationFunc: func(tf TypeaheadFunction) string {
-				return fmt.Sprintf("parses as YAML to become an object")
+				return "parses as YAML to become an object"
 			},
 		},
 		FT_ParseTOML: {
@@ -1599,7 +1599,7 @@ var (
 			ValidOn:     PT_String,
 			fn:          func_ParseTOML,
 			explanationFunc: func(tf TypeaheadFunction) string {
-				return fmt.Sprintf("parses as TOML to become an object")
+				return "parses as TOML to become an object"
 			},
 		},
 		FT_RemoveKeysByRegex: {

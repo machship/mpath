@@ -11,10 +11,10 @@ import (
 )
 
 type opPath struct {
-	StartAtRoot       bool
-	IsFilter          bool
-	MustEndInFunction bool
-	Operations        []Operation
+	StartAtRoot              bool
+	IsFilter                 bool
+	MustEndInFunctionOrIdent bool
+	Operations               []Operation
 	opCommon
 }
 
@@ -61,8 +61,10 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []st
 			}
 			errMessage := "cannot continue due to previous error"
 			part = &TypeaheadPart{
-				String: str,
-				Error:  &errMessage,
+				typeaheadPartFields: typeaheadPartFields{
+					String: str,
+					Error:  &errMessage,
+				},
 			}
 
 			continue
@@ -75,8 +77,10 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []st
 				shouldErrorRemaining = true
 				errMessage := "cannot address into primitive value"
 				parts = append(parts, &TypeaheadPart{
-					String: t.UserString(),
-					Error:  &errMessage,
+					typeaheadPartFields: typeaheadPartFields{
+						String: t.UserString(),
+						Error:  &errMessage,
+					},
 				})
 				continue
 			}
@@ -85,8 +89,10 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []st
 				shouldErrorRemaining = true
 				errMessage := "cannot address into array value"
 				parts = append(parts, &TypeaheadPart{
-					String: t.UserString(),
-					Error:  &errMessage,
+					typeaheadPartFields: typeaheadPartFields{
+						String: t.UserString(),
+						Error:  &errMessage,
+					},
 				})
 				continue
 			}
@@ -98,8 +104,10 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []st
 					if t.IdentName == brf {
 						errMessage := fmt.Sprintf("field %s is not available", t.IdentName)
 						parts = append(parts, &TypeaheadPart{
-							String: t.UserString(),
-							Error:  &errMessage,
+							typeaheadPartFields: typeaheadPartFields{
+								String: t.UserString(),
+								Error:  &errMessage,
+							},
 						})
 						continue
 					}
@@ -274,17 +282,23 @@ func (x *opPath) Parse(s *scanner, r rune) (nextR rune, err error) {
 
 		case ',', ')', ']', '}':
 			switch r {
-			case ',', ')':
+			case ',':
 				x.userString += string(r)
+			case ')':
+				// do nothing?
 			}
 
 			// This should mean we are finished the path
-			if x.MustEndInFunction {
-				if len(x.Operations) > 0 && x.Operations[len(x.Operations)-1].Type() == OT_Function {
-					if pf, ok := x.Operations[len(x.Operations)-1].(*opFunction); ok {
+			if x.MustEndInFunctionOrIdent {
+				if len(x.Operations) > 0 {
+					if pf, ok := x.Operations[len(x.Operations)-1].(*opFunction); x.Operations[len(x.Operations)-1].Type() == OT_Function && ok {
 						if ft_IsBoolFunc(pf.FunctionType) {
 							return r, nil
 						}
+					}
+					if _, ok := x.Operations[len(x.Operations)-1].(*opPathIdent); ok {
+						// we can assume that the user has provided a boolean property
+						return r, nil
 					}
 				}
 

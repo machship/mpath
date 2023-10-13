@@ -15,7 +15,9 @@ type opPathIdent struct {
 
 func (x *opPathIdent) Validate(inputValue cue.Value) (part *TypeaheadPart, nextValue cue.Value, returnedType PT_ParameterType, err error) {
 	part = &TypeaheadPart{
-		Available: &TypeaheadAvailable{},
+		typeaheadPartFields: typeaheadPartFields{
+			Available: &TypeaheadAvailable{},
+		},
 	}
 
 	// find the cue value for this ident
@@ -65,8 +67,10 @@ loop:
 			part.Available.Fields = availableFields
 		}
 
-		for _, af := range availableFields {
-			part.Available.Filters = append(part.Available.Filters, "@."+af)
+		if wasList {
+			for _, af := range availableFields {
+				part.Available.Filters = append(part.Available.Filters, "@."+af)
+			}
 		}
 
 	case cue.ListKind:
