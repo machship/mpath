@@ -100,8 +100,14 @@ func (x *opFunction) Validate(rootValue, inputValue cue.Value, blockedRootFields
 
 		// Check that the returned type is appropriate
 		if !(pd.Type == PT_Any || pd.Type == paramReturns) {
-			errMessage := fmt.Sprintf("incorrect parameter type: wanted '%s'; got '%s'", pd.Type, paramReturns)
-			param.Error = &errMessage
+			if pd.Type == PT_ArrayOfNumbers && paramReturns == PT_Number {
+				// Do nothing
+			} else if pd.Type == PT_NumberOrArrayOfNumbers && paramReturns == PT_Number {
+				// Do nothing
+			} else {
+				errMessage := fmt.Sprintf("incorrect parameter type: wanted '%s'; got '%s'", pd.Type, paramReturns)
+				param.Error = &errMessage
+			}
 		}
 
 		param.Type = paramReturns
