@@ -9,6 +9,7 @@ import (
 )
 
 type opLogicalOperation struct {
+	IsInvalid            bool
 	IsFilter             bool
 	LogicalOperationType LOT_LogicalOperationType
 	Operations           []Operation
@@ -21,6 +22,11 @@ func (x *opLogicalOperation) Validate(rootValue, nextValue cue.Value, blockedRoo
 			String:          x.UserString(),
 			LogicalOperator: &x.LogicalOperationType,
 		},
+	}
+
+	if x.IsInvalid {
+		errMessage := fmt.Sprintf("invalid operation type '%s'", x.LogicalOperationType)
+		logicalOperation.Error = &errMessage
 	}
 
 	rdMap := map[string]struct{}{}
@@ -186,6 +192,12 @@ func (x *opLogicalOperation) Parse(s *scanner, r rune) (nextR rune, err error) {
 		case "OR":
 			x.LogicalOperationType = LOT_Or
 		}
+		r = s.Scan()
+	} else if r == sc.Ident {
+		// This is a misspelt operation type
+		x.userString += tokenText
+		x.IsInvalid = true
+		x.LogicalOperationType = LOT_LogicalOperationType(tokenText)
 		r = s.Scan()
 	} else {
 		// We assume that a group without the logical operation defined is

@@ -14,6 +14,7 @@ import (
 
 // Functions can only be part of an opPath
 type opFunction struct {
+	IsInvalid    bool
 	FunctionType FT_FunctionType
 
 	Params FunctionParameterTypes
@@ -26,6 +27,11 @@ func (x *opFunction) Validate(rootValue, inputValue cue.Value, blockedRootFields
 			String:       x.UserString(),
 			FunctionName: (*string)(&x.FunctionType),
 		},
+	}
+
+	if x.IsInvalid {
+		errMessage := fmt.Sprintf("invalid operation type '%s'", x.FunctionType)
+		part.Error = &errMessage
 	}
 
 	// Find the function descriptor
@@ -224,7 +230,9 @@ func (x *opFunction) Parse(s *scanner, r rune) (nextR rune, err error) {
 
 	x.FunctionType, err = ft_GetByName(s.TokenText())
 	if err != nil {
-		return r, erAt(s, err.Error())
+		x.IsInvalid = true
+		x.FunctionType = FT_FunctionType(s.TokenText())
+		// return r, erAt(s, err.Error())
 	}
 	x.userString += string(x.FunctionType)
 

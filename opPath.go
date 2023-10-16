@@ -11,6 +11,7 @@ import (
 )
 
 type opPath struct {
+	IsInvalid                bool
 	StartAtRoot              bool
 	IsFilter                 bool
 	MustEndInFunctionOrIdent bool
@@ -302,7 +303,9 @@ func (x *opPath) Parse(s *scanner, r rune) (nextR rune, err error) {
 					}
 				}
 
-				return r, erAt(s, "paths that are part of a logical operation must end in a boolean function")
+				// return r, erAt(s, "paths that are part of a logical operation must end in a boolean function")
+				x.IsInvalid = true
+				return r, nil
 			}
 
 			return r, nil

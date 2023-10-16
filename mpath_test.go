@@ -311,6 +311,13 @@ var (
 		Expect_bool        bool
 		Expect_ForPath     [][]string
 	}{
+		// { //todo: add expected error states into the tests (this should error)
+		// 	Name:               "Test misspelt operation type",
+		// 	Query:              `{AN,$.string.Equals("test")}`,
+		// 	Expect_bool:        false,
+		// 	ExpectedResultType: RT_bool,
+		// 	// Expect_ForPath:     [][]string{{"numberInString"}},
+		// },
 		{
 			Name:               "Add number to string number",
 			Query:              `$.numberInString.Add(21111.123)`,
