@@ -126,6 +126,7 @@ func (x *opFunction) Validate(rootValue, inputValue cue.Value, previousType PT_P
 	k, _ = getUnderlyingKind(inputValue)
 	if fd.ReturnsKnownValues && previousType == PT_Array && k == cue.StructKind {
 		// We can find available fields
+		returnedType = PT_Object
 		part.returnedKnownFields = true
 		part.Available.Fields, err = getAvailableFieldsForValue(inputValue)
 		if err != nil {
@@ -135,8 +136,8 @@ func (x *opFunction) Validate(rootValue, inputValue cue.Value, previousType PT_P
 			}
 			part.Error = &errMessage
 		}
-		part.Available.Functions = append(part.Available.Functions, getAvailableFunctionsForKind(PT_Object, false)...)
 	}
+	part.Available.Functions = append(part.Available.Functions, getAvailableFunctionsForKind(returnedType, false)...)
 
 	return
 }
