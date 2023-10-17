@@ -124,6 +124,24 @@ func (x *opFunction) Validate(rootValue, inputValue cue.Value, previousType PT_P
 
 	var k cue.Kind
 	k, _ = getUnderlyingKind(inputValue)
+
+	if fd.Returns == PT_Any {
+		switch k {
+		// Primative Kinds:
+		case cue.BoolKind:
+			returnedType = PT_Boolean
+		case cue.StringKind:
+			returnedType = PT_String
+		case cue.NumberKind, cue.IntKind, cue.FloatKind:
+			returnedType = PT_Number
+		case cue.StructKind:
+			returnedType = PT_Object
+		case cue.ListKind:
+			returnedType = PT_Array
+		}
+	}
+	part.Type = returnedType
+
 	if fd.ReturnsKnownValues && previousType == PT_Array && k == cue.StructKind {
 		// We can find available fields
 		returnedType = PT_Object

@@ -31,6 +31,8 @@ _b: {
 			}
 		}]
 	}]
+	arrayOfInts: [int]
+	arrayOfStrings: [string]
 	_dependencies: ["_a"]
 }
 _c: {
@@ -65,7 +67,7 @@ _variables: {
 	// }
 	// `
 
-	bigQuery := `$._b.results.First()`
+	bigQuery := `$._b.arrayOfStrings.First()`
 
 	// bigQuery := `$._b.results[@.bool].Any()`
 	// bigQuery := `$._b.results[@.bool].First().Multiply(12).GreaterOrEqual($._input.num)`
