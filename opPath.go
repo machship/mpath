@@ -284,7 +284,7 @@ func (x *opPath) Parse(s *scanner, r rune) (nextR rune, err error) {
 		case ',', ')', ']', '}':
 			switch r {
 			case ',':
-				x.userString += string(r)
+				// x.userString += string(r)
 			case ')':
 				// do nothing?
 			}

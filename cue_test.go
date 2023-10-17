@@ -69,7 +69,7 @@ _variables: {
 	// }
 	// `
 
-	bigQuery := `$._b.arrayOfStrings.First()`
+	bigQuery := `{OR, $.a.Equal(12), $.a.Equal(16),{OR, $.a.Equal(12), $.a.Equal(16)}}`
 
 	// bigQuery := `$._b.results[@.bool].Any()`
 	// bigQuery := `$._b.results[@.bool].First().Multiply(12).GreaterOrEqual($._input.num)`
