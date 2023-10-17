@@ -36,11 +36,21 @@ loop:
 	switch k {
 	// Primative Kinds:
 	case cue.BoolKind:
-		returnedType = PT_Boolean
-		part.Available.Functions = getAvailableFunctionsForKind(PT_Boolean, false)
+		if wasList {
+			returnedType = PT_Array
+			part.Available.Functions = getAvailableFunctionsForKind(PT_Array, false)
+		} else {
+			returnedType = PT_Boolean
+			part.Available.Functions = getAvailableFunctionsForKind(PT_Boolean, false)
+		}
 	case cue.StringKind:
-		returnedType = PT_String
-		part.Available.Functions = getAvailableFunctionsForKind(PT_String, false)
+		if wasList {
+			returnedType = PT_Array
+			part.Available.Functions = getAvailableFunctionsForKind(PT_Array, false)
+		} else {
+			returnedType = PT_String
+			part.Available.Functions = getAvailableFunctionsForKind(PT_String, false)
+		}
 	case cue.NumberKind, cue.IntKind, cue.FloatKind:
 		if wasList {
 			returnedType = PT_ArrayOfNumbers

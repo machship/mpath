@@ -53,6 +53,8 @@ _variables: {
 	`
 
 	var err error
+	x := 1
+	_ = x
 
 	// bigQuery := `$._b.results[{AND,{OR,@.example.Equal("or op")},@.example.Equal("something")}].example.AnyOf("bob","jones")`
 	// bigQuery := `
