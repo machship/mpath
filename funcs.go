@@ -947,11 +947,12 @@ func (pt PT_ParameterType) IsArray() bool {
 }
 
 type FunctionDescriptor struct {
-	Name        FT_FunctionType       `json:"name"`
-	Description string                `json:"description"`
-	Params      []ParameterDescriptor `json:"params"`
-	ValidOn     PT_ParameterType      `json:"validOn"`
-	Returns     PT_ParameterType      `json:"returns"`
+	Name               FT_FunctionType       `json:"name"`
+	Description        string                `json:"description"`
+	Params             []ParameterDescriptor `json:"params"`
+	ValidOn            PT_ParameterType      `json:"validOn"`
+	Returns            PT_ParameterType      `json:"returns"`
+	ReturnsKnownValues bool                  `json:"returnsKnownValues"`
 
 	fn              func(rtParams FunctionParameterTypes, val any) (any, error)
 	explanationFunc func(tf Function) string
@@ -1221,34 +1222,37 @@ var (
 			},
 		},
 		FT_First: {
-			Name:        FT_First,
-			Description: "Returns the first element of the array",
-			Params:      nil,
-			Returns:     PT_Any,
-			ValidOn:     PT_Array,
-			fn:          func_First,
+			Name:               FT_First,
+			Description:        "Returns the first element of the array",
+			Params:             nil,
+			Returns:            PT_Any,
+			ReturnsKnownValues: true,
+			ValidOn:            PT_Array,
+			fn:                 func_First,
 			explanationFunc: func(tf Function) string {
 				return "the first element"
 			},
 		},
 		FT_Last: {
-			Name:        FT_Last,
-			Description: "Returns the last element of the array",
-			Params:      nil,
-			Returns:     PT_Any,
-			ValidOn:     PT_Array,
-			fn:          func_Last,
+			Name:               FT_Last,
+			Description:        "Returns the last element of the array",
+			Params:             nil,
+			Returns:            PT_Any,
+			ReturnsKnownValues: true,
+			ValidOn:            PT_Array,
+			fn:                 func_Last,
 			explanationFunc: func(tf Function) string {
 				return "the last element"
 			},
 		},
 		FT_Index: {
-			Name:        FT_Index,
-			Description: "Returns the element at the zero based index of the array",
-			Params:      singleParam("index", PT_Number),
-			Returns:     PT_Any,
-			ValidOn:     PT_Array,
-			fn:          func_Index,
+			Name:               FT_Index,
+			Description:        "Returns the element at the zero based index of the array",
+			Params:             singleParam("index", PT_Number),
+			Returns:            PT_Any,
+			ReturnsKnownValues: true,
+			ValidOn:            PT_Array,
+			fn:                 func_Index,
 			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
 					return ""

@@ -357,6 +357,7 @@ type functionFields struct {
 
 type Function struct {
 	functionFields
+	returnedKnownFields bool
 }
 
 func (x *Function) CanBeAPart() {}

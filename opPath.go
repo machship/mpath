@@ -143,7 +143,7 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []st
 			}
 
 		case *opFunction:
-			part, returnedType, rd, err = t.Validate(rootValue, nextValue, blockedRootFields)
+			part, returnedType, rd, err = t.Validate(rootValue, nextValue, part.ReturnType(), blockedRootFields)
 			if err != nil {
 				shouldErrorRemaining = true
 			}

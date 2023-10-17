@@ -21,11 +21,12 @@ type opFunction struct {
 	opCommon
 }
 
-func (x *opFunction) Validate(rootValue, inputValue cue.Value, blockedRootFields []string) (part *Function, returnedType PT_ParameterType, requiredData []string, err error) {
+func (x *opFunction) Validate(rootValue, inputValue cue.Value, previousType PT_ParameterType, blockedRootFields []string) (part *Function, returnedType PT_ParameterType, requiredData []string, err error) {
 	part = &Function{
 		functionFields: functionFields{
 			String:       x.UserString(),
 			FunctionName: (*string)(&x.FunctionType),
+			Available:    &Available{},
 		},
 	}
 
@@ -120,6 +121,22 @@ func (x *opFunction) Validate(rootValue, inputValue cue.Value, blockedRootFields
 
 	explanation := fd.explanationFunc(*part)
 	part.FunctionExplanation = &explanation
+
+	var k cue.Kind
+	k, _ = getUnderlyingKind(inputValue)
+	if fd.ReturnsKnownValues && previousType == PT_Array && k == cue.StructKind {
+		// We can find available fields
+		part.returnedKnownFields = true
+		part.Available.Fields, err = getAvailableFieldsForValue(inputValue)
+		if err != nil {
+			errMessage := fmt.Sprintf("failed to get available fields: %v", err)
+			if part.Error != nil {
+				errMessage = *part.Error + "; " + errMessage
+			}
+			part.Error = &errMessage
+		}
+		part.Available.Functions = append(part.Available.Functions, getAvailableFunctionsForKind(PT_Object, false)...)
+	}
 
 	return
 }

@@ -65,7 +65,7 @@ _variables: {
 	// }
 	// `
 
-	bigQuery := `$._b.number.Sum(10)`
+	bigQuery := `$._b.results.First()`
 
 	// bigQuery := `$._b.results[@.bool].Any()`
 	// bigQuery := `$._b.results[@.bool].First().Multiply(12).GreaterOrEqual($._input.num)`
