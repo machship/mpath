@@ -54,7 +54,8 @@ _variables: {
 
 	var err error
 
-	bigQuery := `{OR, $.a.Equal(12), $.a.Equal(16),{OR, $.a.Equal(12), $.a.Equal(16)}}`
+	// bigQuery := `{OR, $.a.Equal(12), $.a.Equal(16),{OR, $.a.Equal(12), $.a.Equal(16)}}`
+	bigQuery := `$._b.results[AND,@.example.Equal("Something"),@.example.NotEqual("Test")].First().boolean`
 
 	// bigQuery := `$._b.results[@.bool].Any()`
 	// bigQuery := `$._b.results[@.bool].First().Multiply(12).GreaterOrEqual($._input.num)`
@@ -71,8 +72,8 @@ _variables: {
 	jstr, _ := json.MarshalIndent(tc, "", "\t")
 	clipboard.WriteAll(string(jstr))
 
-	jstr, _ = json.MarshalIndent(rdm, "", "\t")
-	clipboard.WriteAll(string(jstr))
+	// jstr, _ = json.MarshalIndent(rdm, "", "\t")
+	// clipboard.WriteAll(string(jstr))
 
 	_ = tc
 	_ = rdm

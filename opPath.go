@@ -185,11 +185,16 @@ func (x *opPath) Sprint(depth int) (out string) {
 	opStrings := []string{}
 
 	for _, op := range x.Operations {
-		opStrings = append(opStrings, op.Sprint(depth))
+		var thisStr string
+		if op.Type() != OT_Filter {
+			thisStr = "."
+		}
+		thisStr += op.Sprint(depth)
+		opStrings = append(opStrings, thisStr)
 	}
 
 	if len(opStrings) > 0 {
-		out += "." + strings.Join(opStrings, ".")
+		out += strings.Join(opStrings, "")
 	}
 
 	return
