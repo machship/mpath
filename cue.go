@@ -19,18 +19,13 @@ type CanBeAPart interface {
 	PartType() string
 	MarshalJSON() ([]byte, error)
 	ReturnType() PT_ParameterType
-	ReturnErrors() []*StringAndError
+	HasErrors() bool
 }
 
 type RuntimeDataMap struct {
-	String          string            `json:"string"`
-	HasErroredPaths []*StringAndError `json:"hasErroredPaths"`
-	RequiredData    []string          `json:"requiredData"`
-}
-
-type StringAndError struct {
-	String string `json:"string"`
-	Error  string `json:"error"`
+	String       string   `json:"string"`
+	HasErrors    bool     `json:"hasErrors"`
+	RequiredData []string `json:"requiredData"`
 }
 
 // query: the mpath query string
@@ -106,9 +101,9 @@ func CueValidate(query, cueFile, currentPath string) (tc CanBeAPart, rdm *Runtim
 	}
 
 	rdm = &RuntimeDataMap{
-		String:          query,
-		RequiredData:    requiredData,
-		HasErroredPaths: tc.ReturnErrors(),
+		String:       query,
+		RequiredData: requiredData,
+		HasErrors:    tc.HasErrors(),
 	}
 
 	return
@@ -309,23 +304,15 @@ func (x *Path) PathString() string {
 	return x.String
 }
 
-func (x *Path) ReturnErrors() (out []*StringAndError) {
+func (x *Path) HasErrors() (out bool) {
 	if x.Error != nil {
-		out = append(out, &StringAndError{
-			String: x.String,
-			Error:  *x.Error,
-		})
+		return true
 	}
 
 	for _, p := range x.Parts {
-		subErrs := p.ReturnErrors()
-		if len(subErrs) == 0 {
-			continue
-		}
-
-		for _, se := range subErrs {
-			se.String = x.String + "." + se.String
-			out = append(out, se)
+		subErrs := p.HasErrors()
+		if subErrs {
+			return true
 		}
 	}
 
@@ -366,12 +353,9 @@ func (x *PathIdent) PathString() string {
 	return x.String
 }
 
-func (x *PathIdent) ReturnErrors() (out []*StringAndError) {
+func (x *PathIdent) HasErrors() (out bool) {
 	if x.Error != nil {
-		out = append(out, &StringAndError{
-			String: x.String,
-			Error:  *x.Error,
-		})
+		return true
 	}
 
 	return
@@ -421,31 +405,20 @@ func (x *Function) PathString() string {
 	return x.String
 }
 
-func (x *Function) ReturnErrors() (out []*StringAndError) {
+func (x *Function) HasErrors() (out bool) {
 	if x.Error != nil {
-		out = append(out, &StringAndError{
-			String: x.String,
-			Error:  *x.Error,
-		})
+		return true
 	}
 
-	for i, fp := range x.FunctionParameters {
+	for _, fp := range x.FunctionParameters {
 		if fp.Error != nil {
-			out = append(out, &StringAndError{
-				String: x.String + "." + fp.String,
-				Error:  *fp.Error,
-			})
+			return true
 		}
 
 		for _, p := range fp.Parts {
-			subErrs := p.ReturnErrors()
-			if len(subErrs) == 0 {
-				continue
-			}
-
-			for _, se := range subErrs {
-				se.String = x.String + fmt.Sprintf("._parameter_%d.", i) + se.String
-				out = append(out, se)
+			subErrs := p.HasErrors()
+			if subErrs {
+				return
 			}
 		}
 	}
@@ -499,23 +472,15 @@ func (x *LogicalOperation) PathString() string {
 	return x.String
 }
 
-func (x *LogicalOperation) ReturnErrors() (out []*StringAndError) {
+func (x *LogicalOperation) HasErrors() (out bool) {
 	if x.Error != nil {
-		out = append(out, &StringAndError{
-			String: x.String,
-			Error:  *x.Error,
-		})
+		return true
 	}
 
-	for i, p := range x.Parts {
-		subErrs := p.ReturnErrors()
-		if len(subErrs) == 0 {
-			continue
-		}
-
-		for _, se := range subErrs {
-			se.String = p.PathString() + fmt.Sprintf("._parameter_%d.", i) + se.String
-			out = append(out, se)
+	for _, p := range x.Parts {
+		subErrs := p.HasErrors()
+		if subErrs {
+			return true
 		}
 	}
 

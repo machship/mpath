@@ -23,6 +23,7 @@ _b: {
 		result:     float  
 		"example": string
 		"bool": bool
+		"boolean": bool
 		array: [{
 			object: {
 				nested: {
@@ -72,8 +73,8 @@ _variables: {
 	jstr, _ := json.MarshalIndent(tc, "", "\t")
 	clipboard.WriteAll(string(jstr))
 
-	// jstr, _ = json.MarshalIndent(rdm, "", "\t")
-	// clipboard.WriteAll(string(jstr))
+	jstr, _ = json.MarshalIndent(rdm, "", "\t")
+	clipboard.WriteAll(string(jstr))
 
 	_ = tc
 	_ = rdm
