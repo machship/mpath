@@ -114,8 +114,11 @@ func (x *opLogicalOperation) Sprint(depth int) (out string) {
 		out += "OR,"
 	}
 
-	for _, op := range x.Operations {
-		out += "\n" + op.Sprint(depth+1) + ","
+	for i, op := range x.Operations {
+		out += "\n" + op.Sprint(depth+1)
+		if i != len(x.Operations)-1 {
+			out += ","
+		}
 	}
 
 	out += "\n" + repeatTabs(depth) + endChar

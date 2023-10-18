@@ -53,21 +53,6 @@ _variables: {
 	`
 
 	var err error
-	x := 1
-	_ = x
-
-	// bigQuery := `$._b.results[{AND,{OR,@.example.Equal("or op")},@.example.Equal("something")}].example.AnyOf("bob","jones")`
-	// bigQuery := `
-	// {
-	// 	OR,
-	// 	$._a.result.Multiply(12).GreaterOrEqual($._input.num),
-	// 	$._b.results[
-	// 		AND,
-	// 		@.example.Equal("Something"),
-	// 		@.example.NotEqual("Test")
-	// 	].First().array.First().object.nested.boolean.Equal(true)
-	// }
-	// `
 
 	bigQuery := `{OR, $.a.Equal(12), $.a.Equal(16),{OR, $.a.Equal(12), $.a.Equal(16)}}`
 
@@ -84,6 +69,9 @@ _variables: {
 	}
 
 	jstr, _ := json.MarshalIndent(tc, "", "\t")
+	clipboard.WriteAll(string(jstr))
+
+	jstr, _ = json.MarshalIndent(rdm, "", "\t")
 	clipboard.WriteAll(string(jstr))
 
 	_ = tc

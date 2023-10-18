@@ -145,7 +145,6 @@ func (x *opFunction) Validate(rootValue, inputValue cue.Value, previousType PT_P
 	if fd.ReturnsKnownValues && previousType == PT_Array && k == cue.StructKind {
 		// We can find available fields
 		returnedType = PT_Object
-		part.returnedKnownFields = true
 		part.Available.Fields, err = getAvailableFieldsForValue(inputValue)
 		if err != nil {
 			errMessage := fmt.Sprintf("failed to get available fields: %v", err)

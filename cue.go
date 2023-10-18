@@ -14,6 +14,25 @@ func ListFunctions() (funcs map[FT_FunctionType]FunctionDescriptor) {
 	return funcMap
 }
 
+type CanBeAPart interface {
+	PathString() string
+	PartType() string
+	MarshalJSON() ([]byte, error)
+	ReturnType() PT_ParameterType
+	ReturnErrors() []*StringAndError
+}
+
+type RuntimeDataMap struct {
+	String          string            `json:"string"`
+	HasErroredPaths []*StringAndError `json:"hasErroredPaths"`
+	RequiredData    []string          `json:"requiredData"`
+}
+
+type StringAndError struct {
+	String string `json:"string"`
+	Error  string `json:"error"`
+}
+
 // query: the mpath query string
 // cueFile: the cue file
 // currentPath: the id of the step for which this query is an input value, or if for the output, leave blank
@@ -66,15 +85,13 @@ func CueValidate(query, cueFile, currentPath string) (tc CanBeAPart, rdm *Runtim
 		requiredData = rd
 		ptc.Type = typ
 		ptc.Parts = append(ptc.Parts, parts...)
+
+		pps := t.Sprint(0)
+		ptc.PrettyPrintedString = &pps
+
 		tc = ptc
 
 	case *opLogicalOperation:
-		tc = &Path{
-			pathFields: pathFields{
-				String: query,
-			},
-		}
-
 		logicalOperation, subRequiredData, subErr := t.Validate(rootValue, rootValue, blockedRootFields)
 		if err != nil {
 			err = subErr
@@ -82,12 +99,16 @@ func CueValidate(query, cueFile, currentPath string) (tc CanBeAPart, rdm *Runtim
 		}
 		requiredData = subRequiredData
 
+		pps := t.Sprint(0)
+		logicalOperation.PrettyPrintedString = &pps
+
 		tc = logicalOperation
 	}
 
 	rdm = &RuntimeDataMap{
-		String:       query,
-		RequiredData: requiredData,
+		String:          query,
+		RequiredData:    requiredData,
+		HasErroredPaths: tc.ReturnErrors(),
 	}
 
 	return
@@ -165,11 +186,6 @@ var (
 	mpathOpCache  = map[string]Operation{}
 	cueValueCache = map[string]cue.Value{}
 )
-
-type RuntimeDataMap struct {
-	String       string
-	RequiredData []string
-}
 
 type BP_BasePath string
 
@@ -277,25 +293,45 @@ loop:
 	return
 }
 
-type CanBeAPart interface {
-	CanBeAPart()
-	PartType() string
-	MarshalJSON() ([]byte, error)
-	ReturnType() PT_ParameterType
-}
-
 type pathFields struct {
-	String string           `json:"string"`
-	Type   PT_ParameterType `json:"type"`
-	Error  *string          `json:"error,omitempty"`
-	Parts  []CanBeAPart     `json:"parts,omitempty"`
+	String              string           `json:"string"`
+	PrettyPrintedString *string          `json:"prettyPrintedString,omitempty"`
+	Type                PT_ParameterType `json:"type"`
+	Error               *string          `json:"error,omitempty"`
+	Parts               []CanBeAPart     `json:"parts,omitempty"`
 }
 
 type Path struct {
 	pathFields
 }
 
-func (x *Path) CanBeAPart() {}
+func (x *Path) PathString() string {
+	return x.String
+}
+
+func (x *Path) ReturnErrors() (out []*StringAndError) {
+	if x.Error != nil {
+		out = append(out, &StringAndError{
+			String: x.String,
+			Error:  *x.Error,
+		})
+	}
+
+	for _, p := range x.Parts {
+		subErrs := p.ReturnErrors()
+		if len(subErrs) == 0 {
+			continue
+		}
+
+		for _, se := range subErrs {
+			se.String = x.String + "." + se.String
+			out = append(out, se)
+		}
+	}
+
+	return
+}
+
 func (x *Path) ReturnType() PT_ParameterType {
 	return x.Type
 }
@@ -326,7 +362,21 @@ type PathIdent struct {
 	pathIdentFields
 }
 
-func (x *PathIdent) CanBeAPart() {}
+func (x *PathIdent) PathString() string {
+	return x.String
+}
+
+func (x *PathIdent) ReturnErrors() (out []*StringAndError) {
+	if x.Error != nil {
+		out = append(out, &StringAndError{
+			String: x.String,
+			Error:  *x.Error,
+		})
+	}
+
+	return
+}
+
 func (x *PathIdent) ReturnType() PT_ParameterType {
 	return x.Type
 }
@@ -345,6 +395,14 @@ func (x *PathIdent) MarshalJSON() ([]byte, error) {
 	})
 }
 
+type FunctionParameter struct {
+	String    string           `json:"string"`
+	Type      PT_ParameterType `json:"type"`
+	Error     *string          `json:"error,omitempty"`
+	Parts     []CanBeAPart     `json:"parts,omitempty"`
+	Available *Available       `json:"available,omitempty"`
+}
+
 type functionFields struct {
 	String              string               `json:"string"`
 	Error               *string              `json:"error,omitempty"`
@@ -357,10 +415,44 @@ type functionFields struct {
 
 type Function struct {
 	functionFields
-	returnedKnownFields bool
 }
 
-func (x *Function) CanBeAPart() {}
+func (x *Function) PathString() string {
+	return x.String
+}
+
+func (x *Function) ReturnErrors() (out []*StringAndError) {
+	if x.Error != nil {
+		out = append(out, &StringAndError{
+			String: x.String,
+			Error:  *x.Error,
+		})
+	}
+
+	for i, fp := range x.FunctionParameters {
+		if fp.Error != nil {
+			out = append(out, &StringAndError{
+				String: x.String + "." + fp.String,
+				Error:  *fp.Error,
+			})
+		}
+
+		for _, p := range fp.Parts {
+			subErrs := p.ReturnErrors()
+			if len(subErrs) == 0 {
+				continue
+			}
+
+			for _, se := range subErrs {
+				se.String = x.String + fmt.Sprintf("._parameter_%d.", i) + se.String
+				out = append(out, se)
+			}
+		}
+	}
+
+	return
+}
+
 func (x *Function) ReturnType() PT_ParameterType {
 	return x.Type
 }
@@ -392,17 +484,44 @@ type Filter struct {
 }
 
 type logicalOperationFields struct {
-	String          string                    `json:"string"`
-	Error           *string                   `json:"error,omitempty"`
-	LogicalOperator *LOT_LogicalOperationType `json:"logicalOperator,omitempty"`
-	Parts           []CanBeAPart              `json:"parts,omitempty"`
+	String              string                    `json:"string"`
+	PrettyPrintedString *string                   `json:"prettyPrintedString,omitempty"`
+	Error               *string                   `json:"error,omitempty"`
+	LogicalOperator     *LOT_LogicalOperationType `json:"logicalOperator,omitempty"`
+	Parts               []CanBeAPart              `json:"parts,omitempty"`
 }
 
 type LogicalOperation struct {
 	logicalOperationFields
 }
 
-func (x *LogicalOperation) CanBeAPart() {}
+func (x *LogicalOperation) PathString() string {
+	return x.String
+}
+
+func (x *LogicalOperation) ReturnErrors() (out []*StringAndError) {
+	if x.Error != nil {
+		out = append(out, &StringAndError{
+			String: x.String,
+			Error:  *x.Error,
+		})
+	}
+
+	for i, p := range x.Parts {
+		subErrs := p.ReturnErrors()
+		if len(subErrs) == 0 {
+			continue
+		}
+
+		for _, se := range subErrs {
+			se.String = p.PathString() + fmt.Sprintf("._parameter_%d.", i) + se.String
+			out = append(out, se)
+		}
+	}
+
+	return
+}
+
 func (x *LogicalOperation) ReturnType() PT_ParameterType {
 	return PT_Boolean
 }
@@ -419,12 +538,4 @@ func (x *LogicalOperation) MarshalJSON() ([]byte, error) {
 		PartType:               x.PartType(),
 		logicalOperationFields: x.logicalOperationFields,
 	})
-}
-
-type FunctionParameter struct {
-	String    string           `json:"string"`
-	Type      PT_ParameterType `json:"type"`
-	Error     *string          `json:"error,omitempty"`
-	Parts     []CanBeAPart     `json:"parts,omitempty"`
-	Available *Available       `json:"available,omitempty"`
 }
