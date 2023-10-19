@@ -186,6 +186,19 @@ func func_GreaterOrEqual(rtParams FunctionParameterTypes, val any) (any, error) 
 	}, FT_GreaterOrEqual)
 }
 
+const FT_Invert FT_FunctionType = "Invert"
+
+func func_Invert(rtParams FunctionParameterTypes, val any) (any, error) {
+	switch t := val.(type) {
+	case bool:
+		return !t, nil
+	case *bool:
+		return !(*t), nil
+	}
+
+	return false, fmt.Errorf("input was not boolean")
+}
+
 func stringBoolFunc(rtParams FunctionParameterTypes, val any, fn func(string, string) bool, invert bool, fnName FT_FunctionType) (bool, error) {
 	param, err := paramsGetFirstOfString(rtParams)
 	if err != nil {
@@ -239,6 +252,28 @@ const FT_NotSuffix FT_FunctionType = "NotSuffix"
 
 func func_NotSuffix(rtParams FunctionParameterTypes, val any) (any, error) {
 	return stringBoolFunc(rtParams, val, strings.HasSuffix, true, FT_NotSuffix)
+}
+
+const FT_Sprintf FT_FunctionType = "Sprintf"
+
+func func_Sprintf(rtParams FunctionParameterTypes, val any) (any, error) {
+	valStr, ok := val.(string)
+	if !ok {
+		return errString(FT_Sprintf, fmt.Errorf("input was not a string"))
+	}
+
+	allparams, err := paramsGetAll(rtParams)
+	if err != nil {
+		return errString(FT_Sprintf, err)
+	}
+
+	pLen := len(allparams)
+	switch pLen {
+	case 0:
+		return valStr, nil
+	default:
+		return fmt.Sprintf(valStr, allparams[1:]...), nil
+	}
 }
 
 const FT_Count FT_FunctionType = "Count"
@@ -404,17 +439,19 @@ func func_decimalSlice(rtParams FunctionParameterTypes, val any, decimalSliceFun
 	} else if valIfc, ok := val.([]any); ok {
 		newSlc = append([]decimal.Decimal{}, paramNumbers...)
 		for _, vs := range valIfc {
-			if vd, ok := vs.(decimal.Decimal); ok {
-				newSlc = append(newSlc, vd)
-			} else if vd, ok := vs.(string); ok {
-				// Check if the string can be converted to an integer
-				wasNumber, number := convertToDecimalIfNumberAndCheck(vd)
+			switch t := vs.(type) {
+			case decimal.Decimal:
+				newSlc = append(newSlc, t)
+			case string:
+				wasNumber, number := convertToDecimalIfNumberAndCheck(t)
 				if wasNumber {
 					newSlc = append(newSlc, number)
 					continue
 				}
 				goto notArrayOfNumbers
-			} else {
+			case float64:
+				newSlc = append(newSlc, decimal.NewFromFloat(t))
+			default:
 				goto notArrayOfNumbers
 			}
 		}
@@ -431,7 +468,7 @@ func func_decimalSlice(rtParams FunctionParameterTypes, val any, decimalSliceFun
 	return decimalSliceFunction(newSlc[0], newSlc[1:]...), nil
 
 notArrayOfNumbers:
-	return false, fmt.Errorf("not array of numbers")
+	return false, fmt.Errorf("not an array of numbers")
 }
 
 const FT_Sum FT_FunctionType = "Sum"
@@ -507,6 +544,10 @@ func func_AnyOf(rtParams FunctionParameterTypes, val any) (any, error) {
 	params, err := paramsGetAll(rtParams)
 	if err != nil {
 		return errBool(FT_AnyOf, err)
+	}
+
+	if len(params) == 0 {
+		return false, nil
 	}
 
 	for _, p := range params {
@@ -879,12 +920,19 @@ func func_RemoveKeysBySuffix(rtParams FunctionParameterTypes, val any) (any, err
 
 type FT_FunctionType string
 
-func singleParam(name string, typ PT_ParameterType) []ParameterDescriptor {
+func singleParam(name string, typ PT_ParameterType, ioType IOOT_InputOrOutputType) []ParameterDescriptor {
 	return []ParameterDescriptor{
 		{
-			Name: name,
-			Type: typ,
+			InputOrOutput: inputOrOutput(typ, ioType),
+			Name:          name,
 		},
+	}
+}
+
+func inputOrOutput(typ PT_ParameterType, ioType IOOT_InputOrOutputType) InputOrOutput {
+	return InputOrOutput{
+		IOType: ioType,
+		Type:   typ,
 	}
 }
 
@@ -914,18 +962,13 @@ func ft_GetName(x FT_FunctionType) string {
 type PT_ParameterType string
 
 const (
-	PT_String                 PT_ParameterType = "String"
-	PT_Boolean                PT_ParameterType = "Boolean"
-	PT_Number                 PT_ParameterType = "Number"
-	PT_Array                  PT_ParameterType = "Array"
-	PT_ArrayOfNumbers         PT_ParameterType = "ArrayOfNumbers"
-	PT_Variadic               PT_ParameterType = "Variadic"
-	PT_NumberOrArrayOfNumbers PT_ParameterType = "NumberOrArrayOfNumbers"
-	PT_Any                    PT_ParameterType = "Any"
-	PT_Object                 PT_ParameterType = "Object"
-	PT_Root                   PT_ParameterType = "Root"
-	PT_ElementRoot            PT_ParameterType = "ElementRoot"
-	// PT_SameAsInput            PT_ParameterType = "SameAsInput"
+	PT_String      PT_ParameterType = "String"
+	PT_Boolean     PT_ParameterType = "Boolean"
+	PT_Number      PT_ParameterType = "Number"
+	PT_Any         PT_ParameterType = "Any"
+	PT_Object      PT_ParameterType = "Object"
+	PT_Root        PT_ParameterType = "Root"
+	PT_ElementRoot PT_ParameterType = "ElementRoot"
 )
 
 func (pt PT_ParameterType) IsPrimitive() bool {
@@ -937,21 +980,12 @@ func (pt PT_ParameterType) IsPrimitive() bool {
 	return false
 }
 
-func (pt PT_ParameterType) IsArray() bool {
-	switch pt {
-	case PT_Array, PT_ArrayOfNumbers:
-		return true
-	}
-
-	return false
-}
-
 type FunctionDescriptor struct {
 	Name               FT_FunctionType       `json:"name"`
 	Description        string                `json:"description"`
 	Params             []ParameterDescriptor `json:"params"`
-	ValidOn            PT_ParameterType      `json:"validOn"`
-	Returns            PT_ParameterType      `json:"returns"`
+	ValidOn            InputOrOutput         `json:"validOn"`
+	Returns            InputOrOutput         `json:"returns"`
 	ReturnsKnownValues bool                  `json:"returnsKnownValues"`
 
 	fn              func(rtParams FunctionParameterTypes, val any) (any, error)
@@ -972,8 +1006,8 @@ func (fd FunctionDescriptor) MarshalJSON() ([]byte, error) {
 		FriendlyName string                `json:"friendlyName"`
 		Description  string                `json:"description"`
 		Params       []ParameterDescriptor `json:"params"`
-		ValidOn      PT_ParameterType      `json:"validOn"`
-		Returns      PT_ParameterType      `json:"returns"`
+		ValidOn      InputOrOutput         `json:"validOn"`
+		Returns      InputOrOutput         `json:"returns"`
 	}{
 		Name:         fd.Name,
 		FriendlyName: fd.FriendlyName(),
@@ -1008,12 +1042,9 @@ func (fd FunctionDescriptor) FriendlyName() (friendlyName string) {
 	return
 }
 
-func getAvailableFunctionsForKind(pt PT_ParameterType, exludeAny bool) (names []string) {
+func getAvailableFunctionsForKind(iot InputOrOutput) (names []string) {
 	for _, fd := range funcMap {
-		if pt == fd.ValidOn {
-			names = append(names, string(fd.Name))
-		}
-		if !exludeAny && pt != PT_Any && fd.ValidOn == PT_Any {
+		if iot == fd.ValidOn || (fd.ValidOn.Type == PT_Any && (fd.ValidOn.IOType == IOOT_Variadic || fd.ValidOn.IOType == iot.IOType)) {
 			names = append(names, string(fd.Name))
 		}
 	}
@@ -1023,9 +1054,22 @@ func getAvailableFunctionsForKind(pt PT_ParameterType, exludeAny bool) (names []
 	return
 }
 
+type IOOT_InputOrOutputType string
+
+const (
+	IOOT_Single   IOOT_InputOrOutputType = "Single"
+	IOOT_Array    IOOT_InputOrOutputType = "Array"
+	IOOT_Variadic IOOT_InputOrOutputType = "Variadic"
+)
+
+type InputOrOutput struct {
+	Type   PT_ParameterType       `json:"type"`
+	IOType IOOT_InputOrOutputType `json:"ioType"`
+}
+
 type ParameterDescriptor struct {
-	Name string           `json:"name"`
-	Type PT_ParameterType `json:"type"`
+	InputOrOutput
+	Name string `json:"name"`
 }
 
 var (
@@ -1033,9 +1077,9 @@ var (
 		FT_Equal: {
 			Name:        FT_Equal,
 			Description: "Checks whether the value equals the parameter",
-			Params:      singleParam("value to match", PT_Any),
-			Returns:     PT_Boolean,
-			ValidOn:     PT_Any,
+			Params:      singleParam("value to match", PT_Any, IOOT_Single),
+			Returns:     inputOrOutput(PT_Boolean, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_Any, IOOT_Variadic),
 			fn:          func_Equal,
 			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
@@ -1048,9 +1092,9 @@ var (
 		FT_NotEqual: {
 			Name:        FT_NotEqual,
 			Description: "Checks whether the value does not equal the parameter",
-			Params:      singleParam("value to match", PT_Any),
-			Returns:     PT_Boolean,
-			ValidOn:     PT_Any,
+			Params:      singleParam("value to match", PT_Any, IOOT_Single),
+			Returns:     inputOrOutput(PT_Boolean, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_Any, IOOT_Variadic),
 			fn:          func_NotEqual,
 			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
@@ -1063,9 +1107,9 @@ var (
 		FT_Less: {
 			Name:        FT_Less,
 			Description: "Checks whether the value is less than the parameter",
-			Params:      singleParam("number to compare", PT_Number),
-			Returns:     PT_Boolean,
-			ValidOn:     PT_Number,
+			Params:      singleParam("number to compare", PT_Number, IOOT_Single),
+			Returns:     inputOrOutput(PT_Boolean, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_Number, IOOT_Single),
 			fn:          func_Less,
 			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
@@ -1078,9 +1122,9 @@ var (
 		FT_LessOrEqual: {
 			Name:        FT_LessOrEqual,
 			Description: "Checks whether the value is less than or equal to the parameter",
-			Params:      singleParam("number to compare", PT_Number),
-			Returns:     PT_Boolean,
-			ValidOn:     PT_Number,
+			Params:      singleParam("number to compare", PT_Number, IOOT_Single),
+			Returns:     inputOrOutput(PT_Boolean, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_Number, IOOT_Single),
 			fn:          func_LessOrEqual,
 			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
@@ -1093,9 +1137,9 @@ var (
 		FT_Greater: {
 			Name:        FT_Greater,
 			Description: "Checks whether the value is greater than the parameter",
-			Params:      singleParam("number to compare", PT_Number),
-			Returns:     PT_Boolean,
-			ValidOn:     PT_Number,
+			Params:      singleParam("number to compare", PT_Number, IOOT_Single),
+			Returns:     inputOrOutput(PT_Boolean, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_Number, IOOT_Single),
 			fn:          func_Greater,
 			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
@@ -1108,9 +1152,9 @@ var (
 		FT_GreaterOrEqual: {
 			Name:        FT_GreaterOrEqual,
 			Description: "Checks whether the value is greater than or equal to the parameter",
-			Params:      singleParam("number to compare", PT_Number),
-			Returns:     PT_Boolean,
-			ValidOn:     PT_Number,
+			Params:      singleParam("number to compare", PT_Number, IOOT_Single),
+			Returns:     inputOrOutput(PT_Boolean, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_Number, IOOT_Single),
 			fn:          func_GreaterOrEqual,
 			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
@@ -1120,12 +1164,23 @@ var (
 				return fmt.Sprintf("is greater than or equal to {{%s}}", tf.FunctionParameters[0].String)
 			},
 		},
+		FT_Invert: {
+			Name:        FT_Invert,
+			Description: "Inverts a boolean (swaps true to false, or false to true)",
+			Params:      nil,
+			Returns:     inputOrOutput(PT_Boolean, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_Boolean, IOOT_Single),
+			fn:          func_Invert,
+			explanationFunc: func(tf Function) string {
+				return fmt.Sprintf("inverts the input")
+			},
+		},
 		FT_Contains: {
 			Name:        FT_Contains,
 			Description: "Checks whether the value contains the parameter",
-			Params:      singleParam("string to match", PT_String),
-			Returns:     PT_Boolean,
-			ValidOn:     PT_String,
+			Params:      singleParam("string to match", PT_String, IOOT_Single),
+			Returns:     inputOrOutput(PT_Boolean, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_String, IOOT_Single),
 			fn:          func_Contains,
 			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
@@ -1138,9 +1193,9 @@ var (
 		FT_NotContains: {
 			Name:        FT_NotContains,
 			Description: "Checks whether the value does not contain the parameter",
-			Params:      singleParam("string to match", PT_String),
-			Returns:     PT_Boolean,
-			ValidOn:     PT_String,
+			Params:      singleParam("string to match", PT_String, IOOT_Single),
+			Returns:     inputOrOutput(PT_Boolean, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_String, IOOT_Single),
 			fn:          func_NotContains,
 			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
@@ -1153,9 +1208,9 @@ var (
 		FT_Prefix: {
 			Name:        FT_Prefix,
 			Description: "Checks whether the value has the parameter as a prefix",
-			Params:      singleParam("prefix to match", PT_String),
-			Returns:     PT_Boolean,
-			ValidOn:     PT_String,
+			Params:      singleParam("prefix to match", PT_String, IOOT_Single),
+			Returns:     inputOrOutput(PT_Boolean, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_String, IOOT_Single),
 			fn:          func_Prefix,
 			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
@@ -1168,9 +1223,9 @@ var (
 		FT_NotPrefix: {
 			Name:        FT_NotPrefix,
 			Description: "Checks whether the value does not have the parameter as a prefix",
-			Params:      singleParam("prefix to match", PT_String),
-			Returns:     PT_Boolean,
-			ValidOn:     PT_String,
+			Params:      singleParam("prefix to match", PT_String, IOOT_Single),
+			Returns:     inputOrOutput(PT_Boolean, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_String, IOOT_Single),
 			fn:          func_NotPrefix,
 			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
@@ -1183,9 +1238,9 @@ var (
 		FT_Suffix: {
 			Name:        FT_Suffix,
 			Description: "Checks whether the value has the parameter as a suffix",
-			Params:      singleParam("suffix to match", PT_String),
-			Returns:     PT_Boolean,
-			ValidOn:     PT_String,
+			Params:      singleParam("suffix to match", PT_String, IOOT_Single),
+			Returns:     inputOrOutput(PT_Boolean, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_String, IOOT_Single),
 			fn:          func_Suffix,
 			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
@@ -1198,9 +1253,9 @@ var (
 		FT_NotSuffix: {
 			Name:        FT_NotSuffix,
 			Description: "Checks whether the value does not have the parameter as a suffix",
-			Params:      singleParam("suffix to match", PT_String),
-			Returns:     PT_Boolean,
-			ValidOn:     PT_String,
+			Params:      singleParam("suffix to match", PT_String, IOOT_Single),
+			Returns:     inputOrOutput(PT_Boolean, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_String, IOOT_Single),
 			fn:          func_NotSuffix,
 			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
@@ -1210,12 +1265,23 @@ var (
 				return fmt.Sprintf("does not have the suffix {{%s}}", tf.FunctionParameters[0].String)
 			},
 		},
+		FT_Sprintf: {
+			Name:        FT_Sprintf,
+			Description: "Builds a string based on templated values (ignores input)",
+			Params:      singleParam("arguments", PT_Any, IOOT_Variadic),
+			Returns:     inputOrOutput(PT_String, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_Any, IOOT_Single),
+			fn:          func_Sprintf,
+			explanationFunc: func(tf Function) string {
+				return fmt.Sprintf("builds a string from the input as a template") //todo: do better
+			},
+		},
 		FT_Count: {
 			Name:        FT_Count,
 			Description: "Returns the count of elements in the array",
 			Params:      nil,
-			Returns:     PT_Number,
-			ValidOn:     PT_Array,
+			Returns:     inputOrOutput(PT_Number, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_Any, IOOT_Array),
 			fn:          func_Count,
 			explanationFunc: func(tf Function) string {
 				return "count of the number of elements"
@@ -1225,9 +1291,9 @@ var (
 			Name:               FT_First,
 			Description:        "Returns the first element of the array",
 			Params:             nil,
-			Returns:            PT_Any,
+			Returns:            inputOrOutput(PT_Any, IOOT_Single),
+			ValidOn:            inputOrOutput(PT_Any, IOOT_Array),
 			ReturnsKnownValues: true,
-			ValidOn:            PT_Array,
 			fn:                 func_First,
 			explanationFunc: func(tf Function) string {
 				return "the first element"
@@ -1237,9 +1303,9 @@ var (
 			Name:               FT_Last,
 			Description:        "Returns the last element of the array",
 			Params:             nil,
-			Returns:            PT_Any,
+			Returns:            inputOrOutput(PT_Any, IOOT_Single),
+			ValidOn:            inputOrOutput(PT_Any, IOOT_Array),
 			ReturnsKnownValues: true,
-			ValidOn:            PT_Array,
 			fn:                 func_Last,
 			explanationFunc: func(tf Function) string {
 				return "the last element"
@@ -1248,10 +1314,10 @@ var (
 		FT_Index: {
 			Name:               FT_Index,
 			Description:        "Returns the element at the zero based index of the array",
-			Params:             singleParam("index", PT_Number),
-			Returns:            PT_Any,
+			Params:             singleParam("index", PT_Number, IOOT_Single),
+			Returns:            inputOrOutput(PT_Any, IOOT_Single),
+			ValidOn:            inputOrOutput(PT_Any, IOOT_Array),
 			ReturnsKnownValues: true,
-			ValidOn:            PT_Array,
 			fn:                 func_Index,
 			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
@@ -1265,8 +1331,8 @@ var (
 			Name:        FT_Any,
 			Description: "Checks whether there are any elements in the array",
 			Params:      nil,
-			Returns:     PT_Boolean,
-			ValidOn:     PT_Array,
+			Returns:     inputOrOutput(PT_Boolean, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_Any, IOOT_Array),
 			fn:          func_Any,
 			explanationFunc: func(tf Function) string {
 				return "has any elements"
@@ -1275,12 +1341,12 @@ var (
 		FT_Sum: {
 			Name:        FT_Sum,
 			Description: "Sums the value along with any extra numbers in the parameters",
-			Params:      singleParam("extra numbers (not required)", PT_ArrayOfNumbers),
-			Returns:     PT_Number,
-			ValidOn:     PT_NumberOrArrayOfNumbers,
+			Params:      singleParam("extra numbers", PT_Number, IOOT_Variadic),
+			Returns:     inputOrOutput(PT_Number, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_Number, IOOT_Array),
 			fn:          func_Sum,
 			explanationFunc: func(tf Function) string {
-				if len(tf.FunctionParameters) > 0 {
+				if len(tf.FunctionParameters) == 0 {
 					return "the sum of all elements"
 				}
 
@@ -1290,12 +1356,12 @@ var (
 		FT_Average: {
 			Name:        FT_Average,
 			Description: "Averages the value along with any extra numbers in the parameters",
-			Params:      singleParam("extra numbers (not required)", PT_ArrayOfNumbers),
-			Returns:     PT_Number,
-			ValidOn:     PT_NumberOrArrayOfNumbers,
+			Params:      singleParam("extra numbers", PT_Number, IOOT_Variadic),
+			Returns:     inputOrOutput(PT_Number, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_Number, IOOT_Array),
 			fn:          func_Average,
 			explanationFunc: func(tf Function) string {
-				if len(tf.FunctionParameters) > 0 {
+				if len(tf.FunctionParameters) == 0 {
 					return "the average of all elements"
 				}
 
@@ -1305,12 +1371,12 @@ var (
 		FT_Maximum: {
 			Name:        FT_Maximum,
 			Description: "Returns the maximum of the value along with any extra numbers in the parameters",
-			Params:      singleParam("extra numbers (not required)", PT_ArrayOfNumbers),
-			Returns:     PT_Number,
-			ValidOn:     PT_NumberOrArrayOfNumbers,
+			Params:      singleParam("extra numbers", PT_Number, IOOT_Variadic),
+			Returns:     inputOrOutput(PT_Number, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_Number, IOOT_Array),
 			fn:          func_Maximum,
 			explanationFunc: func(tf Function) string {
-				if len(tf.FunctionParameters) > 0 {
+				if len(tf.FunctionParameters) == 0 {
 					return "the maximum of all elements"
 				}
 
@@ -1320,12 +1386,12 @@ var (
 		FT_Minimum: {
 			Name:        FT_Minimum,
 			Description: "Returns the minimum of the value along with any extra numbers in the parameters",
-			Params:      singleParam("extra numbers (not required)", PT_ArrayOfNumbers),
-			Returns:     PT_Number,
-			ValidOn:     PT_NumberOrArrayOfNumbers,
+			Params:      singleParam("extra numbers", PT_Number, IOOT_Variadic),
+			Returns:     inputOrOutput(PT_Number, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_Number, IOOT_Array),
 			fn:          func_Minimum,
 			explanationFunc: func(tf Function) string {
-				if len(tf.FunctionParameters) > 0 {
+				if len(tf.FunctionParameters) == 0 {
 					return "the minimum of all elements"
 				}
 
@@ -1335,9 +1401,9 @@ var (
 		FT_Add: {
 			Name:        FT_Add,
 			Description: "Adds the parameter to the value",
-			Params:      singleParam("number to add", PT_Number),
-			Returns:     PT_Number,
-			ValidOn:     PT_Number,
+			Params:      singleParam("number to add", PT_Number, IOOT_Single),
+			Returns:     inputOrOutput(PT_Number, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_Number, IOOT_Single),
 			fn:          func_Add,
 			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
@@ -1350,9 +1416,9 @@ var (
 		FT_Subtract: {
 			Name:        FT_Subtract,
 			Description: "Subtracts the parameter from the value",
-			Params:      singleParam("number to subtract", PT_Number),
-			Returns:     PT_Number,
-			ValidOn:     PT_Number,
+			Params:      singleParam("number to subtract", PT_Number, IOOT_Single),
+			Returns:     inputOrOutput(PT_Number, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_Number, IOOT_Single),
 			fn:          func_Subtract,
 			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
@@ -1365,9 +1431,9 @@ var (
 		FT_Divide: {
 			Name:        FT_Divide,
 			Description: "Divides the value by the parameter",
-			Params:      singleParam("number to divide by", PT_Number),
-			Returns:     PT_Number,
-			ValidOn:     PT_Number,
+			Params:      singleParam("number to divide by", PT_Number, IOOT_Single),
+			Returns:     inputOrOutput(PT_Number, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_Number, IOOT_Single),
 			fn:          func_Divide,
 			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
@@ -1380,9 +1446,9 @@ var (
 		FT_Multiply: {
 			Name:        FT_Multiply,
 			Description: "Multiplies the value by the parameter",
-			Params:      singleParam("number to multiply by", PT_Number),
-			Returns:     PT_Number,
-			ValidOn:     PT_Number,
+			Params:      singleParam("number to multiply by", PT_Number, IOOT_Single),
+			Returns:     inputOrOutput(PT_Number, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_Number, IOOT_Single),
 			fn:          func_Multiply,
 			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
@@ -1395,9 +1461,9 @@ var (
 		FT_Modulo: {
 			Name:        FT_Modulo,
 			Description: "Returns the remainder of the value after dividing the value by the parameter",
-			Params:      singleParam("number to modulo by", PT_Number),
-			Returns:     PT_Number,
-			ValidOn:     PT_Number,
+			Params:      singleParam("number to modulo by", PT_Number, IOOT_Single),
+			Returns:     inputOrOutput(PT_Number, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_Number, IOOT_Single),
 			fn:          func_Modulo,
 			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
@@ -1410,13 +1476,13 @@ var (
 		FT_AnyOf: {
 			Name:        FT_AnyOf,
 			Description: "Checks whether the value matches any of the parameters",
-			Params:      singleParam("the values to match against", PT_Variadic),
-			Returns:     PT_Boolean,
-			ValidOn:     PT_Any,
+			Params:      singleParam("the values to match against", PT_Any, IOOT_Variadic),
+			Returns:     inputOrOutput(PT_Boolean, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_Any, IOOT_Single),
 			fn:          func_AnyOf,
 			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) == 0 {
-					return "needs parameters"
+					return "will return false as there are no parameters to compare against"
 				}
 
 				paramStrs := []string{}
@@ -1431,9 +1497,9 @@ var (
 		FT_TrimRight: {
 			Name:        FT_TrimRight,
 			Description: "Removes the 'n' most characters of the value from the right, where 'n' is the parameter",
-			Params:      singleParam("number of characters", PT_Number),
-			Returns:     PT_String,
-			ValidOn:     PT_String,
+			Params:      singleParam("number of characters", PT_Number, IOOT_Single),
+			Returns:     inputOrOutput(PT_String, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_String, IOOT_Single),
 			fn:          func_TrimRight,
 			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
@@ -1446,9 +1512,9 @@ var (
 		FT_TrimLeft: {
 			Name:        FT_TrimLeft,
 			Description: "Removes the 'n' most characters of the value from the left, where 'n' is the parameter",
-			Params:      singleParam("number of characters", PT_Number),
-			Returns:     PT_String,
-			ValidOn:     PT_String,
+			Params:      singleParam("number of characters", PT_Number, IOOT_Single),
+			Returns:     inputOrOutput(PT_String, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_String, IOOT_Single),
 			fn:          func_TrimLeft,
 			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
@@ -1461,9 +1527,9 @@ var (
 		FT_Right: {
 			Name:        FT_Right,
 			Description: "Returns the 'n' most characters of the value from the right, where 'n' is the parameter'",
-			Params:      singleParam("number of characters", PT_Number),
-			Returns:     PT_String,
-			ValidOn:     PT_String,
+			Params:      singleParam("number of characters", PT_Number, IOOT_Single),
+			Returns:     inputOrOutput(PT_String, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_String, IOOT_Single),
 			fn:          func_Right,
 			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
@@ -1476,9 +1542,9 @@ var (
 		FT_Left: {
 			Name:        FT_Left,
 			Description: "Returns the 'n' most characters of the value from the left, where 'n' is the parameter",
-			Params:      singleParam("number of characters", PT_Number),
-			Returns:     PT_String,
-			ValidOn:     PT_String,
+			Params:      singleParam("number of characters", PT_Number, IOOT_Single),
+			Returns:     inputOrOutput(PT_String, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_String, IOOT_Single),
 			fn:          func_Left,
 			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
@@ -1491,9 +1557,9 @@ var (
 		FT_DoesMatchRegex: {
 			Name:        FT_DoesMatchRegex,
 			Description: "Checks whether the value matches the regular expression in the parameter",
-			Params:      singleParam("regular expression to match", PT_String),
-			Returns:     PT_Boolean,
-			ValidOn:     PT_String,
+			Params:      singleParam("regular expression to match", PT_String, IOOT_Single),
+			Returns:     inputOrOutput(PT_Boolean, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_String, IOOT_Single),
 			fn:          func_DoesMatchRegex,
 			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
@@ -1508,16 +1574,16 @@ var (
 			Description: "Replaces any matches of the regular expression parameter in the value with the replacement parameter",
 			Params: []ParameterDescriptor{
 				{
-					Name: "regular expression",
-					Type: PT_String,
+					Name:          "regular expression",
+					InputOrOutput: inputOrOutput(PT_String, IOOT_Single),
 				},
 				{
-					Name: "replacement",
-					Type: PT_String,
+					Name:          "replacement",
+					InputOrOutput: inputOrOutput(PT_String, IOOT_Single),
 				},
 			},
-			Returns: PT_String,
-			ValidOn: PT_String,
+			Returns: inputOrOutput(PT_String, IOOT_Single),
+			ValidOn: inputOrOutput(PT_String, IOOT_Single),
 			fn:      func_ReplaceRegex,
 			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 2 {
@@ -1532,16 +1598,16 @@ var (
 			Description: "Replaces any matches of the string to match parameter in the value with the replacement parameter",
 			Params: []ParameterDescriptor{
 				{
-					Name: "string to match",
-					Type: PT_String,
+					Name:          "string to match",
+					InputOrOutput: inputOrOutput(PT_String, IOOT_Single),
 				},
 				{
-					Name: "replacement",
-					Type: PT_String,
+					Name:          "replacement",
+					InputOrOutput: inputOrOutput(PT_String, IOOT_Single),
 				},
 			},
-			Returns: PT_String,
-			ValidOn: PT_String,
+			Returns: inputOrOutput(PT_String, IOOT_Single),
+			ValidOn: inputOrOutput(PT_String, IOOT_Single),
 			fn:      func_ReplaceAll,
 			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 2 {
@@ -1555,8 +1621,8 @@ var (
 			Name:        FT_AsJSON,
 			Description: "Returns the value represented as JSON",
 			Params:      nil,
-			Returns:     PT_String,
-			ValidOn:     PT_Any,
+			Returns:     inputOrOutput(PT_String, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_Any, IOOT_Single),
 			fn:          func_AsJSON,
 			explanationFunc: func(tf Function) string {
 				return "converts to a JSON string"
@@ -1566,8 +1632,8 @@ var (
 			Name:        FT_ParseJSON,
 			Description: "Parses the value as JSON and returns an object or array",
 			Params:      nil,
-			Returns:     PT_Object,
-			ValidOn:     PT_String,
+			Returns:     inputOrOutput(PT_Object, IOOT_Variadic),
+			ValidOn:     inputOrOutput(PT_String, IOOT_Single),
 			fn:          func_ParseJSON,
 			explanationFunc: func(tf Function) string {
 				return "parses as JSON to become an object"
@@ -1577,8 +1643,8 @@ var (
 			Name:        FT_ParseXML,
 			Description: "Parses the value as XML and returns an object or array",
 			Params:      nil,
-			Returns:     PT_Object,
-			ValidOn:     PT_String,
+			Returns:     inputOrOutput(PT_Object, IOOT_Variadic),
+			ValidOn:     inputOrOutput(PT_String, IOOT_Single),
 			fn:          func_ParseXML,
 			explanationFunc: func(tf Function) string {
 				return "parses as XML to become an object"
@@ -1588,8 +1654,8 @@ var (
 			Name:        FT_ParseYAML,
 			Description: "Parses the value as YAML and returns an object or array",
 			Params:      nil,
-			Returns:     PT_Object,
-			ValidOn:     PT_String,
+			Returns:     inputOrOutput(PT_Object, IOOT_Variadic),
+			ValidOn:     inputOrOutput(PT_String, IOOT_Single),
 			fn:          func_ParseYAML,
 			explanationFunc: func(tf Function) string {
 				return "parses as YAML to become an object"
@@ -1599,8 +1665,8 @@ var (
 			Name:        FT_ParseTOML,
 			Description: "Parses the value as TOML and returns an object or array",
 			Params:      nil,
-			Returns:     PT_Object,
-			ValidOn:     PT_String,
+			Returns:     inputOrOutput(PT_Object, IOOT_Variadic),
+			ValidOn:     inputOrOutput(PT_String, IOOT_Single),
 			fn:          func_ParseTOML,
 			explanationFunc: func(tf Function) string {
 				return "parses as TOML to become an object"
@@ -1609,9 +1675,9 @@ var (
 		FT_RemoveKeysByRegex: {
 			Name:        FT_RemoveKeysByRegex,
 			Description: "Removes any keys that match the regular expression in the parameter",
-			Params:      singleParam("regular expression to match", PT_String),
-			Returns:     PT_Object,
-			ValidOn:     PT_Object,
+			Params:      singleParam("regular expression to match", PT_String, IOOT_Single),
+			Returns:     inputOrOutput(PT_Object, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_Object, IOOT_Single),
 			fn:          func_RemoveKeysByRegex,
 			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
@@ -1624,9 +1690,9 @@ var (
 		FT_RemoveKeysByPrefix: {
 			Name:        FT_RemoveKeysByPrefix,
 			Description: "Removes any keys that have a prefix as defined by the parameter",
-			Params:      singleParam("prefix to match", PT_String),
-			Returns:     PT_Object,
-			ValidOn:     PT_Object,
+			Params:      singleParam("prefix to match", PT_String, IOOT_Single),
+			Returns:     inputOrOutput(PT_Object, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_Object, IOOT_Single),
 			fn:          func_RemoveKeysByPrefix,
 			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
@@ -1639,9 +1705,9 @@ var (
 		FT_RemoveKeysBySuffix: {
 			Name:        FT_RemoveKeysBySuffix,
 			Description: "Removes any keys that have a suffix as defined by the parameter",
-			Params:      singleParam("suffix to match", PT_String),
-			Returns:     PT_Object,
-			ValidOn:     PT_Object,
+			Params:      singleParam("suffix to match", PT_String, IOOT_Single),
+			Returns:     inputOrOutput(PT_Object, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_Object, IOOT_Single),
 			fn:          func_RemoveKeysBySuffix,
 			explanationFunc: func(tf Function) string {
 				if len(tf.FunctionParameters) != 1 {
@@ -1653,8 +1719,6 @@ var (
 		},
 		/*
 			- Functions to add:
-				-	Not()
-					This will invert a boolean
 				-	Select(fieldName string)
 					This will return an array of [whatever the field type is] by selecting
 					only that field from an array of objects
@@ -1677,5 +1741,5 @@ func ft_IsBoolFunc(ft FT_FunctionType) bool {
 		return false
 	}
 
-	return fn.Returns == PT_Boolean
+	return fn.Returns.Type == PT_Boolean && fn.Returns.IOType == IOOT_Single
 }

@@ -21,7 +21,7 @@ type opFunction struct {
 	opCommon
 }
 
-func (x *opFunction) Validate(rootValue, inputValue cue.Value, previousType PT_ParameterType, blockedRootFields []string) (part *Function, returnedType PT_ParameterType, requiredData []string, err error) {
+func (x *opFunction) Validate(rootValue, inputValue cue.Value, previousType InputOrOutput, blockedRootFields []string) (part *Function, returnedType InputOrOutput, requiredData []string, err error) {
 	part = &Function{
 		functionFields: functionFields{
 			String:       x.UserString(),
@@ -46,12 +46,10 @@ func (x *opFunction) Validate(rootValue, inputValue cue.Value, previousType PT_P
 	returnedType = fd.Returns
 	part.Type = fd.Returns
 
-	var isVariadic bool
-	if len(fd.Params) == 1 && fd.Params[0].Type == PT_Variadic {
-		isVariadic = true
-	}
-
 	rdm := map[string]struct{}{}
+
+	var variadicType *PT_ParameterType
+	var variadicPosition int
 
 	part.FunctionParameters = []*FunctionParameter{}
 	for i, p := range x.Params {
@@ -65,53 +63,99 @@ func (x *opFunction) Validate(rootValue, inputValue cue.Value, previousType PT_P
 		switch t := p.(type) {
 		case *FP_Path:
 			var rd []string
-			param.Parts, _, rd, err = t.Value.Validate(rootValue, rootValue, blockedRootFields)
+			var pathOp *Path
+			pathOp, _, rd, err = t.Value.Validate(rootValue, rootValue, blockedRootFields)
+			param.Part = pathOp
 			if err != nil {
 				errMessage := err.Error()
 				param.Error = &errMessage
 				continue
 			}
+			pathOp.String = p.String()
+
 			for _, rdv := range rd {
 				rdm[rdv] = struct{}{}
 			}
-			if len(param.Parts) == 0 {
+
+			if len(pathOp.Parts) == 0 {
 				errMessage := "no parts returned for path"
 				param.Error = &errMessage
 				continue
 			}
 
-			paramReturns = param.Parts[len(param.Parts)-1].ReturnType()
+			paramReturns = pathOp.ReturnType()
+
+		case *FP_LogicalOperation:
+			var rd []string
+			var logOp *LogicalOperation
+			logOp, rd, err = t.Value.Validate(rootValue, rootValue, blockedRootFields)
+			param.Part = logOp
+			if err != nil {
+				errMessage := err.Error()
+				param.Error = &errMessage
+				continue
+			}
+			logOp.String = p.String()
+
+			for _, rdv := range rd {
+				rdm[rdv] = struct{}{}
+			}
+
+			if len(logOp.Parts) == 0 {
+				errMessage := "no parts returned for path"
+				param.Error = &errMessage
+				continue
+			}
+
+			paramReturns = logOp.ReturnType()
 		}
 
-		if isVariadic {
-			// This means that there can be as many parameters as you want
-			// todo: we should validate that variadic parameters are the same type
-			// as the type that the function was called on (e.g. AnyOf needs parameters
-			// that are the same as the input to the function)
-			continue
+		pos := i
+		if variadicType != nil {
+			pos = variadicPosition
 		}
-
 		//get the parameter at this position
-		pd, err := fd.GetParamAtPosition(i)
+		pd, err := fd.GetParamAtPosition(pos)
 		if err != nil {
 			errMessage := err.Error()
 			param.Error = &errMessage
 			continue
 		}
 
-		// Check that the returned type is appropriate
-		if !(pd.Type == PT_Any || pd.Type == paramReturns) {
-			if pd.Type == PT_ArrayOfNumbers && paramReturns == PT_Number {
-				// Do nothing
-			} else if pd.Type == PT_NumberOrArrayOfNumbers && paramReturns == PT_Number {
-				// Do nothing
-			} else {
-				errMessage := fmt.Sprintf("incorrect parameter type: wanted '%s'; got '%s'", pd.Type, paramReturns)
-				param.Error = &errMessage
-			}
+		if variadicType == nil && pd.IOType == IOOT_Variadic {
+			vpt := paramReturns.Type
+			variadicType = &vpt
+			variadicPosition = i
+		}
+
+		if variadicType != nil {
+			param.IsVariadicOfParameterAtPosition = &variadicPosition
 		}
 
 		param.Type = paramReturns
+
+		switch pd.IOType {
+		case IOOT_Single:
+			if paramReturns.IOType != IOOT_Single {
+				errMessage := fmt.Sprintf("incorrect parameter type: expected single value, got %s", paramReturns.IOType)
+				param.Error = &errMessage
+			}
+			continue
+		case IOOT_Array:
+			if paramReturns.IOType != IOOT_Array {
+				errMessage := fmt.Sprintf("incorrect parameter type: expected array value, got %s", paramReturns.IOType)
+				param.Error = &errMessage
+			}
+			continue
+		case IOOT_Variadic:
+			// Do nothing, this can accept either a single or an array value
+		}
+
+		if pd.Type != PT_Any && pd.Type != paramReturns.Type {
+			// This means that the parameter does not accept "Any" type and the returned type is wrong for the expected input
+			errMessage := fmt.Sprintf("incorrect parameter type: wanted '%s'; got '%s'", pd.Type, paramReturns.Type)
+			param.Error = &errMessage
+		}
 	}
 
 	for rdv := range rdm {
@@ -125,26 +169,26 @@ func (x *opFunction) Validate(rootValue, inputValue cue.Value, previousType PT_P
 	var k cue.Kind
 	k, _ = getUnderlyingKind(inputValue)
 
-	if fd.Returns == PT_Any {
+	if fd.Returns.Type == PT_Any {
 		switch k {
 		// Primative Kinds:
 		case cue.BoolKind:
-			returnedType = PT_Boolean
+			returnedType.Type = PT_Boolean
 		case cue.StringKind:
-			returnedType = PT_String
+			returnedType.Type = PT_String
 		case cue.NumberKind, cue.IntKind, cue.FloatKind:
-			returnedType = PT_Number
+			returnedType.Type = PT_Number
 		case cue.StructKind:
-			returnedType = PT_Object
+			returnedType.Type = PT_Object
 		case cue.ListKind:
-			returnedType = PT_Array
+			returnedType.Type = PT_Any //todo: can I use the underlying type?
 		}
 	}
 	part.Type = returnedType
 
-	if fd.ReturnsKnownValues && previousType == PT_Array && k == cue.StructKind {
+	if fd.ReturnsKnownValues && previousType.IOType == IOOT_Array && k == cue.StructKind {
 		// We can find available fields
-		returnedType = PT_Object
+		returnedType.Type = PT_Object
 		part.Available.Fields, err = getAvailableFieldsForValue(inputValue)
 		if err != nil {
 			errMessage := fmt.Sprintf("failed to get available fields: %v", err)
@@ -154,7 +198,7 @@ func (x *opFunction) Validate(rootValue, inputValue cue.Value, previousType PT_P
 			part.Error = &errMessage
 		}
 	}
-	part.Available.Functions = append(part.Available.Functions, getAvailableFunctionsForKind(returnedType, false)...)
+	part.Available.Functions = append(part.Available.Functions, getAvailableFunctionsForKind(returnedType)...)
 
 	return
 }
@@ -176,12 +220,14 @@ func (x *opFunction) Do(currentData, originalData any) (dataToUse any, err error
 
 	// get the pathParams and put them in the appropriate bucket
 	for _, param := range x.Params {
-		var ppOp *opPath
+		var ppOp Operation
 		switch t := param.(type) {
 		case *FP_Number, *FP_String, *FP_Bool:
 			rtParams = append(rtParams, t)
 			continue
 		case *FP_Path:
+			ppOp = t.Value
+		case *FP_LogicalOperation:
 			ppOp = t.Value
 		}
 
@@ -285,6 +331,12 @@ func (x *opFunction) Parse(s *scanner, r rune) (nextR rune, err error) {
 				return r, err
 			}
 			continue
+		case '{':
+			// This is a logical operation
+			if r, err = x.addLogicalOperationToParamsAndParse(s, r); err != nil {
+				return r, err
+			}
+			continue
 		case sc.String, sc.RawString, sc.Char:
 			tt := s.TokenText()
 			x.userString += string(tt)
@@ -304,6 +356,7 @@ func (x *opFunction) Parse(s *scanner, r rune) (nextR rune, err error) {
 			}
 			x.Params = append(x.Params, &FP_Number{decimal.NewFromFloat(f)})
 		case sc.Ident:
+
 			//must be bool
 			tt := s.TokenText()
 			switch tt {
@@ -326,6 +379,14 @@ func (x *opFunction) Parse(s *scanner, r rune) (nextR rune, err error) {
 func (x *opFunction) addOpToParamsAndParse(s *scanner, r rune) (nextR rune, err error) {
 	op := &opPath{}
 	x.Params = append(x.Params, &FP_Path{op})
+	nextR, err = op.Parse(s, r)
+	x.userString += op.UserString()
+	return
+}
+
+func (x *opFunction) addLogicalOperationToParamsAndParse(s *scanner, r rune) (nextR rune, err error) {
+	op := &opLogicalOperation{}
+	x.Params = append(x.Params, &FP_LogicalOperation{op})
 	nextR, err = op.Parse(s, r)
 	x.userString += op.UserString()
 	return
@@ -374,7 +435,7 @@ func (x FunctionParameterTypes) Paths() (out []*FP_Path) {
 }
 
 type FunctionParameterType interface {
-	IsFuncParam() (returns PT_ParameterType)
+	IsFuncParam() (returns InputOrOutput)
 	String() string
 	GetValue() any
 }
@@ -397,8 +458,8 @@ func (p FP_Number) String() string {
 	return p.Value.String()
 }
 
-func (x *FP_Number) IsFuncParam() (returns PT_ParameterType) {
-	return PT_Number
+func (x *FP_Number) IsFuncParam() (returns InputOrOutput) {
+	return inputOrOutput(PT_Number, IOOT_Single)
 }
 
 func (x *FP_Number) GetValue() any { return x.Value }
@@ -415,8 +476,8 @@ func (p FP_String) String() string {
 	return fmt.Sprintf(`"%s"`, p.Value)
 }
 
-func (x *FP_String) IsFuncParam() (returns PT_ParameterType) {
-	return PT_String
+func (x *FP_String) IsFuncParam() (returns InputOrOutput) {
+	return inputOrOutput(PT_String, IOOT_Single)
 }
 
 func (x *FP_String) GetValue() any { return x.Value }
@@ -433,8 +494,8 @@ func (p FP_Bool) String() string {
 	return fmt.Sprint(p.Value)
 }
 
-func (x *FP_Bool) IsFuncParam() (returns PT_ParameterType) {
-	return PT_Boolean
+func (x *FP_Bool) IsFuncParam() (returns InputOrOutput) {
+	return inputOrOutput(PT_Boolean, IOOT_Single)
 }
 
 func (x *FP_Bool) GetValue() any { return x.Value }
@@ -451,12 +512,30 @@ func (p FP_Path) String() string {
 	return p.Value.UserString()
 }
 
-func (x *FP_Path) IsFuncParam() (returns PT_ParameterType) {
-	return PT_Any
+func (x *FP_Path) IsFuncParam() (returns InputOrOutput) {
+	return inputOrOutput(PT_Any, IOOT_Single)
 }
 
 func (x *FP_Path) GetValue() any { return x.Value }
 
 func (x *FP_Path) MarshalJSON() ([]byte, error) {
 	return functionParameterMarshalJSON(x.Value, "Path")
+}
+
+type FP_LogicalOperation struct {
+	Value *opLogicalOperation
+}
+
+func (p FP_LogicalOperation) String() string {
+	return p.Value.UserString()
+}
+
+func (x *FP_LogicalOperation) IsFuncParam() (returns InputOrOutput) {
+	return inputOrOutput(PT_Any, IOOT_Single)
+}
+
+func (x *FP_LogicalOperation) GetValue() any { return x.Value }
+
+func (x *FP_LogicalOperation) MarshalJSON() ([]byte, error) {
+	return functionParameterMarshalJSON(x.Value, "LogicalOperation")
 }

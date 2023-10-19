@@ -13,7 +13,7 @@ type opPathIdent struct {
 	opCommon
 }
 
-func (x *opPathIdent) Validate(inputValue cue.Value) (part *PathIdent, nextValue cue.Value, returnedType PT_ParameterType, err error) {
+func (x *opPathIdent) Validate(inputValue cue.Value) (part *PathIdent, nextValue cue.Value, returnedType InputOrOutput, err error) {
 	part = &PathIdent{
 		pathIdentFields: pathIdentFields{
 			Available: &Available{},
@@ -22,7 +22,6 @@ func (x *opPathIdent) Validate(inputValue cue.Value) (part *PathIdent, nextValue
 
 	// find the cue value for this ident
 	part.String = x.UserString()
-	part.Type = PT_Object
 	nextValue, err = findValuePath(inputValue, x.IdentName)
 	if err != nil {
 		errMessage := err.Error()
@@ -37,36 +36,28 @@ loop:
 	// Primative Kinds:
 	case cue.BoolKind:
 		if wasList {
-			returnedType = PT_Array
-			part.Available.Functions = getAvailableFunctionsForKind(PT_Array, false)
+			returnedType = inputOrOutput(PT_Boolean, IOOT_Array)
 		} else {
-			returnedType = PT_Boolean
-			part.Available.Functions = getAvailableFunctionsForKind(PT_Boolean, false)
+			returnedType = inputOrOutput(PT_Boolean, IOOT_Single)
 		}
 	case cue.StringKind:
 		if wasList {
-			returnedType = PT_Array
-			part.Available.Functions = getAvailableFunctionsForKind(PT_Array, false)
+			returnedType = inputOrOutput(PT_String, IOOT_Array)
 		} else {
-			returnedType = PT_String
-			part.Available.Functions = getAvailableFunctionsForKind(PT_String, false)
+			returnedType = inputOrOutput(PT_String, IOOT_Single)
 		}
 	case cue.NumberKind, cue.IntKind, cue.FloatKind:
 		if wasList {
-			returnedType = PT_ArrayOfNumbers
-			part.Available.Functions = append(part.Available.Functions, getAvailableFunctionsForKind(PT_ArrayOfNumbers, false)...)
+			returnedType = inputOrOutput(PT_Number, IOOT_Array)
 		} else {
-			returnedType = PT_Number
-			part.Available.Functions = append(part.Available.Functions, getAvailableFunctionsForKind(PT_Number, false)...)
+			returnedType = inputOrOutput(PT_Number, IOOT_Single)
 		}
-		part.Available.Functions = append(part.Available.Functions, getAvailableFunctionsForKind(PT_NumberOrArrayOfNumbers, true)...)
 	case cue.StructKind:
 		if wasList {
-			returnedType = PT_Array
+			returnedType = inputOrOutput(PT_Object, IOOT_Array)
 		} else {
-			returnedType = PT_Object
+			returnedType = inputOrOutput(PT_Object, IOOT_Single)
 		}
-		part.Available.Functions = append(part.Available.Functions, getAvailableFunctionsForKind(PT_Object, false)...)
 
 		// Get the fields for the next value:
 		availableFields, err := getAvailableFieldsForValue(nextValue)
@@ -86,12 +77,9 @@ loop:
 
 	case cue.ListKind:
 		if wasList {
-			returnedType = PT_Array
-			part.Available.Functions = getAvailableFunctionsForKind(PT_Any, true)
+			returnedType = inputOrOutput(PT_Any, IOOT_Single)
 			return
 		}
-
-		part.Available.Functions = append(part.Available.Functions, getAvailableFunctionsForKind(PT_Array, true)...)
 
 		wasList = true
 		// Check what kind of array
@@ -112,6 +100,9 @@ loop:
 
 		return nil, nextValue, returnedType, fmt.Errorf("encountered unknown cue kind %v", k)
 	}
+
+	part.Available.Functions = getAvailableFunctionsForKind(returnedType)
+	part.Type = returnedType
 
 	return
 }
@@ -166,6 +157,7 @@ func (x *opPathIdent) Do(currentData, _ any) (dataToUse any, err error) {
 	// and we will look for the field by name
 	return getValuesByName(x.IdentName, currentData), nil
 }
+
 func (x *opPathIdent) Parse(s *scanner, r rune) (nextR rune, err error) {
 	x.IdentName = s.TokenText()
 	x.userString = x.IdentName

@@ -19,18 +19,24 @@ type opPath struct {
 	opCommon
 }
 
-func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []string) (parts []CanBeAPart, returnedType PT_ParameterType, requiredData []string, err error) {
+func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []string) (path *Path, returnedType InputOrOutput, requiredData []string, err error) {
 	rootPart := &PathIdent{}
 
-	parts = []CanBeAPart{rootPart}
+	path = &Path{
+		pathFields: pathFields{
+			Parts: []CanBeAPart{rootPart},
+		},
+	}
 
 	switch x.StartAtRoot {
 	case true:
 		rootPart.String = "$"
-		rootPart.Type = PT_Root
+		rootPart.Type.Type = PT_Root
+		rootPart.Type.IOType = IOOT_Single
 	case false:
 		rootPart.String = "@"
-		rootPart.Type = PT_ElementRoot
+		rootPart.Type.Type = PT_ElementRoot
+		rootPart.Type.IOType = IOOT_Single
 	}
 
 	availableFields, err := getAvailableFieldsForValue(nextValue)
@@ -74,10 +80,10 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []st
 		var rd []string
 		switch t := op.(type) {
 		case *opPathIdent:
-			if returnedType.IsPrimitive() {
+			if returnedType.IOType == IOOT_Single && returnedType.Type.IsPrimitive() {
 				shouldErrorRemaining = true
 				errMessage := "cannot address into primitive value"
-				parts = append(parts, &PathIdent{
+				path.Parts = append(path.Parts, &PathIdent{
 					pathIdentFields: pathIdentFields{
 						String: t.UserString(),
 						Error:  &errMessage,
@@ -86,10 +92,10 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []st
 				continue
 			}
 
-			if returnedType.IsArray() {
+			if returnedType.IOType == IOOT_Array {
 				shouldErrorRemaining = true
 				errMessage := "cannot address into array value"
-				parts = append(parts, &PathIdent{
+				path.Parts = append(path.Parts, &PathIdent{
 					pathIdentFields: pathIdentFields{
 						String: t.UserString(),
 						Error:  &errMessage,
@@ -104,7 +110,7 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []st
 				for _, brf := range blockedRootFields {
 					if t.IdentName == brf {
 						errMessage := fmt.Sprintf("field %s is not available", t.IdentName)
-						parts = append(parts, &PathIdent{
+						path.Parts = append(path.Parts, &PathIdent{
 							pathIdentFields: pathIdentFields{
 								String: t.UserString(),
 								Error:  &errMessage,
@@ -132,7 +138,7 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []st
 			if err != nil {
 				return nil, returnedType, nil, err
 			}
-			parts = append(parts, part)
+			path.Parts = append(path.Parts, part)
 			part.(*PathIdent).Type = returnedType
 
 		case *opFilter:
@@ -143,11 +149,17 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []st
 			}
 
 		case *opFunction:
+			if part == nil {
+				errMessage := "functions cannot be called here"
+				path.Error = &errMessage
+				continue
+			}
+
 			part, returnedType, rd, err = t.Validate(rootValue, nextValue, part.ReturnType(), blockedRootFields)
 			if err != nil {
 				shouldErrorRemaining = true
 			}
-			parts = append(parts, part)
+			path.Parts = append(path.Parts, part)
 		}
 		for _, rdv := range rd {
 			rdm[rdv] = struct{}{}
@@ -158,6 +170,10 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []st
 		requiredData = append(requiredData, rdv)
 	}
 	sort.Strings(requiredData)
+
+	if pl := len(path.Parts); pl > 0 {
+		path.Type = path.Parts[pl-1].ReturnType()
+	}
 
 	return
 }

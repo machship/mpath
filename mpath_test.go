@@ -165,6 +165,8 @@ func Test_ParseAndDo(t *testing.T) {
 	//`{$.List.Last().SomeSettings[@.Key.Equal("DEF")].Any().Equal(true)}`
 	// onlyRunName = "complex 1"
 
+	onlyRunName = "Logical operation as function parameter"
+
 	for _, data := range datas {
 		for _, test := range testQueries {
 			if onlyRunName != "" {
@@ -263,6 +265,48 @@ var (
 		// 	Expect_bool:        false,
 		// 	ExpectedResultType: RT_bool,
 		// },
+		{
+			Name:               "Logical operation as function parameter",
+			Query:              `$.bool.NotEqual({OR,$.bool})`,
+			Expect_bool:        false,
+			ExpectedResultType: RT_bool,
+		},
+		{
+			Name:               "Sum numbers alone",
+			Query:              `$.numbers.Sum()`,
+			Expect_decimal:     decimal.NewFromFloat(6912),
+			ExpectedResultType: RT_decimal,
+		},
+		{
+			Name:               "Sum numbers with string number",
+			Query:              `$.numbers.Sum("1000")`,
+			Expect_decimal:     decimal.NewFromFloat(7912),
+			ExpectedResultType: RT_decimal,
+		},
+		{
+			Name:               "Sum numbers with one value",
+			Query:              `$.numbers.Sum(1)`,
+			Expect_decimal:     decimal.NewFromFloat(6913),
+			ExpectedResultType: RT_decimal,
+		},
+		{
+			Name:               "Sum numbers with multiple",
+			Query:              `$.numbers.Sum(1,2.5)`,
+			Expect_decimal:     decimal.NewFromFloat(6915.5),
+			ExpectedResultType: RT_decimal,
+		},
+		{
+			Name:               "Sum number with value",
+			Query:              `$.number.Sum(2.5)`,
+			Expect_decimal:     decimal.NewFromFloat(1236.5),
+			ExpectedResultType: RT_decimal,
+		},
+		{
+			Name:               "Sum number with multiple",
+			Query:              `$.number.Sum(1,1.5)`,
+			Expect_decimal:     decimal.NewFromFloat(1236.5),
+			ExpectedResultType: RT_decimal,
+		},
 		{
 			Name:               "Add number to string number",
 			Query:              `$.numberInString.Add(21111.123)`,

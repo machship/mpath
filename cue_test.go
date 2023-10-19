@@ -19,6 +19,7 @@ _a: {
 }
 _b: {
 	number: int
+	"string": string
 	results:     [{ 
 		result:     float  
 		"example": string
@@ -35,6 +36,7 @@ _b: {
 	arrayOfInts: [int]
 	arrayOfStrings: [string]
 	_dependencies: ["_a"]
+	"bool": bool
 }
 _c: {
 	iNeedAString: string
@@ -56,7 +58,9 @@ _variables: {
 	var err error
 
 	// bigQuery := `{OR, $.a.Equal(12), $.a.Equal(16),{OR, $.a.Equal(12), $.a.Equal(16)}}`
-	bigQuery := `$._b.results[AND,@.example.Equal("Something"),@.example.NotEqual("Test")].First().boolean`
+	// bigQuery := `$._b.arrayOfInts.Sum(1,$._a.result).Equal(4).NotEqual({OR,$._b.bool})`
+	// bigQuery := `$._b.bool.Equal($._b.bool)`
+	bigQuery := `$._b.Sprintf("val 1: %s, val 2: %f",$._b.string,false)`
 
 	// bigQuery := `$._b.results[@.bool].Any()`
 	// bigQuery := `$._b.results[@.bool].First().Multiply(12).GreaterOrEqual($._input.num)`
@@ -73,8 +77,8 @@ _variables: {
 	jstr, _ := json.MarshalIndent(tc, "", "\t")
 	clipboard.WriteAll(string(jstr))
 
-	jstr, _ = json.MarshalIndent(rdm, "", "\t")
-	clipboard.WriteAll(string(jstr))
+	// jstr, _ = json.MarshalIndent(rdm, "", "\t")
+	// clipboard.WriteAll(string(jstr))
 
 	_ = tc
 	_ = rdm

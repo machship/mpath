@@ -34,29 +34,28 @@ func (x *opLogicalOperation) Validate(rootValue, nextValue cue.Value, blockedRoo
 	for _, op := range x.Operations {
 		switch t := op.(type) {
 		case *opPath:
-			operation := &Path{
-				pathFields: pathFields{
-					String: t.UserString(),
-				},
-			}
-			logicalOperation.Parts = append(logicalOperation.Parts, operation)
+			var pathOp *Path
 			var rd []string
-			operation.Parts, operation.Type, rd, err = t.Validate(rootValue, nextValue, blockedRootFields)
+			pathOp, _, rd, err = t.Validate(rootValue, nextValue, blockedRootFields)
+
+			pathOp.String = t.UserString()
 			if err != nil {
 				errMessage := err.Error()
-				operation.Error = &errMessage
+				pathOp.Error = &errMessage
 			}
+
 			for _, rdv := range rd {
 				rdMap[rdv] = struct{}{}
 			}
 
 			// We need to check that the return type is boolean
-			if opLen := len(operation.Parts); opLen > 0 {
-				if operation.Parts[opLen-1].ReturnType() != PT_Boolean {
-					errMessage := "paths that are part of a logical operation must end in a boolean function"
-					operation.Error = &errMessage
+			if opLen := len(pathOp.Parts); opLen > 0 {
+				if rt := pathOp.Parts[opLen-1].ReturnType(); !(rt.Type == PT_Boolean && rt.IOType == IOOT_Single) {
+					errMessage := "paths that are part of a logical operation must end in a boolean function that returns a single value"
+					pathOp.Error = &errMessage
 				}
 			}
+			logicalOperation.Parts = append(logicalOperation.Parts, pathOp)
 
 		case *opLogicalOperation:
 			subLogicalOperation, rd, err := t.Validate(rootValue, nextValue, blockedRootFields)

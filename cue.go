@@ -18,7 +18,7 @@ type CanBeAPart interface {
 	PathString() string
 	PartType() string
 	MarshalJSON() ([]byte, error)
-	ReturnType() PT_ParameterType
+	ReturnType() InputOrOutput
 	HasErrors() bool
 }
 
@@ -65,21 +65,14 @@ func CueValidate(query, cueFile, currentPath string) (tc CanBeAPart, rdm *Runtim
 	var requiredData []string
 	switch t := op.(type) {
 	case *opPath:
-		ptc := &Path{
-			pathFields: pathFields{
-				String: query,
-			},
-		}
-
-		parts, typ, rd, subErr := t.Validate(rootValue, rootValue, blockedRootFields)
+		ptc, _, rd, subErr := t.Validate(rootValue, rootValue, blockedRootFields)
 		if subErr != nil {
 			err = subErr
 			return
 		}
+		ptc.String = query
 
 		requiredData = rd
-		ptc.Type = typ
-		ptc.Parts = append(ptc.Parts, parts...)
 
 		pps := t.Sprint(0)
 		ptc.PrettyPrintedString = &pps
@@ -289,11 +282,11 @@ loop:
 }
 
 type pathFields struct {
-	String              string           `json:"string"`
-	PrettyPrintedString *string          `json:"prettyPrintedString,omitempty"`
-	Type                PT_ParameterType `json:"type"`
-	Error               *string          `json:"error,omitempty"`
-	Parts               []CanBeAPart     `json:"parts,omitempty"`
+	String              string        `json:"string"`
+	PrettyPrintedString *string       `json:"prettyPrintedString,omitempty"`
+	Type                InputOrOutput `json:"type"`
+	Error               *string       `json:"error,omitempty"`
+	Parts               []CanBeAPart  `json:"parts,omitempty"`
 }
 
 type Path struct {
@@ -319,7 +312,7 @@ func (x *Path) HasErrors() (out bool) {
 	return
 }
 
-func (x *Path) ReturnType() PT_ParameterType {
+func (x *Path) ReturnType() InputOrOutput {
 	return x.Type
 }
 func (x *Path) PartType() string {
@@ -338,11 +331,11 @@ func (x *Path) MarshalJSON() ([]byte, error) {
 }
 
 type pathIdentFields struct {
-	String    string           `json:"string"`
-	Error     *string          `json:"error,omitempty"`
-	Type      PT_ParameterType `json:"type"`
-	Available *Available       `json:"available,omitempty"`
-	Filter    *Filter          `json:"filter,omitempty"`
+	String    string        `json:"string"`
+	Error     *string       `json:"error,omitempty"`
+	Type      InputOrOutput `json:"type"`
+	Available *Available    `json:"available,omitempty"`
+	Filter    *Filter       `json:"filter,omitempty"`
 }
 
 type PathIdent struct {
@@ -361,7 +354,7 @@ func (x *PathIdent) HasErrors() (out bool) {
 	return
 }
 
-func (x *PathIdent) ReturnType() PT_ParameterType {
+func (x *PathIdent) ReturnType() InputOrOutput {
 	return x.Type
 }
 func (x *PathIdent) PartType() string {
@@ -380,17 +373,18 @@ func (x *PathIdent) MarshalJSON() ([]byte, error) {
 }
 
 type FunctionParameter struct {
-	String    string           `json:"string"`
-	Type      PT_ParameterType `json:"type"`
-	Error     *string          `json:"error,omitempty"`
-	Parts     []CanBeAPart     `json:"parts,omitempty"`
-	Available *Available       `json:"available,omitempty"`
+	String                          string        `json:"string"`
+	Type                            InputOrOutput `json:"type"`
+	IsVariadicOfParameterAtPosition *int          `json:"isVariadicOfParameterAtPosition,omitempty"`
+	Error                           *string       `json:"error,omitempty"`
+	Part                            CanBeAPart    `json:"part,omitempty"`
+	Available                       *Available    `json:"available,omitempty"`
 }
 
 type functionFields struct {
 	String              string               `json:"string"`
 	Error               *string              `json:"error,omitempty"`
-	Type                PT_ParameterType     `json:"type"`
+	Type                InputOrOutput        `json:"type"`
 	Available           *Available           `json:"available,omitempty"`
 	FunctionName        *string              `json:"functionName,omitempty"`
 	FunctionExplanation *string              `json:"functionExplanation,omitempty"`
@@ -415,18 +409,15 @@ func (x *Function) HasErrors() (out bool) {
 			return true
 		}
 
-		for _, p := range fp.Parts {
-			subErrs := p.HasErrors()
-			if subErrs {
-				return
-			}
+		if fp.Part != nil && fp.Part.HasErrors() {
+			return true
 		}
 	}
 
 	return
 }
 
-func (x *Function) ReturnType() PT_ParameterType {
+func (x *Function) ReturnType() InputOrOutput {
 	return x.Type
 }
 func (x *Function) PartType() string {
@@ -487,8 +478,8 @@ func (x *LogicalOperation) HasErrors() (out bool) {
 	return
 }
 
-func (x *LogicalOperation) ReturnType() PT_ParameterType {
-	return PT_Boolean
+func (x *LogicalOperation) ReturnType() InputOrOutput {
+	return inputOrOutput(PT_Boolean, IOOT_Single)
 }
 func (x *LogicalOperation) PartType() string {
 	return "LogicalOperation"
