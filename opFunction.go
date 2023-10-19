@@ -171,22 +171,6 @@ func (x *opFunction) Sprint(depth int) (out string) {
 	return fmt.Sprintf("%s(%s)", ft_GetName(x.FunctionType), strings.Join(paramsAsStrings, ","))
 }
 
-func (x *opFunction) ForPath(current []string) (outCurrent []string, additional [][]string, shouldStopLoop bool) {
-	if !ft_ShouldContinueForPath(x.FunctionType) {
-		shouldStopLoop = true
-		return
-	}
-	outCurrent = current
-
-	for _, p := range x.Params.Paths() {
-		pp, a, _ := p.ForPath(current)
-		additional = append(additional, pp)
-		additional = append(additional, a...)
-	}
-
-	return
-}
-
 func (x *opFunction) Do(currentData, originalData any) (dataToUse any, err error) {
 	var rtParams FunctionParameterTypes
 
@@ -475,8 +459,4 @@ func (x *FP_Path) GetValue() any { return x.Value }
 
 func (x *FP_Path) MarshalJSON() ([]byte, error) {
 	return functionParameterMarshalJSON(x.Value, "Path")
-}
-
-func (x *FP_Path) ForPath(current []string) (outCurrent []string, additional [][]string, shouldStopLoop bool) {
-	return x.Value.ForPath(current)
 }

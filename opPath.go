@@ -200,29 +200,6 @@ func (x *opPath) Sprint(depth int) (out string) {
 	return
 }
 
-func (x *opPath) ForPath(current []string) (outCurrent []string, additional [][]string, shouldStopLoop bool) {
-	outCurrent = current
-
-	for _, op := range x.Operations {
-		pass := outCurrent
-		// if op.Type() != ot_Filter {
-		// 	pass = nil
-		// }
-
-		oc, a, shouldStopLoop := op.ForPath(pass)
-		if shouldStopLoop {
-			break
-		}
-
-		outCurrent = oc
-		if len(a) > 0 {
-			additional = append(additional, a...)
-		}
-	}
-
-	return
-}
-
 func (x *opPath) Do(currentData, originalData any) (dataToUse any, err error) {
 	if x.StartAtRoot && x.IsFilter {
 		return nil, fmt.Errorf("cannot access root data in filter")

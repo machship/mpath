@@ -122,10 +122,6 @@ func (x *opPathIdent) Sprint(depth int) (out string) {
 	return x.IdentName
 }
 
-func (x *opPathIdent) ForPath(current []string) (outCurrent []string, additional [][]string, shouldStopLoop bool) {
-	return append(current, x.IdentName), nil, false
-}
-
 func (x *opPathIdent) Do(currentData, _ any) (dataToUse any, err error) {
 	// Ident paths require that the data is a struct or map[string]any
 

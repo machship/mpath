@@ -44,17 +44,6 @@ func (x *opFilter) Sprint(depth int) (out string) {
 	return x.LogicalOperation.Sprint(depth)
 }
 
-func (x *opFilter) ForPath(current []string) (outCurrent []string, additional [][]string, shouldStopLoop bool) {
-	oc, additional, _ := x.LogicalOperation.ForPath(current)
-	outCurrent = current
-	a := []string{}
-	a = append(a, oc...)
-	if len(a) > 0 {
-		additional = append(additional, a)
-	}
-	return
-}
-
 func (x *opFilter) Do(currentData, originalData any) (dataToUse any, err error) {
 	val, ok, wasStruct := getAsStructOrSlice(currentData)
 	if !ok {
