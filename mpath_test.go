@@ -23,7 +23,7 @@ func Benchmark_ParseAndDo(b *testing.B) {
 		b.Run("Parse "+test.Name, func(b *testing.B) {
 			for n := 0; n < b.N; n++ {
 				b.ReportAllocs()
-				op, err = ParseString(test.Query)
+				op, _, err = ParseString(test.Query)
 
 				if err != nil { // This is to avoid nil dereference errors
 					b.Errorf("'%s' has error: %v,", test.Name, err)
@@ -42,7 +42,7 @@ func Benchmark_ParseAndDo(b *testing.B) {
 
 	for _, test := range testQueries {
 		b.Run("Do "+test.Name, func(b *testing.B) {
-			op, err = ParseString(test.Query)
+			op, _, err = ParseString(test.Query)
 
 			for n := 0; n < b.N; n++ {
 				b.ReportAllocs()
@@ -60,7 +60,7 @@ func Benchmark_ParseAndDo(b *testing.B) {
 	for _, test := range testQueries {
 		b.Run("Parse and Do "+test.Name, func(b *testing.B) {
 			for n := 0; n < b.N; n++ {
-				op, err = ParseString(test.Query)
+				op, _, err = ParseString(test.Query)
 
 				b.ReportAllocs()
 				_, err = op.Do(data, data)
@@ -76,7 +76,7 @@ func Benchmark_ParseAndDo(b *testing.B) {
 func Test_Sprint(t *testing.T) {
 	// We need only test that the Sprint doesn't throw an error
 	for _, test := range testQueries {
-		op, err := ParseString(test.Query)
+		op, _, err := ParseString(test.Query)
 		if err != nil {
 			t.Error(err)
 			t.FailNow()
@@ -102,7 +102,7 @@ func Test_ParseErrors(t *testing.T) {
 
 	// We need only test that the Sprint doesn't throw an error
 	for _, test := range tests {
-		op, err := ParseString(test.Query)
+		op, _, err := ParseString(test.Query)
 		if err == nil {
 			t.Errorf("%s: expected error, got none", test.Name)
 			continue
@@ -121,7 +121,7 @@ func Test_DecimalAtRoot(t *testing.T) {
 	const testName = "Test_DecimalAtRoot"
 
 	data := float64(40)
-	op, err := ParseString("$")
+	op, _, err := ParseString("$")
 	if err != nil {
 		t.Errorf("'%s' has error: %v,", testName, err)
 		return
@@ -175,7 +175,7 @@ func Test_ParseAndDo(t *testing.T) {
 				}
 			}
 
-			op, err := ParseString(test.Query)
+			op, _, err := ParseString(test.Query)
 
 			if err != nil { // This is to avoid nil dereference errors
 				t.Errorf("'%s' has error: %v,", test.Name, err)
@@ -228,7 +228,7 @@ func Test_CustomStringTypeMap(t *testing.T) {
 	data := map[CustomStringTypeForTest]any{"varname": outStrConst}
 	queryString := "$.varname"
 
-	op, err := ParseString(queryString)
+	op, _, err := ParseString(queryString)
 
 	if err != nil {
 		t.Errorf("failed to parse query: %s", err)

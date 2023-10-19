@@ -37,7 +37,7 @@ func CueValidate(query, cueFile, currentPath string) (tc CanBeAPart, rdm *Runtim
 	// mpath operations are cached to ensure speed of execution as this method is expected to be hit many times
 	var op Operation
 	if op, ok = mpathOpCache[query]; !ok {
-		op, err = ParseString(query)
+		op, _, err = ParseString(query)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to parse mpath query: %w", err)
 		}
