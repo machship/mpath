@@ -43,6 +43,19 @@ func (x *opFunction) Validate(rootValue, inputValue cue.Value, previousType Inpu
 		return
 	}
 
+	if fd.ValidOn.IOType != IOOT_Variadic && fd.ValidOn.Type != PT_Any && fd.ValidOn.Type != previousType.Type {
+		errMessage := fmt.Sprintf("cannot use this function on type %s; can use on %s", previousType.Type, fd.ValidOn.Type)
+		part.Error = &errMessage
+	}
+
+	if fd.ValidOn.Type != PT_Any && fd.ValidOn.IOType != previousType.IOType {
+		errMessage := fmt.Sprintf("cannot use this function on type %s; can use on %s", previousType.IOType, fd.ValidOn.IOType)
+		if part.Error != nil {
+			errMessage = fmt.Sprintf("%s; %s", *part.Error, errMessage)
+		}
+		part.Error = &errMessage
+	}
+
 	returnedType = fd.Returns
 	part.Type = fd.Returns
 

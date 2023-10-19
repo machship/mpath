@@ -1270,7 +1270,7 @@ var (
 			Description: "Builds a string based on templated values (ignores input)",
 			Params:      singleParam("arguments", PT_Any, IOOT_Variadic),
 			Returns:     inputOrOutput(PT_String, IOOT_Single),
-			ValidOn:     inputOrOutput(PT_Any, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_String, IOOT_Single),
 			fn:          func_Sprintf,
 			explanationFunc: func(tf Function) string {
 				return fmt.Sprintf("builds a string from the input as a template") //todo: do better
