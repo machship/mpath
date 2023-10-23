@@ -60,7 +60,7 @@ _variables: {
 	// bigQuery := `{OR, $.a.Equal(12), $.a.Equal(16),{OR, $.a.Equal(12), $.a.Equal(16)}}`
 	// bigQuery := `$._b.arrayOfInts.Sum(1,$._a.result).Equal(4).NotEqual({OR,$._b.bool})`
 	// bigQuery := `$._b.bool.Equal($._b.bool)`
-	bigQuery := `$._b.results.Sprintf("val 1: %s, val 2: %f",$._b.string,false)`
+	bigQuery := `$._b.results[@.bool].First().example`
 
 	// bigQuery := `$._b.results[@.bool].Any()`
 	// bigQuery := `$._b.results[@.bool].First().Multiply(12).GreaterOrEqual($._input.num)`

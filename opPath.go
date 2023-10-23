@@ -319,7 +319,7 @@ func (x *opPath) Parse(s *scanner, r rune) (nextR rune, err error) {
 			}
 
 		case '[':
-			x.userString += string(r)
+			// x.userString += string(r)
 			// This is a filter
 			op = &opFilter{}
 
