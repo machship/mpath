@@ -32,6 +32,10 @@ type RuntimeDataMap struct {
 // cueFile: the cue file
 // currentPath: the id of the step for which this query is an input value, or if for the output, leave blank
 func CueValidate(query, cueFile, currentPath string) (tc CanBeAPart, rdm *RuntimeDataMap, err error) {
+	if query == "" || cueFile == "" {
+		return nil, nil, fmt.Errorf("missing parameter value")
+	}
+
 	var ok bool
 
 	// mpath operations are cached to ensure speed of execution as this method is expected to be hit many times
