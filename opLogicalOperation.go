@@ -21,6 +21,7 @@ func (x *opLogicalOperation) Validate(rootValue, nextValue cue.Value, blockedRoo
 		logicalOperationFields: logicalOperationFields{
 			String:          x.UserString(),
 			LogicalOperator: &x.LogicalOperationType,
+			IsFilter:        x.IsFilter,
 		},
 	}
 

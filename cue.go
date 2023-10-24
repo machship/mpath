@@ -282,6 +282,7 @@ loop:
 }
 
 type pathFields struct {
+	IsFilter            bool          `json:"isFilter"`
 	String              string        `json:"string"`
 	PrettyPrintedString *string       `json:"prettyPrintedString,omitempty"`
 	Type                InputOrOutput `json:"type"`
@@ -448,6 +449,7 @@ type Filter struct {
 }
 
 type logicalOperationFields struct {
+	IsFilter            bool                      `json:"isFilter"`
 	String              string                    `json:"string"`
 	PrettyPrintedString *string                   `json:"prettyPrintedString,omitempty"`
 	Error               *string                   `json:"error,omitempty"`

@@ -24,7 +24,8 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []st
 
 	path = &Path{
 		pathFields: pathFields{
-			Parts: []CanBeAPart{rootPart},
+			Parts:    []CanBeAPart{rootPart},
+			IsFilter: x.IsFilter,
 		},
 	}
 
