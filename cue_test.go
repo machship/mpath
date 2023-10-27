@@ -61,7 +61,7 @@ _variables: {
 	// bigQuery := `$._b.arrayOfInts.Sum(1,$._a.result).Equal(4).NotEqual({OR,$._b.bool})`
 	// bigQuery := `$._b.bool.Equal($._b.bool)`
 	// bigQuery := `$._b.results[@.bool].First().example`
-	bigQuery := ``
+	bigQuery := `$._b.results.First()[`
 
 	// bigQuery := `$._b.results[@.bool].Any()`
 	// bigQuery := `$._b.results[@.bool].First().Multiply(12).GreaterOrEqual($._input.num)`
