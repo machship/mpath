@@ -120,10 +120,12 @@ func CueValidate(query, cueFile, currentPath string) (tc CanBeAPart, rdm *Runtim
 }
 
 func findValuePath(inputValue cue.Value, name string) (outputValue cue.Value, err error) {
+	isHidden := false
 	var selector cue.Selector
 	switch strings.HasPrefix(name, "_") {
 	case true:
 		selector = cue.Hid(name, "_")
+		isHidden = true
 	case false:
 		selector = cue.Str(name)
 	}
@@ -137,8 +139,14 @@ func findValuePath(inputValue cue.Value, name string) (outputValue cue.Value, er
 		inputValue = it.Value()
 	}
 
+retry:
 	outputValue = inputValue.LookupPath(cue.MakePath(selector))
 	if outputValue.Err() != nil {
+		if isHidden {
+			selector = cue.Str(name)
+			isHidden = false
+			goto retry
+		}
 		return outputValue, fmt.Errorf("unknown field '%s'", name)
 	}
 
