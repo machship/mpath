@@ -20,6 +20,19 @@ type CanBeAPart interface {
 	MarshalJSON() ([]byte, error)
 	ReturnType() InputOrOutput
 	HasErrors() bool
+	SetError(errMessage string)
+}
+
+type HasError struct {
+	Error *string `json:"error,omitempty"`
+}
+
+func (x *HasError) SetError(errMessage string) {
+	if x.Error != nil {
+		errMessage = *x.Error + "; " + errMessage
+	}
+
+	x.Error = &errMessage
 }
 
 type RuntimeDataMap struct {
@@ -107,10 +120,12 @@ func CueValidate(query, cueFile, currentPath string) (tc CanBeAPart, rdm *Runtim
 }
 
 func findValuePath(inputValue cue.Value, name string) (outputValue cue.Value, err error) {
+	isHidden := false
 	var selector cue.Selector
 	switch strings.HasPrefix(name, "_") {
 	case true:
 		selector = cue.Hid(name, "_")
+		isHidden = true
 	case false:
 		selector = cue.Str(name)
 	}
@@ -124,8 +139,14 @@ func findValuePath(inputValue cue.Value, name string) (outputValue cue.Value, er
 		inputValue = it.Value()
 	}
 
+retry:
 	outputValue = inputValue.LookupPath(cue.MakePath(selector))
 	if outputValue.Err() != nil {
+		if isHidden {
+			selector = cue.Str(name)
+			isHidden = false
+			goto retry
+		}
 		return outputValue, fmt.Errorf("unknown field '%s'", name)
 	}
 
@@ -290,11 +311,12 @@ loop:
 }
 
 type pathFields struct {
+	HasError
+
 	IsFilter            bool          `json:"isFilter"`
 	String              string        `json:"string"`
 	PrettyPrintedString *string       `json:"prettyPrintedString,omitempty"`
 	Type                InputOrOutput `json:"type"`
-	Error               *string       `json:"error,omitempty"`
 	Parts               []CanBeAPart  `json:"parts,omitempty"`
 }
 
@@ -340,8 +362,9 @@ func (x *Path) MarshalJSON() ([]byte, error) {
 }
 
 type pathIdentFields struct {
+	HasError
+
 	String    string        `json:"string"`
-	Error     *string       `json:"error,omitempty"`
 	Type      InputOrOutput `json:"type"`
 	Available *Available    `json:"available,omitempty"`
 	Filter    *Filter       `json:"filter,omitempty"`
@@ -391,8 +414,9 @@ type FunctionParameter struct {
 }
 
 type functionFields struct {
+	HasError
+
 	String              string               `json:"string"`
-	Error               *string              `json:"error,omitempty"`
 	Type                InputOrOutput        `json:"type"`
 	Available           *Available           `json:"available,omitempty"`
 	FunctionName        *string              `json:"functionName,omitempty"`
@@ -457,10 +481,11 @@ type Filter struct {
 }
 
 type logicalOperationFields struct {
+	HasError
+
 	IsFilter            bool                      `json:"isFilter"`
 	String              string                    `json:"string"`
 	PrettyPrintedString *string                   `json:"prettyPrintedString,omitempty"`
-	Error               *string                   `json:"error,omitempty"`
 	LogicalOperator     *LOT_LogicalOperationType `json:"logicalOperator,omitempty"`
 	Parts               []CanBeAPart              `json:"parts,omitempty"`
 }

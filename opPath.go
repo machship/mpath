@@ -71,7 +71,9 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []st
 			part = &PathIdent{
 				pathIdentFields: pathIdentFields{
 					String: str,
-					Error:  &errMessage,
+					HasError: HasError{
+						Error: &errMessage,
+					},
 				},
 			}
 
@@ -87,7 +89,9 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []st
 				path.Parts = append(path.Parts, &PathIdent{
 					pathIdentFields: pathIdentFields{
 						String: t.UserString(),
-						Error:  &errMessage,
+						HasError: HasError{
+							Error: &errMessage,
+						},
 					},
 				})
 				continue
@@ -99,7 +103,9 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []st
 				path.Parts = append(path.Parts, &PathIdent{
 					pathIdentFields: pathIdentFields{
 						String: t.UserString(),
-						Error:  &errMessage,
+						HasError: HasError{
+							Error: &errMessage,
+						},
 					},
 				})
 				continue
@@ -114,7 +120,9 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []st
 						path.Parts = append(path.Parts, &PathIdent{
 							pathIdentFields: pathIdentFields{
 								String: t.UserString(),
-								Error:  &errMessage,
+								HasError: HasError{
+									Error: &errMessage,
+								},
 							},
 						})
 						continue
@@ -143,8 +151,18 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []st
 			part.(*PathIdent).Type = returnedType
 
 		case *opFilter:
+			pi, ok := part.(*PathIdent)
+			if !ok {
+				if part == nil {
+					return nil, returnedType, nil, fmt.Errorf("tried to apply filter against wrong type")
+				}
+
+				part.SetError(fmt.Sprintf("tried to apply filter against %T", part))
+				continue
+			}
+
 			// opFilter Validate does not advance the next value
-			part.(*PathIdent).Filter, rd, err = t.Validate(rootValue, nextValue, blockedRootFields)
+			pi.Filter, rd, err = t.Validate(rootValue, nextValue, blockedRootFields)
 			if err != nil {
 				return nil, returnedType, nil, err
 			}
