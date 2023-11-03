@@ -19,11 +19,11 @@ var (
 	scannerPool = sync.Pool{
 		New: func() any {
 			s := newScanner()
-			s.sx.Mode = sc.ScanIdents | sc.ScanFloats | sc.ScanChars | sc.ScanStrings | sc.ScanRawStrings | sc.ScanComments | sc.SkipComments
+			s.sx.Mode = sc.ScanIdents | sc.ScanChars | sc.ScanStrings | sc.ScanRawStrings | sc.ScanComments | sc.SkipComments
 			s.sx.IsIdentRune = func(ch rune, i int) bool {
-				if i == 0 && unicode.IsDigit(ch) {
-					return false
-				}
+				// if i == 0 && unicode.IsDigit(ch) {
+				// 	return false
+				// }
 
 				return ch != '\'' &&
 					ch != '"' &&
@@ -147,11 +147,15 @@ func (s *scanner) TokenText() (t string) {
 func (s *scanner) Reset(sr *strings.Reader, ss string) {
 	sr.Reset(ss)
 	s.sx.Init(sr)
+	s.sx.Mode = sc.ScanIdents | sc.ScanChars | sc.ScanStrings | sc.ScanRawStrings | sc.ScanComments | sc.SkipComments
 }
 
 func (s *scanner) Scan() (r rune) {
 	for {
 		r = s.sx.Scan()
+		if r == -4 {
+			fmt.Print(string(r))
+		}
 		// fmt.Print(s.sx.TokenText())
 		if r < 0 || unicode.IsPrint(r) {
 			break
