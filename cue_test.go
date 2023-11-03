@@ -9,15 +9,15 @@ import (
 
 func Test_CueFromString(t *testing.T) {
 	cueString1 := `
-	"input": {
+	"input": { 
 		num: int,
 		_dependencies: []
 	}
-	"3dedbf75-1c91-4ec5-8018-99b1efe47462": {
+	"_3dedbf75-1c91-4ec5-8018-99b1efe47462": {
 		result: int,
 		_dependencies: []
 	}
-	"52a015ef-6e51-407d-82e2-72fb218ae65b": {
+	"_52a015ef-6e51-407d-82e2-72fb218ae65b": {
 		results: [{
 			example: string
 			array: [{
@@ -28,11 +28,11 @@ func Test_CueFromString(t *testing.T) {
 				}
 			}]
 		}],
-		_dependencies: ["3dedbf75-1c91-4ec5-8018-99b1efe47462"]
+		_dependencies: ["_3dedbf75-1c91-4ec5-8018-99b1efe47462"]
 	}
-	"bd33058f-d866-4800-aa97-098c0137e8c0": {
+	"_bd33058f-d866-4800-aa97-098c0137e8c0": {
 		result: string
-		_dependencies: ["52a015ef-6e51-407d-82e2-72fb218ae65b"]
+		_dependencies: ["_52a015ef-6e51-407d-82e2-72fb218ae65b"]
 	}
 	`
 
@@ -42,11 +42,11 @@ func Test_CueFromString(t *testing.T) {
 	// bigQuery := `$._b.arrayOfInts.Sum(1,$._a.result).Equal(4).NotEqual({OR,$._b.bool})`
 	// bigQuery := `$._b.bool.Equal($._b.bool)`
 	// bigQuery := `$._b.results[@.bool].First().example`
-	bigQuery := `$.3dedbf75-1c91-4ec5-8018-99b1efe47462.result`
+	bigQuery := `$._3dedbf75-1c91-4ec5-8018-99b1efe47462.result.Equal(12)`
 
 	// bigQuery := `$._b.results[@.bool].Any()`
 	// bigQuery := `$._b.results[@.bool].First().Multiply(12).GreaterOrEqual($._input.num)`
-	tc, rdm, err := CueValidate(bigQuery, cueString1, "bd33058f-d866-4800-aa97-098c0137e8c0")
+	tc, rdm, err := CueValidate(bigQuery, cueString1, "_bd33058f-d866-4800-aa97-098c0137e8c0")
 
 	// tc, rdm, err := CueValidate(`{OR,$._b.results.First().bool}`, cueString1, "_c")
 	// tc, rdm, err := CueValidate(`$._b.results[{AND,{OR,@.example.Equal("or op")},@.example.Equal("something")}].First().example.AnyOf("bob","jones")`, cueString1, "_c")

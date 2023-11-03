@@ -359,15 +359,19 @@ func (x *opFunction) Parse(s *scanner, r rune) (nextR rune, err error) {
 			}
 			x.Params = append(x.Params, &FP_String{tt})
 		case sc.Float, sc.Int:
-			tt := s.TokenText()
-			x.userString += string(tt)
+			// tt := s.TokenText()
+			// x.userString += string(tt)
 
-			f, err := strconv.ParseFloat(tt, 64)
+			// f, err := strconv.ParseFloat(tt, 64)
+			// if err != nil {
+			// 	// This should not be possible, but handle it just in case
+			// 	return r, erAt(s, "couldn't convert number as string '%s' to number", s.TokenText())
+			// }
+			// x.Params = append(x.Params, &FP_Number{decimal.NewFromFloat(f)})
+			r, err = dealWithNumbers(s, x, r)
 			if err != nil {
-				// This should not be possible, but handle it just in case
-				return r, erAt(s, "couldn't convert number as string '%s' to number", s.TokenText())
+				return r, erInvalid(s)
 			}
-			x.Params = append(x.Params, &FP_Number{decimal.NewFromFloat(f)})
 		case sc.Ident:
 
 			//must be bool
@@ -380,13 +384,29 @@ func (x *opFunction) Parse(s *scanner, r rune) (nextR rune, err error) {
 				x.userString += tt
 				x.Params = append(x.Params, &FP_Bool{false})
 			default:
-				return r, erInvalid(s)
+				r, err = dealWithNumbers(s, x, r)
+				if err != nil {
+					return r, erInvalid(s)
+				}
 			}
 		}
 		r = s.Scan()
 	}
 
 	return
+}
+
+func dealWithNumbers(s *scanner, x *opFunction, r rune) (rune, error) {
+	tt := s.TokenText()
+	x.userString += string(tt)
+
+	f, err := strconv.ParseFloat(tt, 64)
+	if err != nil {
+		// This should not be possible, but handle it just in case
+		return r, erAt(s, "couldn't convert number as string '%s' to number", s.TokenText())
+	}
+	x.Params = append(x.Params, &FP_Number{decimal.NewFromFloat(f)})
+	return r, nil
 }
 
 func (x *opFunction) addOpToParamsAndParse(s *scanner, r rune) (nextR rune, err error) {

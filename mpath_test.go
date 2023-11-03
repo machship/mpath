@@ -78,7 +78,7 @@ func Test_Sprint(t *testing.T) {
 	for _, test := range testQueries {
 		op, _, err := ParseString(test.Query)
 		if err != nil {
-			t.Error(err)
+			t.Errorf("got error for '%s': %v", test.Name, err)
 			t.FailNow()
 		}
 		if len(op.Sprint(0)) == 0 {

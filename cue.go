@@ -122,7 +122,7 @@ func CueValidate(query, cueFile, currentPath string) (tc CanBeAPart, rdm *Runtim
 func findValuePath(inputValue cue.Value, name string) (outputValue cue.Value, err error) {
 	isHidden := false
 	var selector cue.Selector
-	switch strings.HasPrefix(name, "_") {
+	switch strings.HasPrefix(name, "_") && !strings.Contains(name, "-") {
 	case true:
 		selector = cue.Hid(name, "_")
 		isHidden = true
