@@ -182,9 +182,11 @@ var (
 type BP_BasePath string
 
 const (
-	BP_Dependencies BP_BasePath = "_dependencies"
-	BP_Input        BP_BasePath = "_input"
-	BP_Variables    BP_BasePath = "_variables"
+	BP_Dependencies            BP_BasePath = "_dependencies"
+	BP_InputWithUnderscore     BP_BasePath = "_input"
+	BP_Input                   BP_BasePath = "input"
+	BP_VariablesWithUnderscore BP_BasePath = "_variables"
+	BP_Variables               BP_BasePath = "variables"
 )
 
 func getConcreteValuesForListOfStringValueAtPath(inputValue cue.Value, path string) (output []string, err error) {
@@ -241,9 +243,11 @@ func getBlockedRootFields(rootValue cue.Value, currentPath string) (blockedField
 	}
 
 	validFields := map[string]struct{}{
-		currentPath:          {},
-		string(BP_Input):     {},
-		string(BP_Variables): {},
+		currentPath:                        {},
+		string(BP_Input):                   {},
+		string(BP_InputWithUnderscore):     {},
+		string(BP_Variables):               {},
+		string(BP_VariablesWithUnderscore): {},
 	}
 	for _, dep := range dependencies {
 		validFields[dep] = struct{}{}
