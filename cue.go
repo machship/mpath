@@ -122,7 +122,7 @@ func CueValidate(query, cueFile, currentPath string) (tc CanBeAPart, rdm *Runtim
 func findValuePath(inputValue cue.Value, name string) (outputValue cue.Value, err error) {
 	isHidden := false
 	var selector cue.Selector
-	switch strings.HasPrefix(name, "_") {
+	switch strings.HasPrefix(name, "_") && !strings.Contains(name, "-") {
 	case true:
 		selector = cue.Hid(name, "_")
 		isHidden = true
@@ -203,9 +203,11 @@ var (
 type BP_BasePath string
 
 const (
-	BP_Dependencies BP_BasePath = "_dependencies"
-	BP_Input        BP_BasePath = "_input"
-	BP_Variables    BP_BasePath = "_variables"
+	BP_Dependencies            BP_BasePath = "_dependencies"
+	BP_InputWithUnderscore     BP_BasePath = "_input"
+	BP_Input                   BP_BasePath = "input"
+	BP_VariablesWithUnderscore BP_BasePath = "_variables"
+	BP_Variables               BP_BasePath = "variables"
 )
 
 func getConcreteValuesForListOfStringValueAtPath(inputValue cue.Value, path string) (output []string, err error) {
@@ -262,9 +264,11 @@ func getBlockedRootFields(rootValue cue.Value, currentPath string) (blockedField
 	}
 
 	validFields := map[string]struct{}{
-		currentPath:          {},
-		string(BP_Input):     {},
-		string(BP_Variables): {},
+		currentPath:                        {},
+		string(BP_Input):                   {},
+		string(BP_InputWithUnderscore):     {},
+		string(BP_Variables):               {},
+		string(BP_VariablesWithUnderscore): {},
 	}
 	for _, dep := range dependencies {
 		validFields[dep] = struct{}{}
