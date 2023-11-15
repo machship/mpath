@@ -3,7 +3,7 @@ module github.com/machship/mpath
 go 1.18
 
 require (
-	cuelang.org/go v0.6.0
+	cuelang.org/go v0.5.0
 	github.com/atotto/clipboard v0.1.4
 	github.com/basgys/goxml2json v1.1.0
 	github.com/google/uuid v1.2.0
@@ -17,7 +17,8 @@ require github.com/stretchr/testify v1.8.2 // indirect
 
 require (
 	github.com/bitly/go-simplejson v0.5.1 // indirect
-	github.com/cockroachdb/apd/v3 v3.2.0 // indirect
+	github.com/cockroachdb/apd/v2 v2.0.2 // indirect
+	github.com/lib/pq v1.10.7 // indirect
 	github.com/mpvl/unique v0.0.0-20150818121801-cbe035fff7de // indirect
 	golang.org/x/net v0.8.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
