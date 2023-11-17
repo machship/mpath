@@ -9,31 +9,31 @@ import (
 
 func Test_CueFromString(t *testing.T) {
 	cueString1 := `
-	"0f2fbb3e-c95a-4760-8bad-ae5610c28454": {
-		_dependencies: ["87e54fe3-6e64-454e-acf7-1a36801f1b87"]
+	"a": {
+		_dependencies: ["b"]
 		...
 	}
-	"4ebec022-4119-4cc8-bb7f-7a713790305c": {
+	"d": {
 		result:     string
 		"_errored": bool
-		_dependencies: ["f17e90d1-d3f7-4f55-a50f-4323206c7fd1"]
+		_dependencies: ["e"]
 		"_error"?: {
 			message: string
 		}
 	}
-	"87e54fe3-6e64-454e-acf7-1a36801f1b87": {
+	"b": {
 		result:     _
 		"_errored": bool
-		_dependencies: ["4ebec022-4119-4cc8-bb7f-7a713790305c"]
+		_dependencies: ["d"]
 		"_error"?: {
 			message: string
 		}
 	}
-	"97abc773-2f79-4d77-9859-2e78f38161d7": {
-		_dependencies: ["0f2fbb3e-c95a-4760-8bad-ae5610c28454"]
+	"f": {
+		_dependencies: ["a"]
 		...
 	}
-	"f17e90d1-d3f7-4f55-a50f-4323206c7fd1": {
+	"e": {
 		result:     float
 		"_errored": bool
 		_dependencies: []
@@ -61,7 +61,7 @@ func Test_CueFromString(t *testing.T) {
 
 	// bigQuery := `$._b.results[@.bool].Any()`
 	// bigQuery := `$._b.results[@.bool].First().Multiply(12).GreaterOrEqual($._input.num)`
-	tc, rdm, err := CueValidate(bigQuery, cueString1, "87e54fe3-6e64-454e-acf7-1a36801f1b87")
+	tc, rdm, err := CueValidate(bigQuery, cueString1, "b")
 
 	// tc, rdm, err := CueValidate(`{OR,$._b.results.First().bool}`, cueString1, "_c")
 	// tc, rdm, err := CueValidate(`$._b.results[{AND,{OR,@.example.Equal("or op")},@.example.Equal("something")}].First().example.AnyOf("bob","jones")`, cueString1, "_c")

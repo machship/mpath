@@ -40,7 +40,7 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []st
 		rootPart.Type.IOType = IOOT_Single
 	}
 
-	availableFields, err := getAvailableFieldsForValue(nextValue)
+	availableFields, err := getAvailableFieldsForValue(nextValue, blockedRootFields)
 	if err != nil {
 		return nil, returnedType, nil, fmt.Errorf("failed to list available fields from cue: %w", err)
 	}
@@ -143,7 +143,7 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []st
 			}
 
 			// opPathIdent Validate advances the next value
-			part, nextValue, returnedType, err = t.Validate(nextValue)
+			part, nextValue, returnedType, err = t.Validate(nextValue, blockedRootFields)
 			if err != nil {
 				return nil, returnedType, nil, err
 			}

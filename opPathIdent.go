@@ -13,7 +13,7 @@ type opPathIdent struct {
 	opCommon
 }
 
-func (x *opPathIdent) Validate(inputValue cue.Value) (part *PathIdent, nextValue cue.Value, returnedType InputOrOutput, err error) {
+func (x *opPathIdent) Validate(inputValue cue.Value, blockedRootFields []string) (part *PathIdent, nextValue cue.Value, returnedType InputOrOutput, err error) {
 	part = &PathIdent{
 		pathIdentFields: pathIdentFields{
 			Available: &Available{},
@@ -60,7 +60,7 @@ loop:
 		}
 
 		// Get the fields for the next value:
-		availableFields, err := getAvailableFieldsForValue(nextValue)
+		availableFields, err := getAvailableFieldsForValue(nextValue, blockedRootFields)
 		if err != nil {
 			return nil, nextValue, returnedType, fmt.Errorf("couldn't get fields for struct type to build filters: %w", err)
 		}

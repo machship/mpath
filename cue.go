@@ -166,7 +166,7 @@ func getUnderlyingKind(v cue.Value) (kind cue.Kind, err error) {
 	return v.IncompleteKind(), nil
 }
 
-func getAvailableFieldsForValue(v cue.Value) (fields []string, err error) {
+func getAvailableFieldsForValue(v cue.Value, blockedRootFields []string) (fields []string, err error) {
 	if v.IncompleteKind() == cue.ListKind {
 		it, err := v.List()
 		if err != nil {
@@ -185,7 +185,11 @@ func getAvailableFieldsForValue(v cue.Value) (fields []string, err error) {
 		fldName := it.Selector().String()
 
 		switch fldName {
-		case "_dependencies":
+		case string(BP_Dependencies):
+			continue
+		}
+
+		if checkIfValueInList(fldName, blockedRootFields) {
 			continue
 		}
 
@@ -193,6 +197,16 @@ func getAvailableFieldsForValue(v cue.Value) (fields []string, err error) {
 	}
 
 	return
+}
+
+func checkIfValueInList(value string, list []string) (isInList bool) {
+	for _, listValue := range list {
+		if value == listValue {
+			return true
+		}
+	}
+
+	return false
 }
 
 var (
@@ -257,6 +271,8 @@ func getBlockedRootFields(rootValue cue.Value, currentPath string) (blockedField
 		return nil, fmt.Errorf("failed to find currentPath in cue value: %w", err)
 	}
 
+	blockedFields = append(blockedFields, currentPath)
+
 	// We need to recursively get the dependencies of the currentPath
 	dependencies, err := getConcreteValuesForListOfStringValueAtPath(nextValue, string(BP_Dependencies))
 	if err != nil {
@@ -296,7 +312,7 @@ loop:
 		goto loop
 	}
 
-	allFields, err := getAvailableFieldsForValue(rootValue)
+	allFields, err := getAvailableFieldsForValue(rootValue, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list fields in cue value: %w", err)
 	}
