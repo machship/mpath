@@ -72,6 +72,7 @@ func (x *opFunction) Validate(rootValue, inputValue cue.Value, previousType Inpu
 		part.FunctionParameters = append(part.FunctionParameters, param)
 
 		paramReturns := p.IsFuncParam()
+		paramReturns.CueExpr = paramReturns.Type.CueExpr()
 
 		switch t := p.(type) {
 		case *FP_Path:
@@ -198,10 +199,19 @@ func (x *opFunction) Validate(rootValue, inputValue cue.Value, previousType Inpu
 		}
 	}
 	part.Type = returnedType
+	part.Type.CueExpr = fd.Returns.Type.CueExpr()
 
 	if fd.ReturnsKnownValues && previousType.IOType == IOOT_Array && k == cue.StructKind {
 		// We can find available fields
 		returnedType.Type = PT_Object
+		uv, err := getUnderlyingValue(inputValue)
+		if err != nil {
+			// todo... how to handle?
+			uv = inputValue
+		}
+		returnedType.CueExpr = getExpr(uv)
+		part.Type = returnedType
+
 		part.Available.Fields, err = getAvailableFieldsForValue(inputValue, blockedRootFields)
 		if err != nil {
 			errMessage := fmt.Sprintf("failed to get available fields: %v", err)

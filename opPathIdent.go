@@ -78,6 +78,7 @@ loop:
 	case cue.ListKind:
 		if wasList {
 			returnedType = inputOrOutput(PT_Any, IOOT_Single)
+			returnedType.CueExpr = getExpr(nextValue)
 			return
 		}
 
@@ -103,6 +104,7 @@ loop:
 
 	part.Available.Functions = getAvailableFunctionsForKind(returnedType)
 	part.Type = returnedType
+	returnedType.CueExpr = getExpr(nextValue)
 
 	return
 }

@@ -9,45 +9,22 @@ import (
 
 func Test_CueFromString(t *testing.T) {
 	cueString1 := `
-	"a": {
-		_dependencies: ["b"]
-		...
-	}
-	"d": {
-		result:     string
-		"_errored": bool
-		_dependencies: ["e"]
-		"_error"?: {
-			message: string
-		}
-	}
-	"b": {
-		result:     _
-		"_errored": bool
-		_dependencies: ["d"]
-		"_error"?: {
-			message: string
-		}
-	}
-	"f": {
-		_dependencies: ["a"]
-		...
-	}
-	"e": {
-		result:     float
-		"_errored": bool
+	
+	step1: {
+		num: int
 		_dependencies: []
-		"_error"?: {
-			message: string
-		}
-	}
-	input: {
-		_dependencies: []
-		...
-	}
-	variables: {
-		test: string
-		_dependencies: []
+		result: [{
+			name: string
+			age: int
+		}]
+	}  
+	
+	step2: {
+		_dependencies: ["step1"]
+		result: [{
+			name: string
+			age: int
+		}]
 	}
 	`
 
@@ -57,11 +34,11 @@ func Test_CueFromString(t *testing.T) {
 	// bigQuery := `$._b.arrayOfInts.Sum(1,$._a.result).Equal(4).NotEqual({OR,$._b.bool})`
 	// bigQuery := `$._b.bool.Equal($._b.bool)`
 	// bigQuery := `$._b.results[@.bool].First().example`
-	bigQuery := `$`
+	bigQuery := `$.step1.result[@.age.Equal($.step1.num)].First()`
 
 	// bigQuery := `$._b.results[@.bool].Any()`
 	// bigQuery := `$._b.results[@.bool].First().Multiply(12).GreaterOrEqual($._input.num)`
-	tc, rdm, err := CueValidate(bigQuery, cueString1, "b")
+	tc, rdm, err := CueValidate(bigQuery, cueString1, "step2")
 
 	// tc, rdm, err := CueValidate(`{OR,$._b.results.First().bool}`, cueString1, "_c")
 	// tc, rdm, err := CueValidate(`$._b.results[{AND,{OR,@.example.Equal("or op")},@.example.Equal("something")}].First().example.AnyOf("bob","jones")`, cueString1, "_c")
@@ -71,7 +48,10 @@ func Test_CueFromString(t *testing.T) {
 		t.Error(err)
 	}
 
-	jstr, _ := json.MarshalIndent(tc, "", "\t")
+	jstr, err := json.MarshalIndent(tc, "", "\t")
+	if err != nil {
+		t.Error(err)
+	}
 	clipboard.WriteAll(string(jstr))
 
 	// jstr, _ = json.MarshalIndent(rdm, "", "\t")

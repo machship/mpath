@@ -980,6 +980,24 @@ func (pt PT_ParameterType) IsPrimitive() bool {
 	return false
 }
 
+func (pt PT_ParameterType) CueExpr() *string {
+	out := ""
+	switch pt {
+	case PT_String:
+		out = "string"
+	case PT_Boolean:
+		out = "bool"
+	case PT_Number:
+		out = "number"
+	case PT_Any:
+		out = "_"
+	case PT_Object:
+		out = "{...}"
+	}
+
+	return &out
+}
+
 type FunctionDescriptor struct {
 	Name               FT_FunctionType       `json:"name"`
 	Description        string                `json:"description"`
@@ -1063,8 +1081,9 @@ const (
 )
 
 type InputOrOutput struct {
-	Type   PT_ParameterType       `json:"type"`
-	IOType IOOT_InputOrOutputType `json:"ioType"`
+	Type    PT_ParameterType       `json:"type"`
+	IOType  IOOT_InputOrOutputType `json:"ioType"`
+	CueExpr *string                `json:"cueExpr,omitempty"`
 }
 
 type ParameterDescriptor struct {

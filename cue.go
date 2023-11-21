@@ -166,14 +166,23 @@ func getUnderlyingKind(v cue.Value) (kind cue.Kind, err error) {
 	return v.IncompleteKind(), nil
 }
 
-func getAvailableFieldsForValue(v cue.Value, blockedRootFields []string) (fields []string, err error) {
+func getUnderlyingValue(v cue.Value) (val cue.Value, err error) {
 	if v.IncompleteKind() == cue.ListKind {
 		it, err := v.List()
 		if err != nil {
-			return nil, fmt.Errorf("couldn't get list iterator for list kind")
+			return val, fmt.Errorf("couldn't get list iterator for list kind")
 		}
 		it.Next()
 		v = it.Value()
+	}
+
+	return v, nil
+}
+
+func getAvailableFieldsForValue(v cue.Value, blockedRootFields []string) (fields []string, err error) {
+	v, err = getUnderlyingValue(v)
+	if err != nil {
+		return nil, err
 	}
 
 	it, err := v.Fields(cue.All())
@@ -191,6 +200,12 @@ func getAvailableFieldsForValue(v cue.Value, blockedRootFields []string) (fields
 
 		if checkIfValueInList(fldName, blockedRootFields) {
 			continue
+		}
+
+		// Strip leading and trailing quotation marks from names:
+		if strings.HasPrefix(fldName, `"`) && strings.HasSuffix(fldName, `"`) {
+			fldName = strings.TrimPrefix(fldName, `"`)
+			fldName = strings.TrimSuffix(fldName, `"`)
 		}
 
 		fields = append(fields, fldName)
@@ -262,6 +277,17 @@ func getConcreteValuesForListOfStringValueAtPath(inputValue cue.Value, path stri
 	}
 
 	return
+}
+
+func getExpr(inputValue cue.Value) *string {
+	// Leaving this here... this will give you the actual addressed value rather than the type
+	// source := inputValue.Source()
+	// cp, _ := format.Node(source) // ignore error as this is currently best effort
+	// cpStr := string(cp)
+	// return &cpStr
+
+	outStr := fmt.Sprintf("%#v", inputValue)
+	return &outStr
 }
 
 func getBlockedRootFields(rootValue cue.Value, currentPath string) (blockedFields []string, err error) {

@@ -20,12 +20,21 @@ type opPath struct {
 }
 
 func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []string) (path *Path, returnedType InputOrOutput, requiredData []string, err error) {
-	rootPart := &PathIdent{}
+	rootPart := &PathIdent{
+		pathIdentFields: pathIdentFields{
+			Type: InputOrOutput{
+				CueExpr: getExpr(rootValue),
+			},
+		},
+	}
 
 	path = &Path{
 		pathFields: pathFields{
 			Parts:    []CanBeAPart{rootPart},
 			IsFilter: x.IsFilter,
+			Type: InputOrOutput{
+				CueExpr: getExpr(nextValue),
+			},
 		},
 	}
 
