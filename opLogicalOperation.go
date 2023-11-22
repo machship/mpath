@@ -16,7 +16,9 @@ type opLogicalOperation struct {
 	opCommon
 }
 
-func (x *opLogicalOperation) Validate(rootValue, nextValue cue.Value, blockedRootFields []string) (logicalOperation *LogicalOperation, requiredData []string, err error) {
+func (x *opLogicalOperation) Validate(rootValue cue.Value, cuePath CuePath, blockedRootFields []string) (logicalOperation *LogicalOperation, requiredData []string) {
+	var err error
+
 	logicalOperation = &LogicalOperation{
 		logicalOperationFields: logicalOperationFields{
 			String:          x.UserString(),
@@ -37,7 +39,7 @@ func (x *opLogicalOperation) Validate(rootValue, nextValue cue.Value, blockedRoo
 		case *opPath:
 			var pathOp *Path
 			var rd []string
-			pathOp, _, rd, err = t.Validate(rootValue, nextValue, blockedRootFields)
+			pathOp, _, rd = t.Validate(rootValue, cuePath, blockedRootFields)
 
 			pathOp.String = t.UserString()
 			if err != nil {
@@ -59,7 +61,7 @@ func (x *opLogicalOperation) Validate(rootValue, nextValue cue.Value, blockedRoo
 			logicalOperation.Parts = append(logicalOperation.Parts, pathOp)
 
 		case *opLogicalOperation:
-			subLogicalOperation, rd, err := t.Validate(rootValue, nextValue, blockedRootFields)
+			subLogicalOperation, rd := t.Validate(rootValue, cuePath, blockedRootFields)
 			if err != nil {
 				errMessage := err.Error()
 				subLogicalOperation.Error = &errMessage

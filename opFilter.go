@@ -11,28 +11,25 @@ type opFilter struct {
 	opCommon
 }
 
-func (x *opFilter) Validate(rootValue, inputValue cue.Value, blockedRootFields []string) (filter *Filter, requiredData []string, err error) {
-	filter = &Filter{
-		String: x.UserString(),
+func (x *opFilter) Validate(rootValue cue.Value, cuePath CuePath, blockedRootFields []string) (filter *Filter, requiredData []string) {
+	cuePathValue, err := findValueAtPath(rootValue, cuePath)
+	if err != nil {
+		return &Filter{
+			String: x.UserString(),
+			Error:  strPtr(err.Error()),
+		}, nil
 	}
-	if inputValue.Kind() != cue.ListKind {
-		errMessage := "not a list; only lists can be filtered"
+
+	filter = &Filter{}
+	if cuePathValue.IncompleteKind() != cue.ListKind {
+		errMessage := fmt.Sprintf("not a list (was %s); only lists can be filtered", cuePathValue.Kind())
 		filter.Error = &errMessage
 		return
 	}
 
-	it, err := inputValue.List()
-	if err != nil {
-		return nil, nil, fmt.Errorf("couldn't get list iterator for list kind")
-	}
-
-	it.Next()
-	nextValue := it.Value()
-
-	filter.LogicalOperation, requiredData, err = x.LogicalOperation.Validate(rootValue, nextValue, blockedRootFields)
-	if err != nil {
-		errMessage := err.Error()
-		filter.Error = &errMessage
+	filter.LogicalOperation, requiredData = x.LogicalOperation.Validate(rootValue, cuePath, blockedRootFields)
+	if filter.LogicalOperation.Error != nil {
+		filter.Error = filter.LogicalOperation.Error
 	}
 
 	return

@@ -41,6 +41,16 @@ type RuntimeDataMap struct {
 	RequiredData []string `json:"requiredData"`
 }
 
+type CuePath []string
+
+func (c CuePath) Add(s string) CuePath {
+	if len(c) == 0 {
+		return CuePath{s}
+	}
+
+	return append(c, s)
+}
+
 // query: the mpath query string
 // cueFile: the cue file
 // currentPath: the id of the step for which this query is an input value, or if for the output, leave blank
@@ -82,9 +92,9 @@ func CueValidate(query, cueFile, currentPath string) (tc CanBeAPart, rdm *Runtim
 	var requiredData []string
 	switch t := op.(type) {
 	case *opPath:
-		ptc, _, rd, subErr := t.Validate(rootValue, rootValue, blockedRootFields)
-		if subErr != nil {
-			err = subErr
+		ptc, _, rd := t.Validate(rootValue, CuePath{}, blockedRootFields)
+		if ptc.Error != nil {
+			err = fmt.Errorf(*ptc.Error)
 			return
 		}
 		ptc.String = query
@@ -97,9 +107,9 @@ func CueValidate(query, cueFile, currentPath string) (tc CanBeAPart, rdm *Runtim
 		tc = ptc
 
 	case *opLogicalOperation:
-		logicalOperation, subRequiredData, subErr := t.Validate(rootValue, rootValue, blockedRootFields)
-		if err != nil {
-			err = subErr
+		logicalOperation, subRequiredData := t.Validate(rootValue, CuePath{}, blockedRootFields)
+		if logicalOperation.Error != nil {
+			err = fmt.Errorf(*logicalOperation.Error)
 			return
 		}
 		requiredData = subRequiredData
@@ -119,51 +129,93 @@ func CueValidate(query, cueFile, currentPath string) (tc CanBeAPart, rdm *Runtim
 	return
 }
 
-func findValuePath(inputValue cue.Value, name string) (outputValue cue.Value, err error) {
-	isHidden := false
-	var selector cue.Selector
-	switch strings.HasPrefix(name, "_") && !strings.Contains(name, "-") {
-	case true:
-		selector = cue.Hid(name, "_")
-		isHidden = true
-	case false:
-		selector = cue.Str(name)
-	}
+func strPtr(s string) *string {
+	return &s
+}
 
-	if inputValue.IncompleteKind() == cue.ListKind {
-		it, err := inputValue.List()
-		if err != nil {
-			return outputValue, fmt.Errorf("couldn't get list iterator for list kind")
+func strInStrSlice(s string, ss []string) (isInSlice bool) {
+	for _, sss := range ss {
+		if sss == s {
+			return true
 		}
-		it.Next()
-		inputValue = it.Value()
 	}
 
-retry:
-	outputValue = inputValue.LookupPath(cue.MakePath(selector))
-	if outputValue.Err() != nil {
-		if isHidden {
-			selector = cue.Str(name)
-			isHidden = false
-			goto retry
+	return false
+}
+
+func getSelectorForField(inputValue cue.Value, selectors []cue.Selector, name string) (selector cue.Selector) {
+	if !(strings.HasPrefix(name, "_") && !strings.Contains(name, "-")) {
+		return cue.Str(name)
+	}
+
+	selector = cue.Hid(name, "_")
+
+	findValue := inputValue.LookupPath(cue.MakePath(append(selectors, selector)...))
+	if findValue.Err() == nil {
+		return selector
+	}
+
+	return cue.Str(name)
+}
+
+func findValueAtPath(inputValue cue.Value, cuePath CuePath) (outputValue cue.Value, err error) {
+	// selectors := []cue.Selector{}
+	outputValue = inputValue
+
+	var thisValue cue.Value
+	for _, cp := range cuePath {
+		// selectors = append(selectors, getSelectorForField(inputValue, selectors, cp))
+
+		selector := getSelectorForField(outputValue, nil, cp)
+		thisValue = outputValue.LookupPath(cue.MakePath(selector))
+		if thisValue.Err() != nil {
+			thisValue = outputValue.LookupPath(cue.MakePath(cue.AnyIndex))
+			if err = thisValue.Err(); err != nil {
+				return cue.Value{}, err
+			}
 		}
-		return outputValue, fmt.Errorf("unknown field '%s'", name)
+		outputValue = thisValue
 	}
 
-	return
+	if outputValue.IncompleteKind() == cue.BottomKind {
+		// try getting value again
+		outputValue = outputValue.LookupPath(cue.MakePath(cue.AnyIndex))
+	}
+
+	// outputValue = inputValue.LookupPath(cue.MakePath(selectors...))
+	return outputValue, outputValue.Err()
 }
 
 func getUnderlyingKind(v cue.Value) (kind cue.Kind, err error) {
 	if v.IncompleteKind() == cue.ListKind {
-		it, err := v.List()
+		var it cue.Iterator
+		it, err = v.List()
 		if err != nil {
 			return kind, fmt.Errorf("couldn't get list iterator for list kind")
 		}
-		it.Next()
+
+		if !it.Next() {
+			// it isn't iterable, therefore it is of the form: `[...int]`
+			// therefore, we should recurse down selecting cue.AnyIndex.
+			// we may also have a list of the form:
+			// 	[...{
+			// 		a: string
+			// 		b: bool
+			// 		c: int
+			// 	}]
+			kind = v.LookupPath(cue.MakePath(cue.AnyIndex)).IncompleteKind()
+			return
+		}
+
 		v = it.Value()
 	}
 
-	return v.IncompleteKind(), nil
+	kind = v.IncompleteKind()
+	if kind == cue.BottomKind {
+		kind = v.LookupPath(cue.MakePath(cue.AnyIndex)).IncompleteKind()
+	}
+
+	return
 }
 
 func getUnderlyingValue(v cue.Value) (val cue.Value, err error) {
@@ -172,7 +224,19 @@ func getUnderlyingValue(v cue.Value) (val cue.Value, err error) {
 		if err != nil {
 			return val, fmt.Errorf("couldn't get list iterator for list kind")
 		}
-		it.Next()
+
+		if !it.Next() {
+			// it isn't iterable, therefore it is of the form: `[...int]`
+			// therefore, we should recurse down selecting cue.AnyIndex.
+			// we may also have a list of the form:
+			// 	[...{
+			// 		a: string
+			// 		b: bool
+			// 		c: int
+			// 	}]
+			return v.LookupPath(cue.MakePath(cue.AnyIndex)), nil
+		}
+
 		v = it.Value()
 	}
 
@@ -239,8 +303,8 @@ const (
 	BP_Variables               BP_BasePath = "variables"
 )
 
-func getConcreteValuesForListOfStringValueAtPath(inputValue cue.Value, path string) (output []string, err error) {
-	foundValue, err := findValuePath(inputValue, path)
+func getConcreteValuesForListOfStringValueAtPath(inputValue cue.Value, cuePath CuePath) (output []string, err error) {
+	foundValue, err := findValueAtPath(inputValue, cuePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to find output in cue value: %w", err)
 	}
@@ -290,23 +354,23 @@ func getExpr(inputValue cue.Value) *string {
 	return &outStr
 }
 
-func getBlockedRootFields(rootValue cue.Value, currentPath string) (blockedFields []string, err error) {
+func getBlockedRootFields(rootValue cue.Value, rootFieldName string) (blockedFields []string, err error) {
 	// Find the current path:
-	nextValue, err := findValuePath(rootValue, currentPath)
+	nextValue, err := findValueAtPath(rootValue, CuePath{rootFieldName})
 	if err != nil {
 		return nil, fmt.Errorf("failed to find currentPath in cue value: %w", err)
 	}
 
-	blockedFields = append(blockedFields, currentPath)
+	blockedFields = append(blockedFields, rootFieldName)
 
 	// We need to recursively get the dependencies of the currentPath
-	dependencies, err := getConcreteValuesForListOfStringValueAtPath(nextValue, string(BP_Dependencies))
+	dependencies, err := getConcreteValuesForListOfStringValueAtPath(nextValue, CuePath{string(BP_Dependencies)})
 	if err != nil {
 		return nil, fmt.Errorf("failed to find dependencies in cue value: %w", err)
 	}
 
 	validFields := map[string]struct{}{
-		currentPath:                        {},
+		rootFieldName:                      {},
 		string(BP_Input):                   {},
 		string(BP_InputWithUnderscore):     {},
 		string(BP_Variables):               {},
@@ -319,12 +383,12 @@ func getBlockedRootFields(rootValue cue.Value, currentPath string) (blockedField
 	var nextDependencies []string
 loop:
 	for _, d := range dependencies {
-		nextValue, err = findValuePath(rootValue, d)
+		nextValue, err = findValueAtPath(rootValue, CuePath{d})
 		if err != nil {
 			return nil, fmt.Errorf("failed to find dependency '%s' in cue value: %w", d, err)
 		}
 
-		nextDependencies, err = getConcreteValuesForListOfStringValueAtPath(nextValue, string(BP_Dependencies))
+		nextDependencies, err = getConcreteValuesForListOfStringValueAtPath(nextValue, CuePath{string(BP_Dependencies)})
 		if err != nil {
 			return nil, fmt.Errorf("failed to find nextDependencies in cue value: %w", err)
 		}

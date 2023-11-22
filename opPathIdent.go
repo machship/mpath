@@ -13,24 +13,39 @@ type opPathIdent struct {
 	opCommon
 }
 
-func (x *opPathIdent) Validate(inputValue cue.Value, blockedRootFields []string) (part *PathIdent, nextValue cue.Value, returnedType InputOrOutput, err error) {
+func (x *opPathIdent) Validate(rootValue cue.Value, cuePath CuePath, blockedRootFields []string) (part *PathIdent, returnedType InputOrOutput) {
+	errFunc := func(e error) (*PathIdent, InputOrOutput) {
+		return &PathIdent{
+			pathIdentFields: pathIdentFields{
+				String: x.UserString(),
+				HasError: HasError{
+					Error: strPtr(e.Error()),
+				},
+			},
+		}, returnedType
+	}
+
 	part = &PathIdent{
 		pathIdentFields: pathIdentFields{
 			Available: &Available{},
+			String:    x.UserString(),
 		},
 	}
 
-	// find the cue value for this ident
-	part.String = x.UserString()
-	nextValue, err = findValuePath(inputValue, x.IdentName)
+	cuePathValue, err := findValueAtPath(rootValue, cuePath)
 	if err != nil {
-		errMessage := err.Error()
-		part.Error = &errMessage
-		err = nil
+		errFunc(err)
 	}
 
-	k := nextValue.IncompleteKind()
+	k := cuePathValue.IncompleteKind()
+
+	if k == cue.BottomKind {
+		cuePathValue = cuePathValue.LookupPath(cue.MakePath(cue.AnyIndex))
+		k = cuePathValue.IncompleteKind()
+	}
+
 	wasList := false
+	seenBottomKind := false
 loop:
 	switch k {
 	// Primative Kinds:
@@ -60,9 +75,9 @@ loop:
 		}
 
 		// Get the fields for the next value:
-		availableFields, err := getAvailableFieldsForValue(nextValue, blockedRootFields)
+		availableFields, err := getAvailableFieldsForValue(cuePathValue, blockedRootFields)
 		if err != nil {
-			return nil, nextValue, returnedType, fmt.Errorf("couldn't get fields for struct type to build filters: %w", err)
+			return errFunc(fmt.Errorf("couldn't get fields for struct type to build filters: %w", err))
 		}
 
 		if !wasList {
@@ -78,33 +93,44 @@ loop:
 	case cue.ListKind:
 		if wasList {
 			returnedType = inputOrOutput(PT_Any, IOOT_Single)
-			returnedType.CueExpr = getExpr(nextValue)
+			returnedType.CueExpr = getExpr(cuePathValue)
 			return
 		}
 
 		wasList = true
 		// Check what kind of array
-		k, err = getUnderlyingKind(nextValue)
+		k, err = getUnderlyingKind(cuePathValue)
 		if err != nil {
-			return nil, nextValue, returnedType, fmt.Errorf("couldn't ascertain underlying kind of list for field '%s': %w", part.String, err)
+			return errFunc(fmt.Errorf("couldn't ascertain underlying kind of list for field '%s': %w", part.String, err))
 		}
 		goto loop
 
 	case cue.BottomKind:
+		if !seenBottomKind {
+			seenBottomKind = true
+			cuePathValue = cuePathValue.LookupPath(cue.MakePath(cue.AnyIndex))
+			k = cuePathValue.IncompleteKind()
+			goto loop
+		}
+
 		errMessage := "unable to find field"
+		thisValue := cuePathValue.LookupPath(cue.MakePath(cue.AnyIndex))
+		errMessage += fmt.Sprint(thisValue.Err())
+		errMessage += thisValue.IncompleteKind().String()
+
 		part.Error = &errMessage
 		return
 
 	default:
-		sels := nextValue.IncompleteKind()
+		sels := cuePathValue.IncompleteKind()
 		fmt.Println(sels)
 
-		return nil, nextValue, returnedType, fmt.Errorf("encountered unknown cue kind %v", k)
+		return errFunc(fmt.Errorf("encountered unknown cue kind %v", k))
 	}
 
 	part.Available.Functions = getAvailableFunctionsForKind(returnedType)
 	part.Type = returnedType
-	returnedType.CueExpr = getExpr(nextValue)
+	returnedType.CueExpr = getExpr(cuePathValue)
 
 	return
 }

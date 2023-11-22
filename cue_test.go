@@ -2,8 +2,12 @@ package mpath
 
 import (
 	"encoding/json"
+	"fmt"
+	"log"
 	"testing"
 
+	"cuelang.org/go/cue"
+	"cuelang.org/go/cue/cuecontext"
 	"github.com/atotto/clipboard"
 )
 
@@ -12,7 +16,7 @@ func Test_CueFromString(t *testing.T) {
 	
 	step1: {
 		num: int
-		_dependencies: []
+		_dependencies: [] 
 		result: [{
 			name: string
 			age: int
@@ -21,7 +25,7 @@ func Test_CueFromString(t *testing.T) {
 	
 	step2: {
 		_dependencies: ["step1"]
-		result: [{
+		result: [...{
 			name: string
 			age: int
 		}]
@@ -34,7 +38,9 @@ func Test_CueFromString(t *testing.T) {
 	// bigQuery := `$._b.arrayOfInts.Sum(1,$._a.result).Equal(4).NotEqual({OR,$._b.bool})`
 	// bigQuery := `$._b.bool.Equal($._b.bool)`
 	// bigQuery := `$._b.results[@.bool].First().example`
+
 	bigQuery := `$.step1.result[@.age.Equal($.step1.num)].First()`
+	// bigQuery := `$.step1.result.First()`
 
 	// bigQuery := `$._b.results[@.bool].Any()`
 	// bigQuery := `$._b.results[@.bool].First().Multiply(12).GreaterOrEqual($._input.num)`
@@ -60,4 +66,38 @@ func Test_CueFromString(t *testing.T) {
 	_ = tc
 	_ = rdm
 
+}
+
+func Test_CueHiddenParse(t *testing.T) {
+	cueFile := `
+	step1: {
+		num: int
+		_dependencies: [] 
+		result: [...{
+			name: string
+			age: int
+		}]
+	}  
+	
+	step2: {
+		_dependencies: ["step1"]
+		result: [...{
+			name: string
+			age: int
+		}]
+	}
+	`
+
+	var rootValue cue.Value
+	ctx := cuecontext.New()
+	rootValue = ctx.CompileString(cueFile)
+	if err := rootValue.Err(); err != nil {
+		log.Fatal(err)
+	}
+
+	v1, err := findValueAtPath(rootValue, CuePath{"step1", "result", "age"})
+	if err != nil {
+		t.Error(err)
+	}
+	fmt.Printf("%#v\n", v1)
 }

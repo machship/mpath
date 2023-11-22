@@ -19,7 +19,29 @@ type opPath struct {
 	opCommon
 }
 
-func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []string) (path *Path, returnedType InputOrOutput, requiredData []string, err error) {
+func (x *opPath) Validate(rootValue cue.Value, cuePath CuePath, blockedRootFields []string) (path *Path, returnedType InputOrOutput, requiredData []string) {
+	errFunc := func(e error) (*Path, InputOrOutput, []string) {
+		return &Path{
+			pathFields: pathFields{
+				String: x.UserString(),
+				HasError: HasError{
+					Error: strPtr(e.Error()),
+				},
+			},
+		}, returnedType, nil
+	}
+	var err error
+
+	var cuePathValue cue.Value
+	if len(cuePath) == 0 {
+		cuePathValue = rootValue
+	} else {
+		cuePathValue, err = findValueAtPath(rootValue, cuePath)
+		if err != nil {
+			return errFunc(err)
+		}
+	}
+
 	rootPart := &PathIdent{
 		pathIdentFields: pathIdentFields{
 			Type: InputOrOutput{
@@ -33,7 +55,7 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []st
 			Parts:    []CanBeAPart{rootPart},
 			IsFilter: x.IsFilter,
 			Type: InputOrOutput{
-				CueExpr: getExpr(nextValue),
+				CueExpr: getExpr(cuePathValue),
 			},
 		},
 	}
@@ -43,15 +65,16 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []st
 		rootPart.String = "$"
 		rootPart.Type.Type = PT_Root
 		rootPart.Type.IOType = IOOT_Single
+		cuePath = CuePath{}
 	case false:
 		rootPart.String = "@"
 		rootPart.Type.Type = PT_ElementRoot
 		rootPart.Type.IOType = IOOT_Single
 	}
 
-	availableFields, err := getAvailableFieldsForValue(nextValue, blockedRootFields)
+	availableFields, err := getAvailableFieldsForValue(cuePathValue, blockedRootFields)
 	if err != nil {
-		return nil, returnedType, nil, fmt.Errorf("failed to list available fields from cue: %w", err)
+		return errFunc(fmt.Errorf("failed to list available fields from cue: %w", err))
 	}
 
 	if len(availableFields) > 0 {
@@ -123,39 +146,24 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []st
 			if !foundFirstIdent {
 				rdm[t.IdentName] = struct{}{}
 				foundFirstIdent = true
-				for _, brf := range blockedRootFields {
-					if t.IdentName == brf {
-						errMessage := fmt.Sprintf("field %s is not available", t.IdentName)
-						path.Parts = append(path.Parts, &PathIdent{
-							pathIdentFields: pathIdentFields{
-								String: t.UserString(),
-								HasError: HasError{
-									Error: &errMessage,
-								},
+				if strInStrSlice(t.IdentName, blockedRootFields) {
+					errMessage := fmt.Sprintf("field %s is not available", t.IdentName)
+					path.Parts = append(path.Parts, &PathIdent{
+						pathIdentFields: pathIdentFields{
+							String: t.UserString(),
+							HasError: HasError{
+								Error: &errMessage,
 							},
-						})
-						continue
-					}
+						},
+					})
+					continue
 				}
 			}
 
-			thisKind := nextValue.IncompleteKind()
-			if thisKind == cue.ListKind {
-				var it cue.Iterator
-				it, err = nextValue.List()
-				if err != nil {
-					err = fmt.Errorf("couldn't get list iterator for list kind")
-					return
-				}
-				it.Next()
-				nextValue = it.Value()
-			}
+			cuePath = cuePath.Add(t.IdentName)
 
 			// opPathIdent Validate advances the next value
-			part, nextValue, returnedType, err = t.Validate(nextValue, blockedRootFields)
-			if err != nil {
-				return nil, returnedType, nil, err
-			}
+			part, returnedType = t.Validate(rootValue, cuePath, blockedRootFields)
 			path.Parts = append(path.Parts, part)
 			part.(*PathIdent).Type = returnedType
 
@@ -163,7 +171,7 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []st
 			pi, ok := part.(*PathIdent)
 			if !ok {
 				if part == nil {
-					return nil, returnedType, nil, fmt.Errorf("tried to apply filter against wrong type")
+					return errFunc(fmt.Errorf("tried to apply filter against wrong type"))
 				}
 
 				part.SetError(fmt.Sprintf("tried to apply filter against %T", part))
@@ -171,9 +179,9 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []st
 			}
 
 			// opFilter Validate does not advance the next value
-			pi.Filter, rd, err = t.Validate(rootValue, nextValue, blockedRootFields)
-			if err != nil {
-				return nil, returnedType, nil, err
+			pi.Filter, rd = t.Validate(rootValue, cuePath, blockedRootFields)
+			if pi.Filter.Error != nil {
+				return errFunc(fmt.Errorf(*pi.Filter.Error))
 			}
 
 		case *opFunction:
@@ -183,7 +191,7 @@ func (x *opPath) Validate(rootValue, nextValue cue.Value, blockedRootFields []st
 				continue
 			}
 
-			part, returnedType, rd, err = t.Validate(rootValue, nextValue, part.ReturnType(), blockedRootFields)
+			part, returnedType, rd, err = t.Validate(rootValue, cuePath, part.ReturnType(), blockedRootFields)
 			if err != nil {
 				shouldErrorRemaining = true
 			}

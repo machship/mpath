@@ -21,7 +21,19 @@ type opFunction struct {
 	opCommon
 }
 
-func (x *opFunction) Validate(rootValue, inputValue cue.Value, previousType InputOrOutput, blockedRootFields []string) (part *Function, returnedType InputOrOutput, requiredData []string, err error) {
+func (x *opFunction) Validate(rootValue cue.Value, cuePath CuePath, previousType InputOrOutput, blockedRootFields []string) (part *Function, returnedType InputOrOutput, requiredData []string, err error) {
+	cuePathValue, err := findValueAtPath(rootValue, cuePath)
+	if err != nil {
+		return &Function{
+			functionFields: functionFields{
+				String: x.UserString(),
+				HasError: HasError{
+					Error: strPtr(err.Error()),
+				},
+			},
+		}, returnedType, nil, nil
+	}
+
 	part = &Function{
 		functionFields: functionFields{
 			String:       x.UserString(),
@@ -78,11 +90,10 @@ func (x *opFunction) Validate(rootValue, inputValue cue.Value, previousType Inpu
 		case *FP_Path:
 			var rd []string
 			var pathOp *Path
-			pathOp, _, rd, err = t.Value.Validate(rootValue, rootValue, blockedRootFields)
+			pathOp, _, rd = t.Value.Validate(rootValue, cuePath, blockedRootFields)
 			param.Part = pathOp
-			if err != nil {
-				errMessage := err.Error()
-				param.Error = &errMessage
+			if pathOp.Error != nil {
+				param.Error = pathOp.Error
 				continue
 			}
 			pathOp.String = p.String()
@@ -102,11 +113,10 @@ func (x *opFunction) Validate(rootValue, inputValue cue.Value, previousType Inpu
 		case *FP_LogicalOperation:
 			var rd []string
 			var logOp *LogicalOperation
-			logOp, rd, err = t.Value.Validate(rootValue, rootValue, blockedRootFields)
+			logOp, rd = t.Value.Validate(rootValue, cuePath, blockedRootFields)
 			param.Part = logOp
-			if err != nil {
-				errMessage := err.Error()
-				param.Error = &errMessage
+			if logOp.Error != nil {
+				param.Error = logOp.Error
 				continue
 			}
 			logOp.String = p.String()
@@ -181,7 +191,7 @@ func (x *opFunction) Validate(rootValue, inputValue cue.Value, previousType Inpu
 	part.FunctionExplanation = &explanation
 
 	var k cue.Kind
-	k, _ = getUnderlyingKind(inputValue)
+	k, _ = getUnderlyingKind(cuePathValue)
 
 	if fd.Returns.Type == PT_Any {
 		switch k {
@@ -202,17 +212,14 @@ func (x *opFunction) Validate(rootValue, inputValue cue.Value, previousType Inpu
 	part.Type.CueExpr = fd.Returns.Type.CueExpr()
 
 	if fd.ReturnsKnownValues && previousType.IOType == IOOT_Array && k == cue.StructKind {
+		cuePathValue = cuePathValue.LookupPath(cue.MakePath(cue.AnyIndex))
+
 		// We can find available fields
 		returnedType.Type = PT_Object
-		uv, err := getUnderlyingValue(inputValue)
-		if err != nil {
-			// todo... how to handle?
-			uv = inputValue
-		}
-		returnedType.CueExpr = getExpr(uv)
+		returnedType.CueExpr = getExpr(cuePathValue)
 		part.Type = returnedType
 
-		part.Available.Fields, err = getAvailableFieldsForValue(inputValue, blockedRootFields)
+		part.Available.Fields, err = getAvailableFieldsForValue(cuePathValue, blockedRootFields)
 		if err != nil {
 			errMessage := fmt.Sprintf("failed to get available fields: %v", err)
 			if part.Error != nil {
