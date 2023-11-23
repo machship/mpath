@@ -21,6 +21,7 @@ type CanBeAPart interface {
 	ReturnType() InputOrOutput
 	HasErrors() bool
 	SetError(errMessage string)
+	GetErrors() (errMessage string)
 }
 
 type HasError struct {
@@ -93,6 +94,7 @@ func CueValidate(query, cueFile, currentPath string) (tc CanBeAPart, rdm *Runtim
 	switch t := op.(type) {
 	case *opPath:
 		ptc, _, rd := t.Validate(rootValue, CuePath{}, blockedRootFields)
+		tc = ptc
 		if ptc.Error != nil {
 			err = fmt.Errorf(*ptc.Error)
 			return
@@ -108,6 +110,7 @@ func CueValidate(query, cueFile, currentPath string) (tc CanBeAPart, rdm *Runtim
 
 	case *opLogicalOperation:
 		logicalOperation, subRequiredData := t.Validate(rootValue, CuePath{}, blockedRootFields)
+		tc = logicalOperation
 		if logicalOperation.Error != nil {
 			err = fmt.Errorf(*logicalOperation.Error)
 			return
@@ -117,7 +120,6 @@ func CueValidate(query, cueFile, currentPath string) (tc CanBeAPart, rdm *Runtim
 		pps := t.Sprint(0)
 		logicalOperation.PrettyPrintedString = &pps
 
-		tc = logicalOperation
 	}
 
 	rdm = &RuntimeDataMap{
@@ -143,14 +145,14 @@ func strInStrSlice(s string, ss []string) (isInSlice bool) {
 	return false
 }
 
-func getSelectorForField(inputValue cue.Value, selectors []cue.Selector, name string) (selector cue.Selector) {
+func getSelectorForField(inputValue cue.Value, name string) (selector cue.Selector) {
 	if !(strings.HasPrefix(name, "_") && !strings.Contains(name, "-")) {
 		return cue.Str(name)
 	}
 
 	selector = cue.Hid(name, "_")
 
-	findValue := inputValue.LookupPath(cue.MakePath(append(selectors, selector)...))
+	findValue := inputValue.LookupPath(cue.MakePath(selector))
 	if findValue.Err() == nil {
 		return selector
 	}
@@ -159,14 +161,11 @@ func getSelectorForField(inputValue cue.Value, selectors []cue.Selector, name st
 }
 
 func findValueAtPath(inputValue cue.Value, cuePath CuePath) (outputValue cue.Value, err error) {
-	// selectors := []cue.Selector{}
 	outputValue = inputValue
 
 	var thisValue cue.Value
 	for _, cp := range cuePath {
-		// selectors = append(selectors, getSelectorForField(inputValue, selectors, cp))
-
-		selector := getSelectorForField(outputValue, nil, cp)
+		selector := getSelectorForField(outputValue, cp)
 		thisValue = outputValue.LookupPath(cue.MakePath(selector))
 		if thisValue.Err() != nil {
 			thisValue = outputValue.LookupPath(cue.MakePath(cue.AnyIndex))
@@ -177,12 +176,11 @@ func findValueAtPath(inputValue cue.Value, cuePath CuePath) (outputValue cue.Val
 		outputValue = thisValue
 	}
 
-	if outputValue.IncompleteKind() == cue.BottomKind {
-		// try getting value again
+	switch outputValue.IncompleteKind() {
+	case cue.BottomKind:
 		outputValue = outputValue.LookupPath(cue.MakePath(cue.AnyIndex))
 	}
 
-	// outputValue = inputValue.LookupPath(cue.MakePath(selectors...))
 	return outputValue, outputValue.Err()
 }
 
@@ -196,13 +194,6 @@ func getUnderlyingKind(v cue.Value) (kind cue.Kind, err error) {
 
 		if !it.Next() {
 			// it isn't iterable, therefore it is of the form: `[...int]`
-			// therefore, we should recurse down selecting cue.AnyIndex.
-			// we may also have a list of the form:
-			// 	[...{
-			// 		a: string
-			// 		b: bool
-			// 		c: int
-			// 	}]
 			kind = v.LookupPath(cue.MakePath(cue.AnyIndex)).IncompleteKind()
 			return
 		}
@@ -227,13 +218,6 @@ func getUnderlyingValue(v cue.Value) (val cue.Value, err error) {
 
 		if !it.Next() {
 			// it isn't iterable, therefore it is of the form: `[...int]`
-			// therefore, we should recurse down selecting cue.AnyIndex.
-			// we may also have a list of the form:
-			// 	[...{
-			// 		a: string
-			// 		b: bool
-			// 		c: int
-			// 	}]
 			return v.LookupPath(cue.MakePath(cue.AnyIndex)), nil
 		}
 
@@ -244,14 +228,18 @@ func getUnderlyingValue(v cue.Value) (val cue.Value, err error) {
 }
 
 func getAvailableFieldsForValue(v cue.Value, blockedRootFields []string) (fields []string, err error) {
-	v, err = getUnderlyingValue(v)
-	if err != nil {
-		return nil, err
+	if v.IncompleteKind() != cue.StructKind {
+		v, err = getUnderlyingValue(v)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	it, err := v.Fields(cue.All())
 	if err != nil {
-		return nil, fmt.Errorf("failed to list fields: %w", err)
+		k := v.IncompleteKind()
+		fmt.Println(k == cue.BottomKind)
+		return nil, fmt.Errorf("failed to list fields: %w\n%#v", err, v)
 	}
 
 	for it.Next() {
@@ -449,6 +437,22 @@ func (x *Path) HasErrors() (out bool) {
 	return
 }
 
+func (x *Path) GetErrors() (errMessage string) {
+	errMessages := []string{}
+	if x.Error != nil && *x.Error != "" {
+		errMessages = append(errMessages, *x.Error)
+	}
+
+	for _, p := range x.Parts {
+		if errs := p.GetErrors(); errs != "" {
+			errMessages = append(errMessages, errs)
+		}
+	}
+
+	errMessage = strings.Join(errMessages, "; ")
+	return
+}
+
 func (x *Path) ReturnType() InputOrOutput {
 	return x.Type
 }
@@ -487,6 +491,14 @@ func (x *PathIdent) PathString() string {
 func (x *PathIdent) HasErrors() (out bool) {
 	if x.Error != nil {
 		return true
+	}
+
+	return
+}
+
+func (x *PathIdent) GetErrors() (errMessage string) {
+	if x.Error != nil && *x.Error != "" {
+		return *x.Error
 	}
 
 	return
@@ -556,6 +568,27 @@ func (x *Function) HasErrors() (out bool) {
 	return
 }
 
+func (x *Function) GetErrors() (errMessage string) {
+	errMessages := []string{}
+	if x.Error != nil && *x.Error != "" {
+		errMessages = append(errMessages, *x.Error)
+	}
+
+	for _, fp := range x.FunctionParameters {
+		if fp.Error != nil && *fp.Error != "" {
+			errMessages = append(errMessages, *fp.Error)
+		}
+
+		if fp.Part != nil && fp.Part.HasErrors() {
+			if errs := fp.Part.GetErrors(); errs != "" {
+				errMessages = append(errMessages, errs)
+			}
+		}
+	}
+
+	return strings.Join(errMessages, "; ")
+}
+
 func (x *Function) ReturnType() InputOrOutput {
 	return x.Type
 }
@@ -617,6 +650,21 @@ func (x *LogicalOperation) HasErrors() (out bool) {
 	}
 
 	return
+}
+
+func (x *LogicalOperation) GetErrors() (errMessage string) {
+	errMessages := []string{}
+	if x.Error != nil && *x.Error != "" {
+		errMessages = append(errMessages, *x.Error)
+	}
+
+	for _, p := range x.Parts {
+		if errs := p.GetErrors(); p.HasErrors() && errs != "" {
+			errMessages = append(errMessages, errs)
+		}
+	}
+
+	return strings.Join(errMessages, "; ")
 }
 
 func (x *LogicalOperation) ReturnType() InputOrOutput {

@@ -21,14 +21,13 @@ type opPath struct {
 
 func (x *opPath) Validate(rootValue cue.Value, cuePath CuePath, blockedRootFields []string) (path *Path, returnedType InputOrOutput, requiredData []string) {
 	errFunc := func(e error) (*Path, InputOrOutput, []string) {
-		return &Path{
-			pathFields: pathFields{
-				String: x.UserString(),
-				HasError: HasError{
-					Error: strPtr(e.Error()),
-				},
-			},
-		}, returnedType, nil
+		if path == nil {
+			path = &Path{}
+		}
+
+		path.String = x.UserString()
+		path.Error = strPtr(e.Error())
+		return path, returnedType, requiredData
 	}
 	var err error
 
@@ -156,7 +155,7 @@ func (x *opPath) Validate(rootValue cue.Value, cuePath CuePath, blockedRootField
 							},
 						},
 					})
-					continue
+					return
 				}
 			}
 
@@ -166,6 +165,9 @@ func (x *opPath) Validate(rootValue cue.Value, cuePath CuePath, blockedRootField
 			part, returnedType = t.Validate(rootValue, cuePath, blockedRootFields)
 			path.Parts = append(path.Parts, part)
 			part.(*PathIdent).Type = returnedType
+			if part.HasErrors() {
+				return
+			}
 
 		case *opFilter:
 			pi, ok := part.(*PathIdent)

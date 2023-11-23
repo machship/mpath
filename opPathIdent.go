@@ -15,14 +15,14 @@ type opPathIdent struct {
 
 func (x *opPathIdent) Validate(rootValue cue.Value, cuePath CuePath, blockedRootFields []string) (part *PathIdent, returnedType InputOrOutput) {
 	errFunc := func(e error) (*PathIdent, InputOrOutput) {
-		return &PathIdent{
-			pathIdentFields: pathIdentFields{
-				String: x.UserString(),
-				HasError: HasError{
-					Error: strPtr(e.Error()),
-				},
-			},
-		}, returnedType
+		if part == nil {
+			part = &PathIdent{}
+		}
+
+		part.String = x.UserString()
+		part.Error = strPtr(e.Error())
+
+		return part, returnedType
 	}
 
 	part = &PathIdent{
@@ -34,7 +34,7 @@ func (x *opPathIdent) Validate(rootValue cue.Value, cuePath CuePath, blockedRoot
 
 	cuePathValue, err := findValueAtPath(rootValue, cuePath)
 	if err != nil {
-		errFunc(err)
+		return errFunc(err)
 	}
 
 	k := cuePathValue.IncompleteKind()

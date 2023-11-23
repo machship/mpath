@@ -2,18 +2,13 @@ package mpath
 
 import (
 	"encoding/json"
-	"fmt"
-	"log"
 	"testing"
 
-	"cuelang.org/go/cue"
-	"cuelang.org/go/cue/cuecontext"
 	"github.com/atotto/clipboard"
 )
 
 func Test_CueFromString(t *testing.T) {
-	cueString1 := `
-	
+	cueString := `
 	step1: {
 		num: int
 		_dependencies: [] 
@@ -32,24 +27,8 @@ func Test_CueFromString(t *testing.T) {
 	}
 	`
 
-	var err error
-
-	// bigQuery := `{OR, $.a.Equal(12), $.a.Equal(16),{OR, $.a.Equal(12), $.a.Equal(16)}}`
-	// bigQuery := `$._b.arrayOfInts.Sum(1,$._a.result).Equal(4).NotEqual({OR,$._b.bool})`
-	// bigQuery := `$._b.bool.Equal($._b.bool)`
-	// bigQuery := `$._b.results[@.bool].First().example`
-
-	bigQuery := `$.step1.result[@.age.Equal($.step1.num)].First()`
-	// bigQuery := `$.step1.result.First()`
-
-	// bigQuery := `$._b.results[@.bool].Any()`
-	// bigQuery := `$._b.results[@.bool].First().Multiply(12).GreaterOrEqual($._input.num)`
-	tc, rdm, err := CueValidate(bigQuery, cueString1, "step2")
-
-	// tc, rdm, err := CueValidate(`{OR,$._b.results.First().bool}`, cueString1, "_c")
-	// tc, rdm, err := CueValidate(`$._b.results[{AND,{OR,@.example.Equal("or op")},@.example.Equal("something")}].First().example.AnyOf("bob","jones")`, cueString1, "_c")
-	// tc, rdm, err := CueValidate(`$._b.results[@.example.Equal("something")].example`, cueString1, "_c")
-	// tc, rdm, err := CueValidate(`$._b.results.First().example.AnyOf("bob","jones")`, cueString1, "_c")
+	mpathQuery := `$.step1.result[@.age.Equal($.step1.num)].First()`
+	tc, _, err := CueValidate(mpathQuery, cueString, "step2")
 	if err != nil {
 		t.Error(err)
 	}
@@ -59,45 +38,64 @@ func Test_CueFromString(t *testing.T) {
 		t.Error(err)
 	}
 	clipboard.WriteAll(string(jstr))
-
-	// jstr, _ = json.MarshalIndent(rdm, "", "\t")
-	// clipboard.WriteAll(string(jstr))
-
-	_ = tc
-	_ = rdm
-
 }
 
-func Test_CueHiddenParse(t *testing.T) {
-	cueFile := `
-	step1: {
-		num: int
-		_dependencies: [] 
-		result: [...{
-			name: string
-			age: int
-		}]
-	}  
-	
-	step2: {
-		_dependencies: ["step1"]
-		result: [...{
-			name: string
-			age: int
-		}]
+func Test_CueStringTableTests(t *testing.T) {
+	type tableTest struct {
+		name         string
+		mq           string
+		expectErrors bool
+		cp           string
 	}
+
+	tests := []tableTest{
+		{
+			name: "check that array without ... can be assessed",
+			mq:   `$.step1.result[@.age.Equal($.step1.num)].First()`,
+			cp:   "step2",
+		},
+		{
+			name: "check that array with ... can be assessed",
+			mq:   `$.step2.result[@.age.Equal($.step2.num)].First()`,
+			cp:   "step3",
+		},
+	}
+
+	for _, test := range tests {
+		tc, _, err := CueValidate(test.mq, cueStringForTests, test.cp)
+		if err != nil {
+			t.Errorf("test '%s'; got unexpected returned error: %v", test.name, err)
+		}
+		if tc != nil && tc.HasErrors() != test.expectErrors {
+			t.Errorf("test '%s'; expected %t got %t for HasErrors(); err was '%v'", test.name, test.expectErrors, tc.HasErrors(), tc.GetErrors())
+		}
+		tcb, _ := json.MarshalIndent(tc, "", "  ")
+		t.Log(string(tcb))
+	}
+}
+
+const (
+	cueStringForTests = `
+		step1: {
+			num: int
+			_dependencies: [] 
+			result: [{
+				name: string
+				age: int
+			}]
+		}  
+
+		step2: {
+			num: int
+			_dependencies: ["step1"] 
+			result: [...{
+				name: string
+				age: int
+			}]
+		}  
+		
+		step3: {
+			_dependencies: ["step2"]
+		}
 	`
-
-	var rootValue cue.Value
-	ctx := cuecontext.New()
-	rootValue = ctx.CompileString(cueFile)
-	if err := rootValue.Err(); err != nil {
-		log.Fatal(err)
-	}
-
-	v1, err := findValueAtPath(rootValue, CuePath{"step1", "result", "age"})
-	if err != nil {
-		t.Error(err)
-	}
-	fmt.Printf("%#v\n", v1)
-}
+)

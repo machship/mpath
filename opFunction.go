@@ -212,7 +212,7 @@ func (x *opFunction) Validate(rootValue cue.Value, cuePath CuePath, previousType
 	part.Type.CueExpr = fd.Returns.Type.CueExpr()
 
 	if fd.ReturnsKnownValues && previousType.IOType == IOOT_Array && k == cue.StructKind {
-		cuePathValue = cuePathValue.LookupPath(cue.MakePath(cue.AnyIndex))
+		cuePathValue, _ = getUnderlyingValue(cuePathValue)
 
 		// We can find available fields
 		returnedType.Type = PT_Object
