@@ -168,9 +168,12 @@ func findValueAtPath(inputValue cue.Value, cuePath CuePath) (outputValue cue.Val
 		selector := getSelectorForField(outputValue, cp)
 		thisValue = outputValue.LookupPath(cue.MakePath(selector))
 		if thisValue.Err() != nil {
-			thisValue = outputValue.LookupPath(cue.MakePath(cue.AnyIndex))
+			thisValue = outputValue.LookupPath(cue.MakePath(selector.Optional()))
 			if err = thisValue.Err(); err != nil {
-				return cue.Value{}, err
+				thisValue = outputValue.LookupPath(cue.MakePath(cue.AnyIndex))
+				if err = thisValue.Err(); err != nil {
+					return cue.Value{}, fmt.Errorf("couldn't access field '%s': %w", cp, err)
+				}
 			}
 		}
 		outputValue = thisValue

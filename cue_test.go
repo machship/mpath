@@ -30,6 +30,11 @@ func Test_CueStringTableTests(t *testing.T) {
 			cp:           "step2",
 			expectErrors: true,
 		},
+		{
+			name: "test that optional value in optional step can be referenced",
+			mq:   `$.stepOptional.result.name`,
+			cp:   "step3",
+		},
 	}
 
 	for _, test := range tests {
@@ -64,9 +69,26 @@ const (
 				age: int
 			}]
 		}  
-		
-		step3: {
+
+		stepOptional?: {
+			result?: {
+				name: int
+			}
 			_dependencies: ["step2"]
+		}
+		
+		step3 : {
+			_dependencies: ["stepOptional","step2"]
+		}
+
+		def: {
+			result: float
+			_dependencies: ["abc"]
+		}
+
+		input: {
+			_dependencies: []
+			...
 		}
 	`
 )
