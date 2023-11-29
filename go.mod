@@ -4,6 +4,7 @@ go 1.18
 
 require (
 	cuelang.org/go v0.5.0
+	github.com/atotto/clipboard v0.1.4
 	github.com/basgys/goxml2json v1.1.0
 	github.com/google/uuid v1.2.0
 	github.com/pelletier/go-toml/v2 v2.0.5

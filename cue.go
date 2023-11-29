@@ -353,7 +353,9 @@ func getBlockedRootFields(rootValue cue.Value, rootFieldName string) (blockedFie
 		return nil, fmt.Errorf("failed to find currentPath in cue value: %w", err)
 	}
 
-	blockedFields = append(blockedFields, rootFieldName)
+	if rootFieldName != string(BP_Input) {
+		blockedFields = append(blockedFields, rootFieldName)
+	}
 
 	// We need to recursively get the dependencies of the currentPath
 	dependencies, err := getConcreteValuesForListOfStringValueAtPath(nextValue, CuePath{string(BP_Dependencies)})
