@@ -38,7 +38,7 @@ func Test_CueStringTableTests(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		tc, _, err := CueValidate(test.mq, cueStringForTests, test.cp)
+		tc, err := CueValidate(test.mq, cueStringForTests, test.cp)
 		if err != nil {
 			t.Errorf("test '%s'; got unexpected returned error: %v", test.name, err)
 		}

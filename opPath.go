@@ -2,7 +2,6 @@ package mpath
 
 import (
 	"fmt"
-	"sort"
 	"strings"
 	sc "text/scanner"
 
@@ -19,15 +18,15 @@ type opPath struct {
 	opCommon
 }
 
-func (x *opPath) Validate(rootValue cue.Value, cuePath CuePath, blockedRootFields []string) (path *Path, returnedType InputOrOutput, requiredData []string) {
-	errFunc := func(e error) (*Path, InputOrOutput, []string) {
+func (x *opPath) Validate(rootValue cue.Value, cuePath CuePath, blockedRootFields []string) (path *Path, returnedType InputOrOutput) {
+	errFunc := func(e error) (*Path, InputOrOutput) {
 		if path == nil {
 			path = &Path{}
 		}
 
 		path.String = x.UserString()
 		path.Error = strPtr(e.Error())
-		return path, returnedType, requiredData
+		return path, returnedType
 	}
 	var err error
 
@@ -111,7 +110,6 @@ func (x *opPath) Validate(rootValue cue.Value, cuePath CuePath, blockedRootField
 			continue
 		}
 
-		var rd []string
 		switch t := op.(type) {
 		case *opPathIdent:
 			if returnedType.IOType == IOOT_Single && returnedType.Type.IsPrimitive() {
@@ -181,7 +179,7 @@ func (x *opPath) Validate(rootValue cue.Value, cuePath CuePath, blockedRootField
 			}
 
 			// opFilter Validate does not advance the next value
-			pi.Filter, rd = t.Validate(rootValue, cuePath, blockedRootFields)
+			pi.Filter = t.Validate(rootValue, cuePath, blockedRootFields)
 			if pi.Filter.Error != nil {
 				return errFunc(fmt.Errorf(*pi.Filter.Error))
 			}
@@ -193,21 +191,13 @@ func (x *opPath) Validate(rootValue cue.Value, cuePath CuePath, blockedRootField
 				continue
 			}
 
-			part, returnedType, rd, err = t.Validate(rootValue, cuePath, part.ReturnType(), blockedRootFields)
+			part, returnedType, err = t.Validate(rootValue, cuePath, part.ReturnType(), blockedRootFields)
 			if err != nil {
 				shouldErrorRemaining = true
 			}
 			path.Parts = append(path.Parts, part)
 		}
-		for _, rdv := range rd {
-			rdm[rdv] = struct{}{}
-		}
 	}
-
-	for rdv := range rdm {
-		requiredData = append(requiredData, rdv)
-	}
-	sort.Strings(requiredData)
 
 	if pl := len(path.Parts); pl > 0 {
 		path.Type = path.Parts[pl-1].ReturnType()

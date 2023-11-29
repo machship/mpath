@@ -63,7 +63,7 @@ var (
 	}
 )
 
-func ParseString(ss string) (topOp Operation, forPath [][]string, err error) {
+func ParseString(ss string) (topOp Operation, err error) {
 	s := scannerPool.Get().(*scanner)
 	defer scannerPool.Put(s)
 	sr := stringsReaderPool.Get().(*strings.Reader)
@@ -80,29 +80,29 @@ func ParseString(ss string) (topOp Operation, forPath [][]string, err error) {
 		switch r {
 		case '{':
 			if topOp != nil {
-				return nil, nil, erAt(s, "operation not terminated properly: found Logical Operation after top operation already defined")
+				return nil, erAt(s, "operation not terminated properly: found Logical Operation after top operation already defined")
 			}
 			// Curly braces are for logical operation groups (&& and ||)
 			topOp = &opLogicalOperation{}
 			r, err = topOp.Parse(s, r)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 		case '@', '$':
 			if topOp != nil {
-				return nil, nil, erAt(s, "operation not terminated properly: found Path after top operation already defined")
+				return nil, erAt(s, "operation not terminated properly: found Path after top operation already defined")
 			}
 			// @ and $ are Path starters and specify whether to use the original data, or the data at this point of the path
 			topOp = &opPath{}
 			r, err = topOp.Parse(s, r)
 			if err != nil {
-				return nil, nil, err
+				return nil, err
 			}
 		default:
 			if topOp == nil {
-				return nil, nil, errors.Wrap(erInvalid(s, '{', '@', '$'), "invalid query")
+				return nil, errors.Wrap(erInvalid(s, '{', '@', '$'), "invalid query")
 			}
-			return nil, nil, erAt(s, "operation not terminated properly: found '%s' (%d) after top operation already defined", s.TokenText(), r)
+			return nil, erAt(s, "operation not terminated properly: found '%s' (%d) after top operation already defined", s.TokenText(), r)
 		}
 	}
 

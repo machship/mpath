@@ -11,13 +11,13 @@ type opFilter struct {
 	opCommon
 }
 
-func (x *opFilter) Validate(rootValue cue.Value, cuePath CuePath, blockedRootFields []string) (filter *Filter, requiredData []string) {
+func (x *opFilter) Validate(rootValue cue.Value, cuePath CuePath, blockedRootFields []string) (filter *Filter) {
 	cuePathValue, err := findValueAtPath(rootValue, cuePath)
 	if err != nil {
 		return &Filter{
 			String: x.UserString(),
 			Error:  strPtr(err.Error()),
-		}, nil
+		}
 	}
 
 	filter = &Filter{}
@@ -27,7 +27,7 @@ func (x *opFilter) Validate(rootValue cue.Value, cuePath CuePath, blockedRootFie
 		return
 	}
 
-	filter.LogicalOperation, requiredData = x.LogicalOperation.Validate(rootValue, cuePath, blockedRootFields)
+	filter.LogicalOperation = x.LogicalOperation.Validate(rootValue, cuePath, blockedRootFields)
 	if filter.LogicalOperation.Error != nil {
 		filter.Error = filter.LogicalOperation.Error
 	}

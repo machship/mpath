@@ -1191,7 +1191,7 @@ var (
 			ValidOn:     inputOrOutput(PT_Boolean, IOOT_Single),
 			fn:          func_Invert,
 			explanationFunc: func(tf Function) string {
-				return fmt.Sprintf("inverts the input")
+				return "inverts the input"
 			},
 		},
 		FT_Contains: {
@@ -1292,7 +1292,7 @@ var (
 			ValidOn:     inputOrOutput(PT_String, IOOT_Single),
 			fn:          func_Sprintf,
 			explanationFunc: func(tf Function) string {
-				return fmt.Sprintf("builds a string from the input as a template") //todo: do better
+				return "builds a string from the input as a template" //todo: do better
 			},
 		},
 		FT_Count: {
@@ -1744,15 +1744,6 @@ var (
 		*/
 	}
 )
-
-func ft_ShouldContinueForPath(ft FT_FunctionType) bool {
-	switch ft {
-	case FT_First, FT_Last, FT_Index:
-		return true
-	}
-
-	return false
-}
 
 func ft_IsBoolFunc(ft FT_FunctionType) bool {
 	fn, ok := funcMap[ft]

@@ -36,12 +36,6 @@ func (x *HasError) SetError(errMessage string) {
 	x.Error = &errMessage
 }
 
-type RuntimeDataMap struct {
-	String       string   `json:"string"`
-	HasErrors    bool     `json:"hasErrors"`
-	RequiredData []string `json:"requiredData"`
-}
-
 type CuePath []string
 
 func (c CuePath) Add(s string) CuePath {
@@ -55,9 +49,9 @@ func (c CuePath) Add(s string) CuePath {
 // query: the mpath query string
 // cueFile: the cue file
 // currentPath: the id of the step for which this query is an input value, or if for the output, leave blank
-func CueValidate(query, cueFile, currentPath string) (tc CanBeAPart, rdm *RuntimeDataMap, err error) {
+func CueValidate(query, cueFile, currentPath string) (tc CanBeAPart, err error) {
 	if query == "" || cueFile == "" {
-		return nil, nil, fmt.Errorf("missing parameter value")
+		return nil, fmt.Errorf("missing parameter value")
 	}
 
 	var ok bool
@@ -65,9 +59,9 @@ func CueValidate(query, cueFile, currentPath string) (tc CanBeAPart, rdm *Runtim
 	// mpath operations are cached to ensure speed of execution as this method is expected to be hit many times
 	var op Operation
 	if op, ok = mpathOpCache[query]; !ok {
-		op, _, err = ParseString(query)
+		op, err = ParseString(query)
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to parse mpath query: %w", err)
+			return nil, fmt.Errorf("failed to parse mpath query: %w", err)
 		}
 	}
 
@@ -77,23 +71,22 @@ func CueValidate(query, cueFile, currentPath string) (tc CanBeAPart, rdm *Runtim
 		ctx := cuecontext.New()
 		rootValue = ctx.CompileString(cueFile)
 		if rootValue.Err() != nil {
-			return nil, nil, fmt.Errorf("failed to parse cue file: %w", rootValue.Err())
+			return nil, fmt.Errorf("failed to parse cue file: %w", rootValue.Err())
 		}
 	}
 
 	blockedRootFields, err := getBlockedRootFields(rootValue, currentPath)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to get blocked fields for rootValue: %w", err)
+		return nil, fmt.Errorf("failed to get blocked fields for rootValue: %w", err)
 	}
 
 	// If we get to this point, the mpath query and cueFile are both valid,
 	// thus the next steps are to walk through the "paths" in the returned AST
 	// and doubt check that they are valid given the cueFile.
 
-	var requiredData []string
 	switch t := op.(type) {
 	case *opPath:
-		ptc, _, rd := t.Validate(rootValue, CuePath{}, blockedRootFields)
+		ptc, _ := t.Validate(rootValue, CuePath{}, blockedRootFields)
 		tc = ptc
 		if ptc.Error != nil {
 			err = fmt.Errorf(*ptc.Error)
@@ -101,31 +94,21 @@ func CueValidate(query, cueFile, currentPath string) (tc CanBeAPart, rdm *Runtim
 		}
 		ptc.String = query
 
-		requiredData = rd
-
 		pps := t.Sprint(0)
 		ptc.PrettyPrintedString = &pps
 
 		tc = ptc
 
 	case *opLogicalOperation:
-		logicalOperation, subRequiredData := t.Validate(rootValue, CuePath{}, blockedRootFields)
+		logicalOperation := t.Validate(rootValue, CuePath{}, blockedRootFields)
 		tc = logicalOperation
 		if logicalOperation.Error != nil {
 			err = fmt.Errorf(*logicalOperation.Error)
 			return
 		}
-		requiredData = subRequiredData
 
 		pps := t.Sprint(0)
 		logicalOperation.PrettyPrintedString = &pps
-
-	}
-
-	rdm = &RuntimeDataMap{
-		String:       query,
-		RequiredData: requiredData,
-		HasErrors:    tc.HasErrors(),
 	}
 
 	return
@@ -163,6 +146,11 @@ func getSelectorForField(inputValue cue.Value, name string) (selector cue.Select
 func findValueAtPath(inputValue cue.Value, cuePath CuePath) (outputValue cue.Value, err error) {
 	outputValue = inputValue
 
+	/*
+		todo: this function is ugly as hell.
+		Need to see if there is a better way to achieve all of this
+	*/
+
 	var thisValue cue.Value
 	for _, cp := range cuePath {
 		selector := getSelectorForField(outputValue, cp)
@@ -172,7 +160,20 @@ func findValueAtPath(inputValue cue.Value, cuePath CuePath) (outputValue cue.Val
 			if err = thisValue.Err(); err != nil {
 				thisValue = outputValue.LookupPath(cue.MakePath(cue.AnyIndex))
 				if err = thisValue.Err(); err != nil {
-					return cue.Value{}, fmt.Errorf("couldn't access field '%s': %w", cp, err)
+					if outputValue.IncompleteKind() == cue.ListKind {
+						// Get an iterator
+						it, err := outputValue.List()
+						if err != nil {
+							return cue.Value{}, fmt.Errorf("couldn't access field '%s': %w; value is %#v", cp, err, thisValue)
+						}
+
+						it.Next()
+						thisValue = it.Value()
+					}
+
+					if err = thisValue.Err(); err != nil {
+						return cue.Value{}, fmt.Errorf("couldn't access field '%s': %w; value is %#v", cp, err, thisValue)
+					}
 				}
 			}
 		}

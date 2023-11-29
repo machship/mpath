@@ -2,7 +2,6 @@ package mpath
 
 import (
 	"fmt"
-	"sort"
 	sc "text/scanner"
 
 	"cuelang.org/go/cue"
@@ -16,9 +15,7 @@ type opLogicalOperation struct {
 	opCommon
 }
 
-func (x *opLogicalOperation) Validate(rootValue cue.Value, cuePath CuePath, blockedRootFields []string) (logicalOperation *LogicalOperation, requiredData []string) {
-	var err error
-
+func (x *opLogicalOperation) Validate(rootValue cue.Value, cuePath CuePath, blockedRootFields []string) (logicalOperation *LogicalOperation) {
 	logicalOperation = &LogicalOperation{
 		logicalOperationFields: logicalOperationFields{
 			String:          x.UserString(),
@@ -32,23 +29,15 @@ func (x *opLogicalOperation) Validate(rootValue cue.Value, cuePath CuePath, bloc
 		logicalOperation.Error = &errMessage
 	}
 
-	rdMap := map[string]struct{}{}
-
 	for _, op := range x.Operations {
 		switch t := op.(type) {
 		case *opPath:
 			var pathOp *Path
-			var rd []string
-			pathOp, _, rd = t.Validate(rootValue, cuePath, blockedRootFields)
+			pathOp, _ = t.Validate(rootValue, cuePath, blockedRootFields)
 
 			pathOp.String = t.UserString()
-			if err != nil {
-				errMessage := err.Error()
-				pathOp.Error = &errMessage
-			}
-
-			for _, rdv := range rd {
-				rdMap[rdv] = struct{}{}
+			if pathOp.HasErrors() {
+				logicalOperation.SetError(pathOp.GetErrors())
 			}
 
 			// We need to check that the return type is boolean
@@ -61,24 +50,14 @@ func (x *opLogicalOperation) Validate(rootValue cue.Value, cuePath CuePath, bloc
 			logicalOperation.Parts = append(logicalOperation.Parts, pathOp)
 
 		case *opLogicalOperation:
-			subLogicalOperation, rd := t.Validate(rootValue, cuePath, blockedRootFields)
-			if err != nil {
-				errMessage := err.Error()
-				subLogicalOperation.Error = &errMessage
-				continue
-			}
-			for _, rdv := range rd {
-				rdMap[rdv] = struct{}{}
+			subLogicalOperation := t.Validate(rootValue, cuePath, blockedRootFields)
+			if subLogicalOperation.HasErrors() {
+				logicalOperation.SetError(subLogicalOperation.GetErrors())
 			}
 
 			logicalOperation.Parts = append(logicalOperation.Parts, subLogicalOperation)
 		}
 	}
-
-	for rd := range rdMap {
-		requiredData = append(requiredData, rd)
-	}
-	sort.Strings(requiredData)
 
 	return
 }

@@ -3,7 +3,6 @@ package mpath
 import (
 	"encoding/json"
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 	sc "text/scanner"
@@ -21,7 +20,7 @@ type opFunction struct {
 	opCommon
 }
 
-func (x *opFunction) Validate(rootValue cue.Value, cuePath CuePath, previousType InputOrOutput, blockedRootFields []string) (part *Function, returnedType InputOrOutput, requiredData []string, err error) {
+func (x *opFunction) Validate(rootValue cue.Value, cuePath CuePath, previousType InputOrOutput, blockedRootFields []string) (part *Function, returnedType InputOrOutput, err error) {
 	cuePathValue, err := findValueAtPath(rootValue, cuePath)
 	if err != nil {
 		return &Function{
@@ -31,7 +30,7 @@ func (x *opFunction) Validate(rootValue cue.Value, cuePath CuePath, previousType
 					Error: strPtr(err.Error()),
 				},
 			},
-		}, returnedType, nil, nil
+		}, returnedType, nil
 	}
 
 	part = &Function{
@@ -71,8 +70,6 @@ func (x *opFunction) Validate(rootValue cue.Value, cuePath CuePath, previousType
 	returnedType = fd.Returns
 	part.Type = fd.Returns
 
-	rdm := map[string]struct{}{}
-
 	var variadicType *PT_ParameterType
 	var variadicPosition int
 
@@ -88,19 +85,14 @@ func (x *opFunction) Validate(rootValue cue.Value, cuePath CuePath, previousType
 
 		switch t := p.(type) {
 		case *FP_Path:
-			var rd []string
 			var pathOp *Path
-			pathOp, _, rd = t.Value.Validate(rootValue, cuePath, blockedRootFields)
+			pathOp, _ = t.Value.Validate(rootValue, cuePath, blockedRootFields)
 			param.Part = pathOp
 			if pathOp.Error != nil {
 				param.Error = pathOp.Error
 				continue
 			}
 			pathOp.String = p.String()
-
-			for _, rdv := range rd {
-				rdm[rdv] = struct{}{}
-			}
 
 			if len(pathOp.Parts) == 0 {
 				errMessage := "no parts returned for path"
@@ -111,19 +103,14 @@ func (x *opFunction) Validate(rootValue cue.Value, cuePath CuePath, previousType
 			paramReturns = pathOp.ReturnType()
 
 		case *FP_LogicalOperation:
-			var rd []string
 			var logOp *LogicalOperation
-			logOp, rd = t.Value.Validate(rootValue, cuePath, blockedRootFields)
+			logOp = t.Value.Validate(rootValue, cuePath, blockedRootFields)
 			param.Part = logOp
 			if logOp.Error != nil {
 				param.Error = logOp.Error
 				continue
 			}
 			logOp.String = p.String()
-
-			for _, rdv := range rd {
-				rdm[rdv] = struct{}{}
-			}
 
 			if len(logOp.Parts) == 0 {
 				errMessage := "no parts returned for path"
@@ -181,11 +168,6 @@ func (x *opFunction) Validate(rootValue cue.Value, cuePath CuePath, previousType
 			param.Error = &errMessage
 		}
 	}
-
-	for rdv := range rdm {
-		requiredData = append(requiredData, rdv)
-	}
-	sort.Strings(requiredData)
 
 	explanation := fd.explanationFunc(*part)
 	part.FunctionExplanation = &explanation
