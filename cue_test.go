@@ -52,9 +52,21 @@ func Test_CueStringTableTests(t *testing.T) {
 			mq:   "$.input.name",
 			cp:   "input",
 		},
+		{
+			name:         "empty string",
+			mq:           "",
+			cp:           "input",
+			expectErrors: true,
+		},
+		{
+			name:         "new line",
+			mq:           "\n",
+			cp:           "input",
+			expectErrors: true,
+		},
 	}
 
-	onlyRunTest := "input only"
+	onlyRunTest := ""
 	copyAndLog := false
 
 	for _, test := range tests {
@@ -63,7 +75,7 @@ func Test_CueStringTableTests(t *testing.T) {
 		}
 
 		tc, err := CueValidate(test.mq, cueStringForTests, test.cp)
-		if err != nil {
+		if err != nil && !test.expectErrors {
 			t.Errorf("test '%s'; got unexpected returned error: %v", test.name, err)
 		}
 		if tc != nil && tc.HasErrors() != test.expectErrors {
