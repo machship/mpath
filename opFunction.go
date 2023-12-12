@@ -396,8 +396,31 @@ func (x *opFunction) Parse(s *scanner, r rune) (nextR rune, err error) {
 	return
 }
 
+func isRuneInString(c rune, s string) bool {
+	for _, sr := range s {
+		if c == sr {
+			return true
+		}
+	}
+
+	return false
+}
+
 func dealWithNumbers(s *scanner, x *opFunction, r rune) (rune, error) {
 	tt := s.TokenText()
+
+	// peek the scanner to see if the next character is a dot
+	if pk := s.sx.Peek(); pk == '.' {
+		// this should be a decimal
+		s.Scan() // scan the dot
+		pk = s.sx.Peek()
+		if isRuneInString(pk, "0123456789") {
+			s.Scan() // move to the next token, should be the remainder of the number
+			ttk := s.TokenText()
+			tt += "." + ttk
+		}
+	}
+
 	x.userString += string(tt)
 
 	f, err := strconv.ParseFloat(tt, 64)

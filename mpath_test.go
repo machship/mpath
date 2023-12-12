@@ -146,6 +146,26 @@ func Test_ParseErrors(t *testing.T) {
 	}
 }
 
+func Test_ManualMap(t *testing.T) {
+	query := "$.x.Multiply(12.146)"
+
+	data := map[string]any{
+		"x": 10,
+	}
+
+	op, err := ParseString(query)
+
+	if err != nil {
+		t.Fatalf("Failed to parse string: %s", err)
+	}
+
+	_, err = op.Do(data, data)
+
+	if err != nil {
+		t.Fatalf("Failed to do mpath: %s", err)
+	}
+}
+
 func Test_DecimalAtRoot(t *testing.T) {
 	const testName = "Test_DecimalAtRoot"
 
