@@ -86,6 +86,7 @@ func (x *opPath) Validate(rootValue cue.Value, cuePath CuePath, blockedRootField
 	var shouldErrorRemaining bool
 	var part CanBeAPart
 	var foundFirstIdent bool
+	var previousWasFuncWithoutKnownReturn bool
 	for _, op := range x.Operations {
 		if shouldErrorRemaining {
 			var str string
@@ -112,6 +113,11 @@ func (x *opPath) Validate(rootValue cue.Value, cuePath CuePath, blockedRootField
 
 		switch t := op.(type) {
 		case *opPathIdent:
+			if previousWasFuncWithoutKnownReturn {
+				// We cannot address into unknown return values, so we will return
+				break
+			}
+
 			if returnedType.IOType == IOOT_Single && returnedType.Type.IsPrimitive() {
 				shouldErrorRemaining = true
 				errMessage := "cannot address into primitive value"
@@ -191,9 +197,13 @@ func (x *opPath) Validate(rootValue cue.Value, cuePath CuePath, blockedRootField
 				continue
 			}
 
-			part, returnedType, err = t.Validate(rootValue, cuePath, part.ReturnType(), blockedRootFields)
+			returnsKnownValues := false
+			part, returnedType, returnsKnownValues, err = t.Validate(rootValue, cuePath, part.ReturnType(), blockedRootFields)
 			if err != nil {
 				shouldErrorRemaining = true
+			}
+			if !returnsKnownValues && (returnedType.Type == PT_Object) {
+				previousWasFuncWithoutKnownReturn = true
 			}
 			path.Parts = append(path.Parts, part)
 		}

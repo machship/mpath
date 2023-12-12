@@ -20,7 +20,7 @@ type opFunction struct {
 	opCommon
 }
 
-func (x *opFunction) Validate(rootValue cue.Value, cuePath CuePath, previousType InputOrOutput, blockedRootFields []string) (part *Function, returnedType InputOrOutput, err error) {
+func (x *opFunction) Validate(rootValue cue.Value, cuePath CuePath, previousType InputOrOutput, blockedRootFields []string) (part *Function, returnedType InputOrOutput, returnsKnownValues bool, err error) {
 	cuePathValue, err := findValueAtPath(rootValue, cuePath)
 	if err != nil {
 		return &Function{
@@ -30,7 +30,7 @@ func (x *opFunction) Validate(rootValue cue.Value, cuePath CuePath, previousType
 					Error: strPtr(err.Error()),
 				},
 			},
-		}, returnedType, nil
+		}, returnedType, false, nil
 	}
 
 	part = &Function{
@@ -192,6 +192,7 @@ func (x *opFunction) Validate(rootValue cue.Value, cuePath CuePath, previousType
 	}
 	part.Type = returnedType
 	part.Type.CueExpr = fd.Returns.Type.CueExpr()
+	returnsKnownValues = fd.ReturnsKnownValues
 
 	if fd.ReturnsKnownValues && previousType.IOType == IOOT_Array && k == cue.StructKind {
 		cuePathValue, _ = getUnderlyingValue(cuePathValue)

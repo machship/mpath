@@ -53,6 +53,11 @@ func Test_CueStringTableTests(t *testing.T) {
 			cp:   "input",
 		},
 		{
+			name: "object after ParseJSON",
+			mq:   `$.step4.result.ParseJSON().object`,
+			cp:   "step5",
+		},
+		{
 			name:         "empty string",
 			mq:           "",
 			cp:           "input",
@@ -131,6 +136,18 @@ const (
 			name: string
 			...
 		}
+
+		step4: {
+			_dependencies: []
+			result: string
+		}
+
+		step5: {
+			_dependencies: ["step4"]
+			result: string
+		}
+
+		input: {...}
 
 		"0f2fbb3e-c95a-4760-8bad-ae5610c28454": {
 			_dependencies: ["87e54fe3-6e64-454e-acf7-1a36801f1b87"]
