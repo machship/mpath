@@ -69,10 +69,24 @@ func Test_CueStringTableTests(t *testing.T) {
 			cp:           "input",
 			expectErrors: true,
 		},
+		{
+			name:         "incomplete ident",
+			mq:           "$.step1.result[@.na]",
+			cp:           "step2",
+			expectErrors: true,
+		},
+		{
+			name: "complex can be filtered",
+			mq:   `{OR,$.step7.results[AND,@.example.AnyOf("Test","Something"),@.example.NotEqual("Another")].First().array[OR,@.object.nested.boolean].First().object.nested.boolean,$.step6.result.Equal($.input.num.Multiply(12))}`,
+			cp:   "step8",
+		},
 	}
 
-	onlyRunTest := ""
-	copyAndLog := false
+	var onlyRunTest string
+	var copyAndLog bool
+
+	// onlyRunTest = "complex can be filtered"
+	// copyAndLog = true
 
 	for _, test := range tests {
 		if onlyRunTest != "" && test.name != onlyRunTest {
@@ -134,6 +148,7 @@ const (
 		input: {
 			_dependencies: []
 			name: string
+			num: int
 			...
 		}
 
@@ -146,8 +161,6 @@ const (
 			_dependencies: ["step4"]
 			result: string
 		}
-
-		input: {...}
 
 		"0f2fbb3e-c95a-4760-8bad-ae5610c28454": {
 			_dependencies: ["87e54fe3-6e64-454e-acf7-1a36801f1b87"]
@@ -182,6 +195,28 @@ const (
 			}
 		}
 		
+		"step6": {
+			result: int,
+			_dependencies: []
+		}
+		"step7": {
+			results: [{
+				example: string
+				array: [{
+					object: {
+						nested: {
+							boolean: bool
+						}
+					}
+				}]
+			}],
+			_dependencies: ["step6"]
+		}
+		"step8": {
+			result: string
+			_dependencies: ["step7"]
+		}		
+
 		variables: {
 			test: string
 			_dependencies: []

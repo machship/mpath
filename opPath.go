@@ -31,7 +31,7 @@ func (x *opPath) Validate(rootValue cue.Value, cuePath CuePath, blockedRootField
 	var err error
 
 	var cuePathValue cue.Value
-	if len(cuePath) == 0 {
+	if len(cuePath) == 0 || x.StartAtRoot {
 		cuePathValue = rootValue
 	} else {
 		cuePathValue, err = findValueAtPath(rootValue, cuePath)

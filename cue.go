@@ -144,6 +144,10 @@ func getSelectorForField(inputValue cue.Value, name string) (selector cue.Select
 }
 
 func findValueAtPath(inputValue cue.Value, cuePath CuePath) (outputValue cue.Value, err error) {
+	errFunc := func(s string, v cue.Value, e error) (cue.Value, error) {
+		return v, fmt.Errorf("couldn't access field '%s'", s)
+		// return v, fmt.Errorf("couldn't access field '%s': %w; value is %#v", s, err, v)
+	}
 	outputValue = inputValue
 
 	/*
@@ -164,7 +168,7 @@ func findValueAtPath(inputValue cue.Value, cuePath CuePath) (outputValue cue.Val
 						// Get an iterator
 						it, err := outputValue.List()
 						if err != nil {
-							return cue.Value{}, fmt.Errorf("couldn't access field '%s': %w; value is %#v", cp, err, thisValue)
+							return errFunc(cp, thisValue, err)
 						}
 
 						it.Next()
@@ -172,12 +176,21 @@ func findValueAtPath(inputValue cue.Value, cuePath CuePath) (outputValue cue.Val
 					}
 
 					if err = thisValue.Err(); err != nil {
-						return cue.Value{}, fmt.Errorf("couldn't access field '%s': %w; value is %#v", cp, err, thisValue)
+						return errFunc(cp, thisValue, err)
+					}
+
+					thisValue = thisValue.LookupPath(cue.MakePath(selector))
+					if err = outputValue.Err(); err != nil {
+						return errFunc(cp, thisValue, err)
 					}
 				}
 			}
 		}
 		outputValue = thisValue
+	}
+
+	if err = outputValue.Err(); err != nil {
+		return errFunc(strings.Join(cuePath, "."), outputValue, err)
 	}
 
 	switch outputValue.IncompleteKind() {
@@ -271,6 +284,11 @@ func getAvailableFieldsForValue(v cue.Value, blockedRootFields []string) (fields
 }
 
 func checkIfValueInList(value string, list []string) (isInList bool) {
+	if strings.HasPrefix(value, `"`) && strings.HasSuffix(value, `"`) {
+		value = strings.TrimPrefix(value, `"`)
+		value = strings.TrimSuffix(value, `"`)
+	}
+
 	for _, listValue := range list {
 		if value == listValue {
 			return true
