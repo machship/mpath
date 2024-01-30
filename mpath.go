@@ -153,9 +153,12 @@ func (s *scanner) Reset(sr *strings.Reader, ss string) {
 func (s *scanner) Scan() (r rune) {
 	for {
 		r = s.sx.Scan()
-		if r == -4 {
-			fmt.Print(string(r))
-		}
+
+		// todo: what is this for?
+		// if r == -4 {
+		// 	// fmt.Print(string(r))
+		// }
+
 		// fmt.Print(s.sx.TokenText())
 		if r < 0 || unicode.IsPrint(r) {
 			break

@@ -122,8 +122,8 @@ loop:
 		return
 
 	default:
-		sels := cuePathValue.IncompleteKind()
-		fmt.Println(sels)
+		// sels := cuePathValue.IncompleteKind()
+		// fmt.Println(sels)
 
 		return errFunc(fmt.Errorf("encountered unknown cue kind %v", k))
 	}

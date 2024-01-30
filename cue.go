@@ -256,8 +256,8 @@ func getAvailableFieldsForValue(v cue.Value, blockedRootFields []string) (fields
 
 	it, err := v.Fields(cue.All())
 	if err != nil {
-		k := v.IncompleteKind()
-		fmt.Println(k == cue.BottomKind)
+		// k := v.IncompleteKind()
+		// fmt.Println(k == cue.BottomKind)
 		return nil, fmt.Errorf("failed to list fields: %w\n%#v", err, v)
 	}
 
