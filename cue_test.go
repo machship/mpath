@@ -69,10 +69,30 @@ func Test_CueStringTableTests(t *testing.T) {
 			cp:           "input",
 			expectErrors: true,
 		},
+		{
+			name:         "incomplete ident",
+			mq:           "$.step1.result[@.na]",
+			cp:           "step2",
+			expectErrors: true,
+		},
+		{
+			name: "complex can be filtered",
+			mq:   `{OR,$.step7.results[AND,@.example.AnyOf("Test","Something"),@.example.NotEqual("Another")].First().array[OR,@.object.nested.boolean].First().object.nested.boolean,$.step6.result.Equal($.input.num.Multiply(12))}`,
+			cp:   "step8",
+		},
+		{
+			name:         "test get error for incomplete",
+			mq:           `$.52a015ef-6e51-407d-82e2-72fb218ae65b.results[AND,@.ex]`,
+			cp:           "bd33058f-d866-4800-aa97-098c0137e8c0",
+			expectErrors: true,
+		},
 	}
 
-	onlyRunTest := ""
-	copyAndLog := false
+	var onlyRunTest string
+	var copyAndLog bool
+
+	// onlyRunTest = "test get error for incomplete"
+	// copyAndLog = true
 
 	for _, test := range tests {
 		if onlyRunTest != "" && test.name != onlyRunTest {
@@ -134,6 +154,7 @@ const (
 		input: {
 			_dependencies: []
 			name: string
+			num: int
 			...
 		}
 
@@ -146,8 +167,6 @@ const (
 			_dependencies: ["step4"]
 			result: string
 		}
-
-		input: {...}
 
 		"0f2fbb3e-c95a-4760-8bad-ae5610c28454": {
 			_dependencies: ["87e54fe3-6e64-454e-acf7-1a36801f1b87"]
@@ -182,9 +201,109 @@ const (
 			}
 		}
 		
+		"step6": {
+			result: int,
+			_dependencies: []
+		}
+		"step7": {
+			results: [{
+				example: string
+				array: [{
+					object: {
+						nested: {
+							boolean: bool
+						}
+					}
+				}]
+			}],
+			_dependencies: ["step6"]
+		}
+		"step8": {
+			result: string
+			_dependencies: ["step7"]
+		}		
+
+		"3dedbf75-1c91-4ec5-8018-99b1efe47462": {
+			result: int,
+			_dependencies: []
+		}
+		"52a015ef-6e51-407d-82e2-72fb218ae65b": {
+			results: [{
+				example: string
+				array: [{
+					object: {
+						nested: {
+							boolean: bool
+						}
+					}
+				}]
+			}],
+			_dependencies: ["3dedbf75-1c91-4ec5-8018-99b1efe47462"]
+		}
+		"bd33058f-d866-4800-aa97-098c0137e8c0": {
+			result: string
+			_dependencies: ["52a015ef-6e51-407d-82e2-72fb218ae65b"]
+		}
+
 		variables: {
 			test: string
 			_dependencies: []
 		}
 	`
 )
+
+func Test_CueStringManual(t *testing.T) {
+	type tableTest struct {
+		name         string
+		mq           string
+		expectErrors bool
+		cp           string
+	}
+
+	test := tableTest{
+		name:         "manual test",
+		mq:           `$.52a015ef-6e51-407d-82e2-72fb218ae65b.results[AND,@.ex]`,
+		cp:           `bd33058f-d866-4800-aa97-098c0137e8c0`,
+		expectErrors: true,
+	}
+
+	cueString := `
+	"input": {
+		num: int,
+		_dependencies: []
+	}
+	"3dedbf75-1c91-4ec5-8018-99b1efe47462": {
+		result: int,
+		_dependencies: []
+	}
+	"52a015ef-6e51-407d-82e2-72fb218ae65b": {
+		results: [{
+			example: string
+			array: [{
+				object: {
+					nested: {
+						boolean: bool
+					}
+				}
+			}]
+		}],
+		_dependencies: ["3dedbf75-1c91-4ec5-8018-99b1efe47462"]
+	}
+	"bd33058f-d866-4800-aa97-098c0137e8c0": {
+		result: string
+		_dependencies: ["52a015ef-6e51-407d-82e2-72fb218ae65b"]
+	}
+	`
+
+	tc, err := CueValidate(test.mq, cueString, test.cp)
+	if err != nil && !test.expectErrors {
+		t.Errorf("test '%s'; got unexpected returned error: %v", test.name, err)
+	}
+	if tc != nil && tc.HasErrors() != test.expectErrors {
+		t.Errorf("test '%s'; expected %t got %t for HasErrors(); err was '%v'", test.name, test.expectErrors, tc.HasErrors(), tc.GetErrors())
+	}
+
+	tcb, _ := json.MarshalIndent(tc, "", "  ")
+	clipboard.WriteAll(string(tcb))
+	t.Log(string(tcb))
+}
