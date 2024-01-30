@@ -63,6 +63,7 @@ func CueValidate(query, cueFile, currentPath string) (tc CanBeAPart, err error) 
 		if err != nil {
 			return nil, fmt.Errorf("failed to parse mpath query: %w", err)
 		}
+		mpathOpCache[query] = op
 	}
 
 	// cue values are cached to ensure speed of execution as this method is expected to be hit many times
@@ -73,6 +74,7 @@ func CueValidate(query, cueFile, currentPath string) (tc CanBeAPart, err error) 
 		if rootValue.Err() != nil {
 			return nil, fmt.Errorf("failed to parse cue file: %w", rootValue.Err())
 		}
+		cueValueCache[cueFile] = rootValue
 	}
 
 	blockedRootFields, err := getBlockedRootFields(rootValue, currentPath)
