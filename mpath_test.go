@@ -116,6 +116,64 @@ func Test_Sprint(t *testing.T) {
 	}
 }
 
+func Test_ForPath(t *testing.T) {
+	var onlyRun string
+
+	// onlyRun = "complex 1"
+
+	for _, test := range testQueries {
+		if onlyRun != "" && test.Name != onlyRun {
+			continue
+		}
+
+		op, err := ParseString(test.Query)
+		if err != nil {
+			t.Error(err)
+		}
+
+		c, forPath, _ := op.ForPath(nil)
+		if len(c) > 0 {
+			forPath = append(forPath, c)
+		}
+
+		gotError := false
+
+		if lGot, lWanted := len(forPath), len(test.ExpectedForPath); lGot != lWanted {
+			t.Errorf("'%s': got bad forPath length: wanted: %d; got: %d", test.Name, lWanted, lGot)
+			gotError = true
+			goto Error
+		}
+
+		for i, fpWanted := range test.ExpectedForPath {
+			fpGot := forPath[i]
+			if len(fpWanted) != len(fpGot) {
+				t.Errorf("'%s': got bad forPath length at index %d: wanted: %d; got: %d", test.Name, i, len(fpWanted), len(fpGot))
+				gotError = true
+				continue
+			}
+
+			for ii, fpWI := range fpWanted {
+				fpGI := fpGot[ii]
+
+				if fpGI != fpWI {
+					gotError = true
+					t.Errorf("'%s': wrong forPath value at index %d: wanted: '%s'; got: '%s'", test.Name, ii, fpWI, fpGI)
+				}
+			}
+		}
+
+	Error:
+		if gotError {
+			for _, w := range test.ExpectedForPath {
+				t.Errorf("'%s': wanted: %v", test.Name, w)
+			}
+			for _, g := range forPath {
+				t.Errorf("'%s': got: %v", test.Name, g)
+			}
+		}
+	}
+}
+
 func Test_ParseErrors(t *testing.T) {
 	tests := []struct {
 		Name              string
@@ -304,6 +362,7 @@ var (
 		Name               string
 		Query              string
 		ExpectedRootFields []string
+		ExpectedForPath    [][]string
 		ExpectedResultType ResultType
 		Expect_string      string
 		Expect_decimal     decimal.Decimal
@@ -321,6 +380,9 @@ var (
 			Expect_bool:        false,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"bool"},
+			ExpectedForPath: [][]string{
+				[]string{"bool"},
+			},
 		},
 		{
 			Name:               "Sum numbers alone",
@@ -328,6 +390,9 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(6912),
 			ExpectedResultType: RT_decimal,
 			ExpectedRootFields: []string{"numbers"},
+			ExpectedForPath: [][]string{
+				[]string{"numbers"},
+			},
 		},
 		{
 			Name:               "Sum numbers with string number",
@@ -335,6 +400,9 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(7912),
 			ExpectedResultType: RT_decimal,
 			ExpectedRootFields: []string{"numbers"},
+			ExpectedForPath: [][]string{
+				[]string{"numbers"},
+			},
 		},
 		{
 			Name:               "Sum numbers with one value",
@@ -342,6 +410,9 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(6913),
 			ExpectedResultType: RT_decimal,
 			ExpectedRootFields: []string{"numbers"},
+			ExpectedForPath: [][]string{
+				[]string{"numbers"},
+			},
 		},
 		{
 			Name:               "Sum numbers with multiple",
@@ -349,6 +420,9 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(6915.5),
 			ExpectedResultType: RT_decimal,
 			ExpectedRootFields: []string{"numbers"},
+			ExpectedForPath: [][]string{
+				[]string{"numbers"},
+			},
 		},
 		{
 			Name:               "Sum number with value",
@@ -356,6 +430,9 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(1236.5),
 			ExpectedResultType: RT_decimal,
 			ExpectedRootFields: []string{"number"},
+			ExpectedForPath: [][]string{
+				[]string{"number"},
+			},
 		},
 		{
 			Name:               "Sum number with multiple",
@@ -363,6 +440,9 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(1236.5),
 			ExpectedResultType: RT_decimal,
 			ExpectedRootFields: []string{"number"},
+			ExpectedForPath: [][]string{
+				[]string{"number"},
+			},
 		},
 		{
 			Name:               "Add number to string number",
@@ -370,6 +450,9 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(33456.123),
 			ExpectedResultType: RT_decimal,
 			ExpectedRootFields: []string{"numberInString"},
+			ExpectedForPath: [][]string{
+				[]string{"numberInString"},
+			},
 		},
 		{
 			Name:               "Add string number to string number",
@@ -377,6 +460,9 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(33456.123),
 			ExpectedResultType: RT_decimal,
 			ExpectedRootFields: []string{"numberInString"},
+			ExpectedForPath: [][]string{
+				[]string{"numberInString"},
+			},
 		},
 		{
 			Name:               "trim right of string by n",
@@ -384,6 +470,9 @@ var (
 			Expect_string:      "abc",
 			ExpectedResultType: RT_string,
 			ExpectedRootFields: []string{"string"},
+			ExpectedForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 		{
 			Name:               "trim right of string by n > length of string",
@@ -391,6 +480,9 @@ var (
 			Expect_string:      "",
 			ExpectedResultType: RT_string,
 			ExpectedRootFields: []string{"string"},
+			ExpectedForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 		{
 			Name:               "trim right of string by n = length of string",
@@ -398,6 +490,9 @@ var (
 			Expect_string:      "",
 			ExpectedResultType: RT_string,
 			ExpectedRootFields: []string{"string"},
+			ExpectedForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 		{
 			Name:               "trim right of string by n = 0",
@@ -405,6 +500,9 @@ var (
 			Expect_string:      "abcDEF",
 			ExpectedResultType: RT_string,
 			ExpectedRootFields: []string{"string"},
+			ExpectedForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 
 		{
@@ -413,6 +511,9 @@ var (
 			Expect_string:      "DEF",
 			ExpectedResultType: RT_string,
 			ExpectedRootFields: []string{"string"},
+			ExpectedForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 		{
 			Name:               "trim left of string by n > length of string",
@@ -420,6 +521,9 @@ var (
 			Expect_string:      "",
 			ExpectedResultType: RT_string,
 			ExpectedRootFields: []string{"string"},
+			ExpectedForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 		{
 			Name:               "trim left of string by n = length of string",
@@ -427,6 +531,9 @@ var (
 			Expect_string:      "",
 			ExpectedResultType: RT_string,
 			ExpectedRootFields: []string{"string"},
+			ExpectedForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 		{
 			Name:               "trim left of string by n = 0",
@@ -434,6 +541,9 @@ var (
 			Expect_string:      "abcDEF",
 			ExpectedResultType: RT_string,
 			ExpectedRootFields: []string{"string"},
+			ExpectedForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 
 		{
@@ -442,6 +552,9 @@ var (
 			Expect_string:      "ab",
 			ExpectedResultType: RT_string,
 			ExpectedRootFields: []string{"string"},
+			ExpectedForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 		{
 			Name:               "get right n of string",
@@ -449,6 +562,9 @@ var (
 			Expect_string:      "EF",
 			ExpectedResultType: RT_string,
 			ExpectedRootFields: []string{"string"},
+			ExpectedForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 
 		{
@@ -457,6 +573,9 @@ var (
 			Expect_string:      "abcDEF",
 			ExpectedResultType: RT_string,
 			ExpectedRootFields: []string{"string"},
+			ExpectedForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 		{
 			Name:               "get right n > len of string",
@@ -464,6 +583,9 @@ var (
 			Expect_string:      "abcDEF",
 			ExpectedResultType: RT_string,
 			ExpectedRootFields: []string{"string"},
+			ExpectedForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 
 		{
@@ -472,6 +594,9 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"string", "strings"},
+			ExpectedForPath: [][]string{
+				[]string{"strings"},
+			},
 		},
 
 		{
@@ -480,6 +605,9 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"string"},
+			ExpectedForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 		{
 			Name:               "regex doesn't match string",
@@ -487,6 +615,9 @@ var (
 			Expect_bool:        false,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"string"},
+			ExpectedForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 
 		{
@@ -495,6 +626,9 @@ var (
 			Expect_string:      "zbcDEF",
 			ExpectedResultType: RT_string,
 			ExpectedRootFields: []string{"string"},
+			ExpectedForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 
 		{
@@ -503,6 +637,9 @@ var (
 			Expect_string:      "MSRWC1234567",
 			ExpectedResultType: RT_string,
 			ExpectedRootFields: []string{"regexstring"},
+			ExpectedForPath: [][]string{
+				[]string{"regexstring"},
+			},
 		},
 
 		{
@@ -511,6 +648,9 @@ var (
 			Expect_string:      "zbcDEF",
 			ExpectedResultType: RT_string,
 			ExpectedRootFields: []string{"string"},
+			ExpectedForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 
 		{
@@ -519,6 +659,9 @@ var (
 			Expect_decimal:     decimal.NewFromInt(112357),
 			ExpectedResultType: RT_decimal,
 			ExpectedRootFields: []string{"result"},
+			ExpectedForPath: [][]string{
+				[]string{"result", "json"},
+			},
 		},
 		{
 			Name:               "get data from string JSON field, then put it back to JSON",
@@ -526,6 +669,9 @@ var (
 			Expect_string:      "{\"consignmentID\":112357,\"consignmentName\":\"Test consignment\"}",
 			ExpectedResultType: RT_string,
 			ExpectedRootFields: []string{"result"},
+			ExpectedForPath: [][]string{
+				[]string{"result", "json"},
+			},
 		},
 		{
 			Name:               "get data from string JSON field, select a field, then put it back to JSON",
@@ -533,6 +679,9 @@ var (
 			Expect_string:      `"112357"`,
 			ExpectedResultType: RT_string,
 			ExpectedRootFields: []string{"result"},
+			ExpectedForPath: [][]string{
+				[]string{"result", "json"},
+			},
 		},
 		{
 			Name:               "get data from string XML field",
@@ -540,6 +689,9 @@ var (
 			Expect_string:      "112358",
 			ExpectedResultType: RT_string,
 			ExpectedRootFields: []string{"result"},
+			ExpectedForPath: [][]string{
+				[]string{"result", "xml"},
+			},
 		},
 		{
 			Name:               "get data from string YAML field",
@@ -547,6 +699,9 @@ var (
 			Expect_decimal:     decimal.NewFromInt(112359),
 			ExpectedResultType: RT_decimal,
 			ExpectedRootFields: []string{"result"},
+			ExpectedForPath: [][]string{
+				[]string{"result", "yaml"},
+			},
 		},
 		{
 			Name:               "get data from string TOML field",
@@ -554,6 +709,9 @@ var (
 			Expect_decimal:     decimal.NewFromInt(112360),
 			ExpectedResultType: RT_decimal,
 			ExpectedRootFields: []string{"result"},
+			ExpectedForPath: [][]string{
+				[]string{"result", "toml"},
+			},
 		},
 		{
 			Name:               "complex 1",
@@ -561,6 +719,10 @@ var (
 			Expect_bool:        false,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"List"},
+			ExpectedForPath: [][]string{
+				[]string{"List", "SomeSettings"},
+				[]string{"List", "SomeSettings", "Key"},
+			},
 		},
 		{
 			Name:               "complex 2",
@@ -568,6 +730,11 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(222),
 			ExpectedResultType: RT_decimal,
 			ExpectedRootFields: []string{"List"},
+			ExpectedForPath: [][]string{
+				[]string{"List", "ID"},
+				[]string{"List", "SomeSettings", "Key"},
+				[]string{"List", "SomeSettings", "Number"},
+			},
 		},
 		{
 			Name:               "complex 3",
@@ -575,6 +742,10 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(1234),
 			ExpectedResultType: RT_decimal,
 			ExpectedRootFields: []string{"List"},
+			ExpectedForPath: [][]string{
+				[]string{"List", "SomeSettings", "Key"},
+				[]string{"List", "SomeSettings", "Number"},
+			},
 		},
 		{
 			Name:               "simple 1",
@@ -582,6 +753,9 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(4),
 			ExpectedResultType: RT_decimal,
 			ExpectedRootFields: []string{"List"},
+			ExpectedForPath: [][]string{
+				[]string{"List"},
+			},
 		},
 		{
 			Name:               "simple 2",
@@ -589,6 +763,9 @@ var (
 			Expect_string:      "abcDEF",
 			ExpectedResultType: RT_string,
 			ExpectedRootFields: []string{"sTRinG"},
+			ExpectedForPath: [][]string{
+				[]string{"sTRinG"},
+			},
 		},
 		{
 			Name:               "simple 3",
@@ -596,6 +773,10 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"string"},
+			ExpectedForPath: [][]string{
+				[]string{"string"},
+				[]string{"string"},
+			},
 		},
 		{
 			Name:               "simple 4",
@@ -603,6 +784,9 @@ var (
 			Expect_bool:        false,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{},
+			ExpectedForPath: [][]string{
+				[]string{"index"},
+			},
 		},
 		{
 			Name:               "simple 5",
@@ -610,6 +794,9 @@ var (
 			Expect_bool:        false,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{},
+			ExpectedForPath: [][]string{
+				[]string{"index"},
+			},
 		},
 		{
 			Name:               "simple 6",
@@ -617,6 +804,10 @@ var (
 			Expect_bool:        false,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{},
+			ExpectedForPath: [][]string{
+				[]string{"index"},
+				[]string{"index"},
+			},
 		},
 		{
 			Name:               "simple 7",
@@ -624,6 +815,9 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"index"},
+			ExpectedForPath: [][]string{
+				[]string{"index"},
+			},
 		},
 		{
 			Name:               "simple 8",
@@ -631,6 +825,9 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"index"},
+			ExpectedForPath: [][]string{
+				[]string{"index"},
+			},
 		},
 		{
 			Name:               "simple 9",
@@ -638,6 +835,9 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"string"},
+			ExpectedForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 		{
 			Name:               "simple 10",
@@ -645,6 +845,9 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"bool"},
+			ExpectedForPath: [][]string{
+				[]string{"bool"},
+			},
 		},
 		{
 			Name:               "simple 11",
@@ -652,6 +855,9 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"numbers"},
+			ExpectedForPath: [][]string{
+				[]string{"numbers"},
+			},
 		},
 		{
 			Name:               "simple 12",
@@ -659,6 +865,9 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"strings"},
+			ExpectedForPath: [][]string{
+				[]string{"strings"},
+			},
 		},
 		{
 			Name:               "simple 13",
@@ -666,6 +875,9 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"bools"},
+			ExpectedForPath: [][]string{
+				[]string{"bools"},
+			},
 		},
 		{
 			Name:               "simple 14",
@@ -673,6 +885,9 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"floats"},
+			ExpectedForPath: [][]string{
+				[]string{"floats"},
+			},
 		},
 		{
 			Name:               "simple 15",
@@ -680,6 +895,9 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"ints"},
+			ExpectedForPath: [][]string{
+				[]string{"ints"},
+			},
 		},
 		{
 			Name:               "simple 16",
@@ -687,6 +905,9 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"bools"},
+			ExpectedForPath: [][]string{
+				[]string{"bools"},
+			},
 		},
 
 		{
@@ -695,6 +916,9 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"number"},
+			ExpectedForPath: [][]string{
+				[]string{"number"},
+			},
 		},
 		{
 			Name:               "func LessOrEqual",
@@ -702,6 +926,9 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"number"},
+			ExpectedForPath: [][]string{
+				[]string{"number"},
+			},
 		},
 		{
 			Name:               "func Greater",
@@ -709,6 +936,9 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"number"},
+			ExpectedForPath: [][]string{
+				[]string{"number"},
+			},
 		},
 		{
 			Name:               "func GreaterOrEqual",
@@ -716,6 +946,9 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"number"},
+			ExpectedForPath: [][]string{
+				[]string{"number"},
+			},
 		},
 
 		{
@@ -724,6 +957,9 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"string"},
+			ExpectedForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 		{
 			Name:               "func NotEqual",
@@ -731,6 +967,9 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"string"},
+			ExpectedForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 		{
 			Name:               "func Contains",
@@ -738,6 +977,9 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"string"},
+			ExpectedForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 		{
 			Name:               "func NotContains",
@@ -745,6 +987,9 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"string"},
+			ExpectedForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 		{
 			Name:               "func Prefix",
@@ -752,6 +997,9 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"string"},
+			ExpectedForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 		{
 			Name:               "func NotPrefix",
@@ -759,6 +1007,9 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"string"},
+			ExpectedForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 		{
 			Name:               "func Suffix",
@@ -766,6 +1017,9 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"string"},
+			ExpectedForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 		{
 			Name:               "func NotSuffix",
@@ -773,6 +1027,9 @@ var (
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"string"},
+			ExpectedForPath: [][]string{
+				[]string{"string"},
+			},
 		},
 		{
 			Name:               "func Index",
@@ -780,6 +1037,9 @@ var (
 			Expect_string:      "bbb",
 			ExpectedResultType: RT_string,
 			ExpectedRootFields: []string{"tags"},
+			ExpectedForPath: [][]string{
+				[]string{"tags"},
+			},
 		},
 
 		{
@@ -788,6 +1048,9 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(4234),
 			ExpectedResultType: RT_decimal,
 			ExpectedRootFields: []string{"number"},
+			ExpectedForPath: [][]string{
+				[]string{"number"},
+			},
 		},
 		{
 			Name:               "func Average",
@@ -795,6 +1058,9 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(3456),
 			ExpectedResultType: RT_decimal,
 			ExpectedRootFields: []string{"number"},
+			ExpectedForPath: [][]string{
+				[]string{"number"},
+			},
 		},
 		{
 			Name:               "func Max",
@@ -802,6 +1068,9 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(9999),
 			ExpectedResultType: RT_decimal,
 			ExpectedRootFields: []string{"number"},
+			ExpectedForPath: [][]string{
+				[]string{"number"},
+			},
 		},
 		{
 			Name:               "func Min",
@@ -809,6 +1078,9 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(1234),
 			ExpectedResultType: RT_decimal,
 			ExpectedRootFields: []string{"number"},
+			ExpectedForPath: [][]string{
+				[]string{"number"},
+			},
 		},
 		{
 			Name:               "func Add",
@@ -816,6 +1088,9 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(1235),
 			ExpectedResultType: RT_decimal,
 			ExpectedRootFields: []string{"number"},
+			ExpectedForPath: [][]string{
+				[]string{"number"},
+			},
 		},
 		{
 			Name:               "func Sub",
@@ -823,6 +1098,9 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(1232),
 			ExpectedResultType: RT_decimal,
 			ExpectedRootFields: []string{"number"},
+			ExpectedForPath: [][]string{
+				[]string{"number"},
+			},
 		},
 		{
 			Name:               "func Div",
@@ -830,6 +1108,9 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(617),
 			ExpectedResultType: RT_decimal,
 			ExpectedRootFields: []string{"number"},
+			ExpectedForPath: [][]string{
+				[]string{"number"},
+			},
 		},
 		{
 			Name:               "func Mul",
@@ -837,6 +1118,9 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(13574),
 			ExpectedResultType: RT_decimal,
 			ExpectedRootFields: []string{"number"},
+			ExpectedForPath: [][]string{
+				[]string{"number"},
+			},
 		},
 		{
 			Name:               "func Mod",
@@ -844,6 +1128,9 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(34),
 			ExpectedResultType: RT_decimal,
 			ExpectedRootFields: []string{"number"},
+			ExpectedForPath: [][]string{
+				[]string{"number"},
+			},
 		},
 		{
 			Name:               "select many",
@@ -851,6 +1138,9 @@ var (
 			Expect_decimal:     decimal.NewFromFloat(17),
 			ExpectedResultType: RT_decimal,
 			ExpectedRootFields: []string{"list"},
+			ExpectedForPath: [][]string{
+				[]string{"list", "id"},
+			},
 		},
 	}
 )

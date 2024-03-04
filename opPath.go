@@ -223,6 +223,26 @@ func (x *opPath) addOpToOperationsAndParse(op Operation, s *scanner, r rune) (ne
 	return
 }
 
+func (x opPath) ForPath(current []string) (outCurrent []string, additional [][]string, shouldStopLoop bool) {
+	outCurrent = current
+
+	for _, op := range x.Operations {
+		pass := outCurrent
+
+		oc, a, shouldStopLoop := op.ForPath(pass)
+		if shouldStopLoop {
+			break
+		}
+
+		outCurrent = oc
+		if len(a) > 0 {
+			additional = append(additional, a...)
+		}
+	}
+
+	return
+}
+
 func (x *opPath) Type() OT_OpType { return OT_Path }
 
 func (x *opPath) Sprint(depth int) (out string) {

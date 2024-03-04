@@ -35,6 +35,17 @@ func (x *opFilter) Validate(rootValue cue.Value, cuePath CuePath, blockedRootFie
 	return
 }
 
+func (x *opFilter) ForPath(current []string) (outCurrent []string, additional [][]string, shouldStopLoop bool) {
+	oc, additional, _ := x.LogicalOperation.ForPath(current)
+	outCurrent = current
+	a := []string{}
+	a = append(a, oc...)
+	if len(a) > 0 {
+		additional = append(additional, a)
+	}
+	return
+}
+
 func (x *opFilter) Type() OT_OpType { return OT_Filter }
 
 func (x *opFilter) Sprint(depth int) (out string) {
