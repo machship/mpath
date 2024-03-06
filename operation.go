@@ -17,6 +17,16 @@ type Operation interface {
 	UserString() string
 }
 
+func AddressedPaths(op Operation) (addressedPaths [][]string) {
+	c, forPath, _ := op.ForPath(nil)
+
+	if len(c) > 0 {
+		forPath = append(forPath, c)
+	}
+
+	return forPath
+}
+
 type opCommon struct {
 	userString string
 }
