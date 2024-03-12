@@ -2,6 +2,7 @@ package mpath
 
 import (
 	"encoding/json"
+	"reflect"
 	"sort"
 	"testing"
 
@@ -118,8 +119,6 @@ func Test_Sprint(t *testing.T) {
 
 func Test_AddressedPaths(t *testing.T) {
 	var onlyRun string
-
-	// onlyRun = "complex 1"
 
 	for _, test := range testQueries {
 		if onlyRun != "" && test.Name != onlyRun {
@@ -592,6 +591,7 @@ var (
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"string", "strings"},
 			ExpectedAddressedPaths: [][]string{
+				[]string{"string"},
 				[]string{"strings"},
 			},
 		},
@@ -657,7 +657,7 @@ var (
 			ExpectedResultType: RT_decimal,
 			ExpectedRootFields: []string{"result"},
 			ExpectedAddressedPaths: [][]string{
-				[]string{"result", "json"},
+				[]string{"result", "json", "consignmentID"},
 			},
 		},
 		{
@@ -677,7 +677,7 @@ var (
 			ExpectedResultType: RT_string,
 			ExpectedRootFields: []string{"result"},
 			ExpectedAddressedPaths: [][]string{
-				[]string{"result", "json"},
+				[]string{"result", "json", "consignmentID"},
 			},
 		},
 		{
@@ -687,7 +687,7 @@ var (
 			ExpectedResultType: RT_string,
 			ExpectedRootFields: []string{"result"},
 			ExpectedAddressedPaths: [][]string{
-				[]string{"result", "xml"},
+				[]string{"result", "xml", "root", "consignmentID"},
 			},
 		},
 		{
@@ -697,7 +697,7 @@ var (
 			ExpectedResultType: RT_decimal,
 			ExpectedRootFields: []string{"result"},
 			ExpectedAddressedPaths: [][]string{
-				[]string{"result", "yaml"},
+				[]string{"result", "yaml", "consignmentID"},
 			},
 		},
 		{
@@ -707,7 +707,7 @@ var (
 			ExpectedResultType: RT_decimal,
 			ExpectedRootFields: []string{"result"},
 			ExpectedAddressedPaths: [][]string{
-				[]string{"result", "toml"},
+				[]string{"result", "toml", "consignmentID"},
 			},
 		},
 		{
@@ -717,7 +717,6 @@ var (
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"List"},
 			ExpectedAddressedPaths: [][]string{
-				[]string{"List", "SomeSettings"},
 				[]string{"List", "SomeSettings", "Key"},
 			},
 		},
@@ -772,7 +771,6 @@ var (
 			ExpectedRootFields: []string{"string"},
 			ExpectedAddressedPaths: [][]string{
 				[]string{"string"},
-				[]string{"string"},
 			},
 		},
 		{
@@ -802,7 +800,6 @@ var (
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{},
 			ExpectedAddressedPaths: [][]string{
-				[]string{"index"},
 				[]string{"index"},
 			},
 		},
@@ -1139,6 +1136,17 @@ var (
 				[]string{"list", "id"},
 			},
 		},
+		{
+			Name:               "multiple addresses",
+			Query:              "$.secrets.123.Equals($.secrets.456)",
+			Expect_bool:        true,
+			ExpectedResultType: RT_bool,
+			ExpectedRootFields: []string{"secrets"},
+			ExpectedAddressedPaths: [][]string{
+				[]string{"secrets", "456"},
+				[]string{"secrets", "123"},
+			},
+		},
 	}
 )
 
@@ -1259,4 +1267,103 @@ type TestDataStruct struct {
 			String string `json:"String,omitempty"`
 		} `json:"someSettings,omitempty"`
 	} `json:"list"`
+}
+
+func Test_sliceContains(t *testing.T) {
+	tests := []struct {
+		name       string
+		inputSlice []string
+		inputValue string
+		expected   bool
+	}{
+		{
+			name:       "True",
+			inputSlice: []string{"one", "two", "three", "four"},
+			inputValue: "one",
+			expected:   true,
+		},
+		{
+			name:       "False",
+			inputSlice: []string{"one", "two", "three", "four"},
+			inputValue: "five",
+			expected:   false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := sliceContains(test.inputSlice, test.inputValue)
+
+			if result != test.expected {
+				t.Fatalf("unexpected result: wanted: %v; got: %v", test.expected, result)
+			}
+		})
+	}
+}
+
+func Test_spreadSlice(t *testing.T) {
+	input := []any{"one", "two", "three", "four"}
+	expected := [][]any{
+		[]any{"one"},
+		[]any{"one", "two"},
+		[]any{"one", "two", "three"},
+		[]any{"one", "two", "three", "four"},
+	}
+
+	result := spreadSlice(input)
+
+	if !reflect.DeepEqual(result, expected) {
+		t.Fatalf("unexpected result: wanted: %v; got: %v", expected, input)
+	}
+}
+
+func Test_sliceContainsSubsetSlice(t *testing.T) {
+	tests := []struct {
+		name        string
+		inputSlices [][]string
+		inputSubset []string
+		expected    bool
+	}{
+		{
+			name: "True single",
+			inputSlices: [][]string{
+				[]string{"one", "two", "three", "four"},
+			},
+			inputSubset: []string{"one"},
+			expected:    true,
+		},
+		{
+			name: "True multiple",
+			inputSlices: [][]string{
+				[]string{"one", "two", "three", "four"},
+			},
+			inputSubset: []string{"one", "two"},
+			expected:    true,
+		},
+		{
+			name: "False single",
+			inputSlices: [][]string{
+				[]string{"one", "two", "three", "four"},
+			},
+			inputSubset: []string{"five"},
+			expected:    false,
+		}, {
+			name: "False multiple",
+			inputSlices: [][]string{
+				[]string{"one", "two", "three", "four"},
+			},
+			inputSubset: []string{"five", "one", "two"},
+			expected:    false,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			result := slicesContainsSubsetSlice(test.inputSlices, test.inputSubset)
+
+			if result != test.expected {
+				t.Fatalf("unexpected result: wanted: %v; got: %v", test.expected, result)
+			}
+		})
+	}
 }

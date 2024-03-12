@@ -69,25 +69,6 @@ func (x *opLogicalOperation) addOpToOperationsAndParse(op Operation, s *scanner,
 	return
 }
 
-func (x *opLogicalOperation) ForPath(current []string) (outCurrent []string, additional [][]string, shouldStopLoop bool) {
-	// outCurrent = current
-
-	for _, op := range x.Operations {
-		oc, a, _ := op.ForPath(nil)
-		nc := []string{}
-		nc = append(nc, current...)
-		nc = append(nc, oc...)
-		if len(nc) > 0 {
-			additional = append(additional, nc)
-		}
-		if len(a) > 0 {
-			additional = append(additional, a...)
-		}
-	}
-
-	return
-}
-
 func (x *opLogicalOperation) Type() OT_OpType { return OT_LogicalOperation }
 
 func (x *opLogicalOperation) Sprint(depth int) (out string) {

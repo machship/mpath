@@ -225,22 +225,6 @@ func ft_ShouldContinueForPath(ft FT_FunctionType) bool {
 	return false
 }
 
-func (x *opFunction) ForPath(current []string) (outCurrent []string, additional [][]string, shouldStopLoop bool) {
-	if !ft_ShouldContinueForPath(x.FunctionType) {
-		shouldStopLoop = true
-		return
-	}
-	outCurrent = current
-
-	for _, p := range x.Params.Paths() {
-		pp, a, _ := p.Value.ForPath(current)
-		additional = append(additional, pp)
-		additional = append(additional, a...)
-	}
-
-	return
-}
-
 func (x *opFunction) Type() OT_OpType { return OT_Function }
 
 func (x *opFunction) Sprint(depth int) (out string) {

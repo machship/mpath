@@ -135,10 +135,6 @@ loop:
 	return
 }
 
-func (x *opPathIdent) ForPath(current []string) (outCurrent []string, additional [][]string, shouldStopLoop bool) {
-	return append(current, x.IdentName), nil, false
-}
-
 func (x *opPathIdent) Type() OT_OpType { return OT_PathIdent }
 
 func (x *opPathIdent) Sprint(depth int) (out string) {
