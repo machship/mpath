@@ -55,7 +55,7 @@ loop:
 		} else {
 			returnedType = inputOrOutput(PT_Boolean, IOOT_Single)
 		}
-	case cue.StringKind:
+	case cue.StringKind, cue.BytesKind:
 		if wasList {
 			returnedType = inputOrOutput(PT_String, IOOT_Array)
 		} else {
@@ -66,6 +66,12 @@ loop:
 			returnedType = inputOrOutput(PT_Number, IOOT_Array)
 		} else {
 			returnedType = inputOrOutput(PT_Number, IOOT_Single)
+		}
+	case cue.TopKind:
+		if wasList {
+			returnedType = inputOrOutput(PT_Any, IOOT_Array)
+		} else {
+			returnedType = inputOrOutput(PT_Any, IOOT_Single)
 		}
 	case cue.StructKind:
 		if wasList {

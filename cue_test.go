@@ -550,6 +550,11 @@ const (
 			_dependencies: ["52a015ef-6e51-407d-82e2-72fb218ae65b"]
 		}
 
+		"step9": {
+			result: bytes
+			_dependencies: ["step7"]
+		}
+
 		variables: {
 			test: string
 			_dependencies: []
@@ -611,4 +616,56 @@ func Test_CueStringManual(t *testing.T) {
 	tcb, _ := json.MarshalIndent(tc, "", "  ")
 	clipboard.WriteAll(string(tcb))
 	t.Log(string(tcb))
+}
+
+func Test_BytesKind(t *testing.T) {
+	cueString := `
+	"input": {
+		filecontents: bytes
+		_dependencies: []
+	}
+
+	"step1": {
+		result: int
+		_dependencies: []
+	}
+	`
+
+	expression := "$.input.filecontents"
+
+	tc, err := CueValidate(expression, cueString, "step1")
+
+	if err != nil {
+		t.Fatalf("Unexpected error: %s", err)
+	}
+
+	if tc.HasErrors() {
+		t.Fatalf("Unexpected tc error: %s", tc.GetErrors())
+	}
+}
+
+func Test_AnyKind(t *testing.T) {
+	cueString := `
+	"input": {
+		filecontents: _
+		_dependencies: []
+	}
+
+	"step1": {
+		result: int
+		_dependencies: []
+	}
+	`
+
+	expression := "$.input.filecontents"
+
+	tc, err := CueValidate(expression, cueString, "step1")
+
+	if err != nil {
+		t.Fatalf("Unexpected error: %s", err)
+	}
+
+	if tc.HasErrors() {
+		t.Fatalf("Unexpected tc error: %s", tc.GetErrors())
+	}
 }
