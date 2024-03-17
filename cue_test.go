@@ -417,6 +417,31 @@ var (
 			cp:           "bd33058f-d866-4800-aa97-098c0137e8c0",
 			expectErrors: true,
 		},
+		{
+			name: "retrieve any value",
+			mq:   `$.step9.result`,
+			cp:   "step10",
+		},
+		{
+			name: "retrieve key from any value",
+			mq:   `$.step9.result.subkey.subkey`,
+			cp:   "step10",
+		},
+		{
+			name: "retrieve any value in slice",
+			mq:   `$.step10.result.sl.First().value`,
+			cp:   "step11",
+		},
+		{
+			name: "retrieve key from any value in slice",
+			mq:   `$.step10.result.sl.First().value.subkey.subkey`,
+			cp:   "step11",
+		},
+		{
+			name: "retrieve bytes from result",
+			mq:   `$.step11.result`,
+			cp:   "step12",
+		},
 	}
 )
 
@@ -551,8 +576,27 @@ const (
 		}
 
 		"step9": {
-			result: bytes
+			result: _
 			_dependencies: ["step7"]
+		}
+		
+		"step10": {
+			_dependencies: ["step9"]
+			result: {
+				sl: [{
+					value: _
+				}]
+			}
+		}
+
+		"step11": {
+			_dependencies: ["step10"]
+			result: bytes
+		}
+
+		"step12": {
+			_dependencies: ["step11"]
+			result: _
 		}
 
 		variables: {
@@ -616,62 +660,4 @@ func Test_CueStringManual(t *testing.T) {
 	tcb, _ := json.MarshalIndent(tc, "", "  ")
 	clipboard.WriteAll(string(tcb))
 	t.Log(string(tcb))
-}
-
-func Test_BytesKind(t *testing.T) {
-	cueString := `
-	"input": {
-		filecontents: bytes
-		_dependencies: []
-	}
-
-	"step1": {
-		result: int
-		_dependencies: []
-	}
-	`
-
-	expression := "$.input.filecontents"
-
-	tc, err := CueValidate(expression, cueString, "step1")
-
-	if err != nil {
-		t.Fatalf("Unexpected error: %s", err)
-	}
-
-	if tc.HasErrors() {
-		t.Fatalf("Unexpected tc error: %s", tc.GetErrors())
-	}
-
-	if returnType := *tc.ReturnType().CueExpr; returnType != "bytes" {
-		t.Fatalf("Unexpected return type: %s", returnType)
-	}
-}
-
-func Test_AnyKind(t *testing.T) {
-	cueString := `
-	"input": {
-		filecontents: [{
-			something: _
-		}]
-		_dependencies: []
-	}
-
-	"step1": {
-		result: int
-		_dependencies: []
-	}
-	`
-
-	expression := "$.input.filecontents.First().something.else"
-
-	tc, err := CueValidate(expression, cueString, "step1")
-
-	if err != nil {
-		t.Fatalf("Unexpected error: %s", err)
-	}
-
-	if tc.HasErrors() {
-		t.Fatalf("Unexpected tc error: %s", tc.GetErrors())
-	}
 }
