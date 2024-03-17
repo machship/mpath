@@ -145,6 +145,52 @@ func getSelectorForField(inputValue cue.Value, name string) (selector cue.Select
 	return cue.Str(name)
 }
 
+// func findValueAtPath(inputValue cue.Value, cuePath CuePath) (outputValue cue.Value, err error) {
+// 	inputValueKind := inputValue.IncompleteKind()
+// 	fmt.Println("kind:", inputValueKind)
+
+// 	if inputValueKind == cue.BottomKind || inputValueKind == cue.TopKind {
+// 		return inputValue, nil
+// 	}
+
+// 	if len(cuePath) == 0 {
+// 		return inputValue, nil
+// 	}
+
+// 	currentKey := string(cuePath[0])
+
+// 	inputValueIterator, err := inputValue.Fields(cue.All())
+
+// 	if err != nil {
+// 		return outputValue, fmt.Errorf("failed to get input value iterator: %w", err)
+// 	}
+
+// 	hasFoundKey := false
+// 	for inputValueIterator.Next() {
+// 		selector := inputValueIterator.Selector()
+
+// 		if selector.String() == currentKey {
+// 			outputValue = inputValueIterator.Value()
+// 			hasFoundKey = true
+// 			break
+// 		}
+// 	}
+
+// 	if !hasFoundKey {
+// 		return outputValue, fmt.Errorf("failed to find key %q", currentKey)
+// 	}
+
+// 	if len(cuePath) > 1 {
+// 		if _, ok := outputValue.Fields(); ok != nil {
+// 			return outputValue, fmt.Errorf("field %q is not an object", currentKey)
+// 		}
+
+// 		return findValueAtPath(outputValue, cuePath[1:])
+// 	}
+
+// 	return outputValue, nil
+// }
+
 func findValueAtPath(inputValue cue.Value, cuePath CuePath) (outputValue cue.Value, err error) {
 	errFunc := func(s string, v cue.Value, e error) (cue.Value, error) {
 		return v, fmt.Errorf("couldn't access field '%s'", s)
@@ -166,7 +212,13 @@ func findValueAtPath(inputValue cue.Value, cuePath CuePath) (outputValue cue.Val
 			if err = thisValue.Err(); err != nil {
 				thisValue = outputValue.LookupPath(cue.MakePath(cue.AnyIndex))
 				if err = thisValue.Err(); err != nil {
-					if outputValue.IncompleteKind() == cue.ListKind {
+					outputValueKind := outputValue.IncompleteKind()
+
+					if outputValueKind == cue.TopKind {
+						return outputValue, nil
+					}
+
+					if outputValueKind == cue.ListKind {
 						// Get an iterator
 						it, err := outputValue.List()
 						if err != nil {

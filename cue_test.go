@@ -417,6 +417,31 @@ var (
 			cp:           "bd33058f-d866-4800-aa97-098c0137e8c0",
 			expectErrors: true,
 		},
+		{
+			name: "retrieve any value",
+			mq:   `$.step9.result`,
+			cp:   "step10",
+		},
+		{
+			name: "retrieve key from any value",
+			mq:   `$.step9.result.subkey.subkey`,
+			cp:   "step10",
+		},
+		{
+			name: "retrieve any value in slice",
+			mq:   `$.step10.result.sl.First().value`,
+			cp:   "step11",
+		},
+		{
+			name: "retrieve key from any value in slice",
+			mq:   `$.step10.result.sl.First().value.subkey.subkey`,
+			cp:   "step11",
+		},
+		{
+			name: "retrieve bytes from result",
+			mq:   `$.step11.result`,
+			cp:   "step12",
+		},
 	}
 )
 
@@ -548,6 +573,30 @@ const (
 		"bd33058f-d866-4800-aa97-098c0137e8c0": {
 			result: string
 			_dependencies: ["52a015ef-6e51-407d-82e2-72fb218ae65b"]
+		}
+
+		"step9": {
+			result: _
+			_dependencies: ["step7"]
+		}
+		
+		"step10": {
+			_dependencies: ["step9"]
+			result: {
+				sl: [{
+					value: _
+				}]
+			}
+		}
+
+		"step11": {
+			_dependencies: ["step10"]
+			result: bytes
+		}
+
+		"step12": {
+			_dependencies: ["step11"]
+			result: _
 		}
 
 		variables: {
