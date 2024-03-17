@@ -642,12 +642,18 @@ func Test_BytesKind(t *testing.T) {
 	if tc.HasErrors() {
 		t.Fatalf("Unexpected tc error: %s", tc.GetErrors())
 	}
+
+	if returnType := *tc.ReturnType().CueExpr; returnType != "bytes" {
+		t.Fatalf("Unexpected return type: %s", returnType)
+	}
 }
 
 func Test_AnyKind(t *testing.T) {
 	cueString := `
 	"input": {
-		filecontents: _
+		filecontents: [{
+			something: _
+		}]
 		_dependencies: []
 	}
 
@@ -657,7 +663,7 @@ func Test_AnyKind(t *testing.T) {
 	}
 	`
 
-	expression := "$.input.filecontents"
+	expression := "$.input.filecontents.First().something.else"
 
 	tc, err := CueValidate(expression, cueString, "step1")
 
