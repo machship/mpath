@@ -216,6 +216,15 @@ func (x *opFunction) Validate(rootValue cue.Value, cuePath CuePath, previousType
 	return
 }
 
+func ft_ShouldContinueForPath(ft FT_FunctionType) bool {
+	switch ft {
+	case FT_First, FT_Last, FT_Index:
+		return true
+	}
+
+	return false
+}
+
 func (x *opFunction) Type() OT_OpType { return OT_Function }
 
 func (x *opFunction) Sprint(depth int) (out string) {
