@@ -77,9 +77,12 @@ func CueValidate(query, cueFile, currentPath string) (tc CanBeAPart, err error) 
 		cueValueCache[cueFile] = rootValue
 	}
 
-	blockedRootFields, err := getBlockedRootFields(rootValue, currentPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get blocked fields for rootValue: %w", err)
+	var blockedRootFields []string
+	if currentPath != "" {
+		blockedRootFields, err = getBlockedRootFields(rootValue, currentPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get blocked fields for rootValue: %w", err)
+		}
 	}
 
 	// If we get to this point, the mpath query and cueFile are both valid,

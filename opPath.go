@@ -150,7 +150,7 @@ func (x *opPath) Validate(rootValue cue.Value, cuePath CuePath, blockedRootField
 				rdm[t.IdentName] = struct{}{}
 				foundFirstIdent = true
 				if strInStrSlice(t.IdentName, blockedRootFields) {
-					errMessage := fmt.Sprintf("field %s is not available", t.IdentName)
+					errMessage := "field " + t.IdentName + " is not available"
 					path.Parts = append(path.Parts, &PathIdent{
 						pathIdentFields: pathIdentFields{
 							String: t.UserString(),

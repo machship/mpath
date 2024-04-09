@@ -606,6 +606,42 @@ const (
 	`
 )
 
+func Test_CueStringNoCurrentPath(t *testing.T) {
+	type tableTest struct {
+		name         string
+		mq           string
+		expectErrors bool
+		cp           string
+	}
+
+	test := tableTest{
+		name:         "get root objects",
+		mq:           `$.c`,
+		cp:           ``,
+		expectErrors: false,
+	}
+
+	cueString := `
+	"a": string
+	"b": int
+	"c": {
+		"x": string
+	}
+	`
+
+	tc, err := CueValidate(test.mq, cueString, test.cp)
+	if err != nil && !test.expectErrors {
+		t.Errorf("test '%s'; got unexpected returned error: %v", test.name, err)
+	}
+	if tc != nil && tc.HasErrors() != test.expectErrors {
+		t.Errorf("test '%s'; expected %t got %t for HasErrors(); err was '%v'", test.name, test.expectErrors, tc.HasErrors(), tc.GetErrors())
+	}
+
+	tcb, _ := json.MarshalIndent(tc, "", "  ")
+	clipboard.WriteAll(string(tcb))
+	t.Log(string(tcb))
+}
+
 func Test_CueStringManual(t *testing.T) {
 	type tableTest struct {
 		name         string

@@ -25,7 +25,7 @@ func (x *opLogicalOperation) Validate(rootValue cue.Value, cuePath CuePath, bloc
 	}
 
 	if x.IsInvalid {
-		errMessage := fmt.Sprintf("invalid operation type '%s'", x.LogicalOperationType)
+		errMessage := "invalid operation type '" + string(x.LogicalOperationType) + "'"
 		logicalOperation.Error = &errMessage
 	}
 

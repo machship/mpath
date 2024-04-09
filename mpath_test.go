@@ -19,6 +19,10 @@ func Benchmark_ParseAndDo(b *testing.B) {
 
 	var op Operation
 
+	sort.Slice(testQueries, func(i, j int) bool {
+		return len(testQueries[i].Name) > len(testQueries[j].Name)
+	})
+
 	b.Log("Parse:")
 
 	for _, test := range testQueries {
