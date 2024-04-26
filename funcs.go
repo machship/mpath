@@ -508,6 +508,12 @@ func func_decimal(rtParams FunctionParameterTypes, val any, decSlcFunc func(deci
 	return false, fmt.Errorf("not a number")
 }
 
+const FT_AsArray FT_FunctionType = "AsArray"
+
+func func_AsArray(_ FunctionParameterTypes, val any) (any, error) {
+	return []any{val}, nil
+}
+
 const FT_Add FT_FunctionType = "Add"
 
 func func_Add(rtParams FunctionParameterTypes, val any) (any, error) {
@@ -1415,6 +1421,18 @@ var (
 				}
 
 				return fmt.Sprintf("the minimum of all elements, including %s", tf.FunctionParameters[0].String)
+			},
+		},
+		FT_AsArray: {
+			Name:               FT_AsArray,
+			Description:        "Returns an array of length 1 that contains the value",
+			Params:             nil,
+			Returns:            inputOrOutput(PT_Any, IOOT_Array),
+			ValidOn:            inputOrOutput(PT_Any, IOOT_Array),
+			ReturnsKnownValues: true,
+			fn:                 func_AsArray,
+			explanationFunc: func(tf Function) string {
+				return "creates an array that contains the value"
 			},
 		},
 		FT_Add: {
