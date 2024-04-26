@@ -325,6 +325,14 @@ func Test_ParseAndDo(t *testing.T) {
 						t.Errorf("'%s' data did not match expected value '%t': got %t", test.Name, test.Expect_bool, d)
 					}
 				}
+			case RT_array:
+				if d, ok := dataToUse.([]any); !ok {
+					t.Errorf("'%s' data was not of expected type '%s'; was %T", test.Name, test.ExpectedResultType, dataToUse)
+				} else {
+					if !reflect.DeepEqual(d, test.Expect_array) {
+						t.Errorf("'%s' data did not match expected value '%t': got %t", test.Name, test.Expect_array, d)
+					}
+				}
 			}
 		}
 	}
@@ -367,6 +375,7 @@ var (
 		Expect_string          string
 		Expect_decimal         decimal.Decimal
 		Expect_bool            bool
+		Expect_array           []any
 	}{
 		// { //todo: add expected error states into the tests (this should error)
 		// 	Name:               "Test misspelt operation type",
@@ -1142,13 +1151,23 @@ var (
 		},
 		{
 			Name:               "multiple addresses",
-			Query:              "$.secrets.123.Equals($.secrets.456)",
+			Query:              "$.struct.field1.Equal($.struct.field2)",
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
-			ExpectedRootFields: []string{"secrets"},
+			ExpectedRootFields: []string{"struct"},
 			ExpectedAddressedPaths: [][]string{
-				[]string{"secrets", "456"},
-				[]string{"secrets", "123"},
+				[]string{"struct", "field2"},
+				[]string{"struct", "field1"},
+			},
+		},
+		{
+			Name:               "func AsArray",
+			Query:              "$.string.AsArray()",
+			Expect_array:       []any{"abcDEF"},
+			ExpectedResultType: RT_array,
+			ExpectedRootFields: []string{"string"},
+			ExpectedAddressedPaths: [][]string{
+				[]string{"string"},
 			},
 		},
 	}
@@ -1160,6 +1179,7 @@ const (
 	RT_string  ResultType = "string"
 	RT_decimal ResultType = "decimal"
 	RT_bool    ResultType = "bool"
+	RT_array   ResultType = "array"
 )
 
 type CustomStringTypeForTest string
@@ -1205,6 +1225,11 @@ var jsn = `
 	  "bbb",
 	  "ccc"
 	],
+	"struct": {
+		"field1": "abcDEF",
+		"field2": "abcDEF",
+		"field3": "GJIjkl"
+	},
 	"list": [
 	  {
 		"id": 0,
@@ -1262,7 +1287,12 @@ type TestDataStruct struct {
 	Index          int               `json:"index"`
 	IsActive       bool              `json:"isActive"`
 	Tags           []string          `json:"tags"`
-	List           []struct {
+	Struct         struct {
+		Field1 string `field1`
+		Field2 string `field2`
+		Field3 string `field3`
+	} `json:"struct"`
+	List []struct {
 		ID           int    `json:"id"`
 		Name         string `json:"name"`
 		SomeSettings []struct {
