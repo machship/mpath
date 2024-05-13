@@ -1288,9 +1288,9 @@ type TestDataStruct struct {
 	IsActive       bool              `json:"isActive"`
 	Tags           []string          `json:"tags"`
 	Struct         struct {
-		Field1 string `field1`
-		Field2 string `field2`
-		Field3 string `field3`
+		Field1 string `json:"field1"`
+		Field2 string `json:"field2"`
+		Field3 string `json:"field3"`
 	} `json:"struct"`
 	List []struct {
 		ID           int    `json:"id"`

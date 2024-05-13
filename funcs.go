@@ -764,7 +764,7 @@ func func_AsJSON(rtParams FunctionParameterTypes, val any) (any, error) {
 	return string(outBytes), nil
 }
 
-func stringToObjectFunc(rtParams FunctionParameterTypes, val any, fn func(s string) (map[string]any, error), name FT_FunctionType) (map[string]any, error) {
+func stringToObjectFunc(rtParams FunctionParameterTypes, val any, fn func(s string) (map[string]any, error), _ FT_FunctionType) (map[string]any, error) {
 	if got, ok := rtParams.checkLengthOfParams(0); !ok {
 		return nil, errNumParams(FT_ParseJSON, 0, got)
 	}

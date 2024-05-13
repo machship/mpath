@@ -314,7 +314,7 @@ func Test_CueStringTableTests(t *testing.T) {
 	var onlyRunTest string
 	var copyAndLog bool
 
-	// onlyRunTest = "test get error for incomplete"
+	// onlyRunTest = "check that optional fields return"
 	// copyAndLog = true
 
 	for _, test := range cueTableTests {
@@ -442,6 +442,11 @@ var (
 			mq:   `$.step11.result`,
 			cp:   "step12",
 		},
+		{
+			name: "check that optional fields return",
+			mq:   `$.step2.result.First()`,
+			cp:   "stepOptional",
+		},
 	}
 )
 
@@ -460,8 +465,8 @@ const (
 			num: int
 			_dependencies: ["step1"] 
 			result: [...{
-				name: string
-				age: int
+				name?: string
+				age!: int
 			}]
 		}  
 

@@ -148,54 +148,8 @@ func getSelectorForField(inputValue cue.Value, name string) (selector cue.Select
 	return cue.Str(name)
 }
 
-// func findValueAtPath(inputValue cue.Value, cuePath CuePath) (outputValue cue.Value, err error) {
-// 	inputValueKind := inputValue.IncompleteKind()
-// 	fmt.Println("kind:", inputValueKind)
-
-// 	if inputValueKind == cue.BottomKind || inputValueKind == cue.TopKind {
-// 		return inputValue, nil
-// 	}
-
-// 	if len(cuePath) == 0 {
-// 		return inputValue, nil
-// 	}
-
-// 	currentKey := string(cuePath[0])
-
-// 	inputValueIterator, err := inputValue.Fields(cue.All())
-
-// 	if err != nil {
-// 		return outputValue, fmt.Errorf("failed to get input value iterator: %w", err)
-// 	}
-
-// 	hasFoundKey := false
-// 	for inputValueIterator.Next() {
-// 		selector := inputValueIterator.Selector()
-
-// 		if selector.String() == currentKey {
-// 			outputValue = inputValueIterator.Value()
-// 			hasFoundKey = true
-// 			break
-// 		}
-// 	}
-
-// 	if !hasFoundKey {
-// 		return outputValue, fmt.Errorf("failed to find key %q", currentKey)
-// 	}
-
-// 	if len(cuePath) > 1 {
-// 		if _, ok := outputValue.Fields(); ok != nil {
-// 			return outputValue, fmt.Errorf("field %q is not an object", currentKey)
-// 		}
-
-// 		return findValueAtPath(outputValue, cuePath[1:])
-// 	}
-
-// 	return outputValue, nil
-// }
-
 func findValueAtPath(inputValue cue.Value, cuePath CuePath) (outputValue cue.Value, err error) {
-	errFunc := func(s string, v cue.Value, e error) (cue.Value, error) {
+	errFunc := func(s string, v cue.Value, _ error) (cue.Value, error) {
 		return v, fmt.Errorf("couldn't access field '%s'", s)
 		// return v, fmt.Errorf("couldn't access field '%s': %w; value is %#v", s, err, v)
 	}
@@ -332,6 +286,14 @@ func getAvailableFieldsForValue(v cue.Value, blockedRootFields []string) (fields
 		if strings.HasPrefix(fldName, `"`) && strings.HasSuffix(fldName, `"`) {
 			fldName = strings.TrimPrefix(fldName, `"`)
 			fldName = strings.TrimSuffix(fldName, `"`)
+		}
+
+		if strings.HasSuffix(fldName, "?") {
+			fldName = strings.TrimSuffix(fldName, "?")
+		}
+
+		if strings.HasSuffix(fldName, "!") {
+			fldName = strings.TrimSuffix(fldName, "!")
 		}
 
 		fields = append(fields, fldName)

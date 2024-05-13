@@ -19,10 +19,7 @@ require github.com/stretchr/testify v1.8.2 // indirect
 
 require (
 	github.com/bitly/go-simplejson v0.5.1 // indirect
-	github.com/cockroachdb/apd/v2 v2.0.2 // indirect
 	github.com/cockroachdb/apd/v3 v3.2.1 // indirect
-	github.com/lib/pq v1.10.7 // indirect
-	github.com/mpvl/unique v0.0.0-20150818121801-cbe035fff7de // indirect
 	golang.org/x/net v0.22.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
