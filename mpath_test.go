@@ -1401,3 +1401,33 @@ func Test_sliceContainsSubsetSlice(t *testing.T) {
 		})
 	}
 }
+
+func Test_EscapeCharacters(t *testing.T) {
+	query := "$.result.Equal(\"Line1,\\nLine2,\\nLin\\\"e3\\n\")"
+	data := map[string]any{
+		"result": "Line1,\nLine2,\nLin\"e3\n",
+	}
+
+	op, err := ParseString(query)
+
+	if err != nil {
+		t.Fatalf("failed to parse string: %s", err)
+	}
+
+	result, err := op.Do(data, data)
+
+	if err != nil {
+		t.Fatalf("failed to do: %s", err)
+	}
+
+	t.Log("result:", result)
+
+	resBool, ok := result.(bool)
+	if !ok {
+		t.Fatalf("result is not a bool")
+	}
+
+	if !resBool {
+		t.Fatalf("result is not true")
+	}
+}

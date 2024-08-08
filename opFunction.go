@@ -366,6 +366,7 @@ func (x *opFunction) Parse(s *scanner, r rune) (nextR rune, err error) {
 			if len(tt) >= 2 && strings.HasPrefix(tt, `"`) && strings.HasSuffix(tt, `"`) {
 				tt = tt[1 : len(tt)-1]
 			}
+			tt = unescape(tt)
 			x.Params = append(x.Params, &FP_String{tt})
 		case sc.Float, sc.Int:
 			// tt := s.TokenText()
@@ -403,6 +404,24 @@ func (x *opFunction) Parse(s *scanner, r rune) (nextR rune, err error) {
 	}
 
 	return
+}
+func unescape(s string) string {
+	replacements := map[string]string{
+		"\\\"": "\"",
+		"\\a":  "\a",
+		"\\b":  "\b",
+		"\\f":  "\f",
+		"\\n":  "\n",
+		"\\r":  "\r",
+		"\\t":  "\t",
+		"\\v":  "\v",
+	}
+
+	for old, new := range replacements {
+		s = strings.Replace(s, old, new, -1)
+	}
+
+	return s
 }
 
 func isRuneInString(c rune, s string) bool {
