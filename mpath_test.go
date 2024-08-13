@@ -1431,3 +1431,21 @@ func Test_EscapeCharacters(t *testing.T) {
 		t.Fatalf("result is not true")
 	}
 }
+
+func Test_UnescapeCharacters(t *testing.T) {
+	query := "$.result.Equal(\"Line1,\\nLine2,\\nLin\\\"e3\\n\")"
+
+	op, err := ParseString(query)
+
+	if err != nil {
+		t.Fatalf("failed to parse string: %s", err)
+	}
+
+	str := op.Sprint(0)
+
+	t.Log("str \\n query:\n", str, "\n", query)
+
+	if query != str {
+		t.Fatalf("query is not the same after sprint")
+	}
+}

@@ -405,6 +405,7 @@ func (x *opFunction) Parse(s *scanner, r rune) (nextR rune, err error) {
 
 	return
 }
+
 func unescape(s string) string {
 	replacements := map[string]string{
 		"\\\"": "\"",
@@ -415,6 +416,25 @@ func unescape(s string) string {
 		"\\r":  "\r",
 		"\\t":  "\t",
 		"\\v":  "\v",
+	}
+
+	for old, new := range replacements {
+		s = strings.Replace(s, old, new, -1)
+	}
+
+	return s
+}
+
+func escape(s string) string {
+	replacements := map[string]string{
+		"\"": "\\\"",
+		"\a": "\\a",
+		"\b": "\\b",
+		"\f": "\\f",
+		"\n": "\\n",
+		"\r": "\\r",
+		"\t": "\\t",
+		"\v": "\\v",
 	}
 
 	for old, new := range replacements {
@@ -557,7 +577,7 @@ type FP_String struct {
 }
 
 func (p FP_String) String() string {
-	return fmt.Sprintf(`"%s"`, p.Value)
+	return fmt.Sprintf(`"%s"`, escape(p.Value))
 }
 
 func (x *FP_String) IsFuncParam() (returns InputOrOutput) {
