@@ -280,9 +280,10 @@ func (x *opPath) Do(currentData, originalData any) (dataToUse any, err error) {
 		if err != nil {
 			return nil, fmt.Errorf("path op failed: %w", err)
 		}
-		if dataToUse == nil {
-			return
-		}
+		// The following is commented out to allow for null propagation
+		// if dataToUse == nil {
+		// 	return
+		// }
 	}
 
 	return

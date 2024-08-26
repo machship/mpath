@@ -8,6 +8,7 @@ require (
 	cuelang.org/go v0.8.1
 	github.com/atotto/clipboard v0.1.4
 	github.com/basgys/goxml2json v1.1.0
+	github.com/google/go-cmp v0.6.0
 	github.com/google/uuid v1.2.0
 	github.com/pelletier/go-toml/v2 v2.0.5
 	github.com/pkg/errors v0.9.1

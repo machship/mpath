@@ -10,6 +10,8 @@ import (
 	"unicode"
 
 	xj "github.com/basgys/goxml2json"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/shopspring/decimal"
 	"gopkg.in/yaml.v2"
@@ -124,21 +126,17 @@ func func_Equal(rtParams FunctionParameterTypes, val any) (any, error) {
 const FT_NotEqual FT_FunctionType = "NotEqual"
 
 func func_NotEqual(rtParams FunctionParameterTypes, val any) (any, error) {
-	param, err := paramsGetFirstOfAny(rtParams)
+	res, err := func_Equal(rtParams, val)
 	if err != nil {
-		return errBool(FT_NotEqual, err)
+		return false, err
 	}
 
-	switch vt := val.(type) {
-	case decimal.Decimal:
-		switch pt := param.(type) {
-		case decimal.Decimal:
-			return !vt.Equal(pt), nil
-		}
-		return true, nil
+	resBool, ok := res.(bool)
+	if !ok {
+		return false, fmt.Errorf("result was not a boolean")
 	}
 
-	return val != param, nil
+	return !resBool, nil
 }
 
 func decimalBoolFunc(rtParams FunctionParameterTypes, val any, fn func(d1, d2 decimal.Decimal) bool, fnName FT_FunctionType) (bool, error) {
@@ -924,6 +922,142 @@ func func_RemoveKeysBySuffix(rtParams FunctionParameterTypes, val any) (any, err
 	return nil, fmt.Errorf("value is not a map")
 }
 
+const FT_Not FT_FunctionType = "Not"
+
+func func_Not(rtParams FunctionParameterTypes, val any) (any, error) {
+	if vb, ok := val.(bool); ok {
+		return !vb, nil
+	}
+
+	return false, fmt.Errorf("value is not a boolean")
+}
+
+const FT_IsNull FT_FunctionType = "IsNull"
+
+func func_IsNull(rtParams FunctionParameterTypes, val any) (any, error) {
+	if got, ok := rtParams.checkLengthOfParams(0); !ok {
+		return false, errNumParams(FT_IsNull, 0, got)
+	}
+
+	value := reflect.ValueOf(val)
+
+	switch vk := value.Kind(); vk {
+	case reflect.Ptr,
+		reflect.Interface,
+		reflect.Slice,
+		reflect.Map,
+		reflect.Chan,
+		reflect.Func:
+		isNil := value.IsNil()
+		return isNil, nil
+	case reflect.Invalid:
+		return true, nil
+	}
+
+	// any value that cannot be null is by definition, not null
+	return false, nil
+}
+
+const FT_IsNotNull FT_FunctionType = "IsNotNull"
+
+func func_IsNotNull(rtParams FunctionParameterTypes, val any) (any, error) {
+	res, err := func_IsNull(rtParams, val)
+	if err != nil {
+		return false, err
+	}
+
+	resBool, ok := res.(bool)
+	if !ok {
+		return false, fmt.Errorf("result was not a boolean")
+	}
+
+	return !resBool, nil
+}
+
+const FT_IsEmpty FT_FunctionType = "IsEmpty"
+
+func func_IsEmpty(rtParams FunctionParameterTypes, val any) (any, error) {
+	if got, ok := rtParams.checkLengthOfParams(0); !ok {
+		return false, errNumParams(FT_IsEmpty, 0, got)
+	}
+
+	value := reflect.ValueOf(val)
+
+	// Get the zero value for the type of val
+	zeroValue := reflect.Zero(value.Type())
+	zeroValueAsInterface := zeroValue.Interface()
+
+	// Compare the value with the zero value
+	isEmpty := cmp.Equal(val, zeroValueAsInterface, cmpopts.EquateEmpty())
+
+	return isEmpty, nil
+}
+
+const FT_IsNotEmpty FT_FunctionType = "IsNotEmpty"
+
+func func_IsNotEmpty(rtParams FunctionParameterTypes, val any) (any, error) {
+	res, err := func_IsEmpty(rtParams, val)
+	if err != nil {
+		return false, err
+	}
+
+	resBool, ok := res.(bool)
+	if !ok {
+		return false, fmt.Errorf("result was not a boolean")
+	}
+
+	return !resBool, nil
+}
+
+const FT_IsNullOrEmpty FT_FunctionType = "IsNullOrEmpty"
+
+func func_IsNullOrEmpty(rtParams FunctionParameterTypes, val any) (any, error) {
+	if got, ok := rtParams.checkLengthOfParams(0); !ok {
+		return false, errNumParams(FT_IsNull, 0, got)
+	}
+
+	res, err := func_IsNull(rtParams, val)
+	if err != nil {
+		return false, err
+	}
+
+	if resBool, ok := res.(bool); ok && resBool {
+		return true, nil
+	}
+
+	// Check if the value is the zero value of its type
+	res, err = func_IsEmpty(rtParams, val)
+	if err != nil {
+		return false, err
+	}
+
+	if resBool, ok := res.(bool); ok && resBool {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+const FT_IsNotNullOrEmpty FT_FunctionType = "IsNotNullOrEmpty"
+
+func func_IsNotNullOrEmpty(rtParams FunctionParameterTypes, val any) (any, error) {
+	if got, ok := rtParams.checkLengthOfParams(0); !ok {
+		return false, errNumParams(FT_IsNull, 0, got)
+	}
+
+	res, err := func_IsNullOrEmpty(rtParams, val)
+	if err != nil {
+		return false, err
+	}
+
+	resBool, ok := res.(bool)
+	if !ok {
+		return false, fmt.Errorf("result was not a boolean")
+	}
+
+	return !resBool, nil
+}
+
 type FT_FunctionType string
 
 func singleParam(name string, typ PT_ParameterType, ioType IOOT_InputOrOutputType) []ParameterDescriptor {
@@ -1012,9 +1146,11 @@ type FunctionDescriptor struct {
 	Returns            InputOrOutput         `json:"returns"`
 	ReturnsKnownValues bool                  `json:"returnsKnownValues"`
 
-	fn              func(rtParams FunctionParameterTypes, val any) (any, error)
+	fn              FuncFunction
 	explanationFunc func(tf Function) string
 }
+
+type FuncFunction func(rtParams FunctionParameterTypes, val any) (any, error)
 
 func (fd FunctionDescriptor) GetParamAtPosition(position int) (pd ParameterDescriptor, err error) {
 	if (len(fd.Params) - 1) < position {
@@ -1099,6 +1235,112 @@ type ParameterDescriptor struct {
 
 var (
 	funcMap = map[FT_FunctionType]FunctionDescriptor{
+		FT_Not: {
+			Name:        FT_Not,
+			Description: "Inverts a boolean result",
+			Params:      nil,
+			Returns:     inputOrOutput(PT_Boolean, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_Boolean, IOOT_Single),
+			fn:          func_Not,
+			explanationFunc: func(tf Function) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("is not")
+			},
+		},
+		FT_IsNull: {
+			Name:        FT_IsNull,
+			Description: "Checks whether the value is null",
+			Params:      nil,
+			Returns:     inputOrOutput(PT_Boolean, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_Any, IOOT_Variadic),
+			fn:          func_IsNull,
+			explanationFunc: func(tf Function) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("is equal to null")
+			},
+		},
+		FT_IsNotNull: {
+			Name:        FT_IsNotNull,
+			Description: "Checks whether the value is not null",
+			Params:      nil,
+			Returns:     inputOrOutput(PT_Boolean, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_Any, IOOT_Variadic),
+			fn:          func_IsNotNull,
+			explanationFunc: func(tf Function) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("is not equal to null")
+			},
+		},
+		FT_IsNullOrEmpty: {
+			Name:        FT_IsNullOrEmpty,
+			Description: "Checks whether the value is null or empty",
+			Params:      nil,
+			Returns:     inputOrOutput(PT_Boolean, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_Any, IOOT_Variadic),
+			fn:          func_IsNullOrEmpty,
+			explanationFunc: func(tf Function) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("is equal to null or is empty")
+			},
+		},
+		FT_IsNotNullOrEmpty: {
+			Name:        FT_IsNotNullOrEmpty,
+			Description: "Checks whether the value is not null or is not empty",
+			Params:      nil,
+			Returns:     inputOrOutput(PT_Boolean, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_Any, IOOT_Variadic),
+			fn:          func_IsNotNullOrEmpty,
+			explanationFunc: func(tf Function) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("is not equal to null or is not empty")
+			},
+		},
+		FT_IsEmpty: {
+			Name:        FT_IsEmpty,
+			Description: "Checks whether the value is empty",
+			Params:      nil,
+			Returns:     inputOrOutput(PT_Boolean, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_Any, IOOT_Variadic),
+			fn:          func_IsEmpty,
+			explanationFunc: func(tf Function) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("is empty")
+			},
+		},
+		FT_IsNotEmpty: {
+			Name:        FT_IsNotEmpty,
+			Description: "Checks whether the value is not empty",
+			Params:      nil,
+			Returns:     inputOrOutput(PT_Boolean, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_Any, IOOT_Variadic),
+			fn:          func_IsNotEmpty,
+			explanationFunc: func(tf Function) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("is not empty")
+			},
+		},
+
 		FT_Equal: {
 			Name:        FT_Equal,
 			Description: "Checks whether the value equals the parameter",

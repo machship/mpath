@@ -272,9 +272,14 @@ func Test_ParseAndDo(t *testing.T) {
 	//`{$.List.Last().SomeSettings[@.Key.Equal("DEF")].Any().Equal(true)}`
 	// onlyRunName = "complex 1"
 
-	onlyRunName = "Logical operation as function parameter"
+	// onlyRunName = "func IsNullOrEmpty (on array = true)"
 
-	for _, data := range datas {
+	for dataIteration, data := range datas {
+		iterationName := "map"
+		if dataIteration == 1 {
+			iterationName = "struct"
+		}
+
 		for _, test := range testQueries {
 			if onlyRunName != "" {
 				if test.Name != onlyRunName {
@@ -303,10 +308,10 @@ func Test_ParseAndDo(t *testing.T) {
 			switch test.ExpectedResultType {
 			case RT_string:
 				if d, ok := dataToUse.(string); !ok {
-					t.Errorf("'%s' data was not of expected type '%s'; was %T", test.Name, test.ExpectedResultType, dataToUse)
+					t.Errorf("'%s' (%s) data was not of expected type '%s'; was %T", test.Name, iterationName, test.ExpectedResultType, dataToUse)
 				} else {
 					if d != test.Expect_string {
-						t.Errorf("'%s' data did not match expected value '%s': got %s", test.Name, test.Expect_string, d)
+						t.Errorf("'%s' (%s) data did not match expected value '%s': got %s", test.Name, iterationName, test.Expect_string, d)
 					}
 				}
 			case RT_decimal:
@@ -314,23 +319,23 @@ func Test_ParseAndDo(t *testing.T) {
 					t.Errorf("'%s' data was not of expected type '%s'; was %T", test.Name, test.ExpectedResultType, dataToUse)
 				} else {
 					if !d.Equal(test.Expect_decimal) {
-						t.Errorf("'%s' data did not match expected value '%s': got %s", test.Name, test.Expect_decimal, d)
+						t.Errorf("'%s' (%s) data did not match expected value '%s': got %s", test.Name, iterationName, test.Expect_decimal, d)
 					}
 				}
 			case RT_bool:
 				if d, ok := dataToUse.(bool); !ok {
-					t.Errorf("'%s' data was not of expected type '%s'; was %T", test.Name, test.ExpectedResultType, dataToUse)
+					t.Errorf("'%s' (%s) data was not of expected type '%s'; was %T", test.Name, iterationName, test.ExpectedResultType, dataToUse)
 				} else {
 					if d != test.Expect_bool {
-						t.Errorf("'%s' data did not match expected value '%t': got %t", test.Name, test.Expect_bool, d)
+						t.Errorf("'%s' (%s) data did not match expected value '%t': got %t", test.Name, iterationName, test.Expect_bool, d)
 					}
 				}
 			case RT_array:
 				if d, ok := dataToUse.([]any); !ok {
-					t.Errorf("'%s' data was not of expected type '%s'; was %T", test.Name, test.ExpectedResultType, dataToUse)
+					t.Errorf("'%s' (%s) data was not of expected type '%s'; was %T", test.Name, iterationName, test.ExpectedResultType, dataToUse)
 				} else {
 					if !reflect.DeepEqual(d, test.Expect_array) {
-						t.Errorf("'%s' data did not match expected value '%t': got %t", test.Name, test.Expect_array, d)
+						t.Errorf("'%s' (%s) data did not match expected value '%t': got %t", test.Name, iterationName, test.Expect_array, d)
 					}
 				}
 			}
@@ -725,7 +730,7 @@ var (
 		},
 		{
 			Name:               "complex 1",
-			Query:              `{$.List.Last().SomeSettings[@.Key.Equal("DEF")].Any().Equal(true)}`,
+			Query:              `{$.List.Index(1).SomeSettings[@.Key.Equal("DEFE")].Any().Equal(true)}`,
 			Expect_bool:        false,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"List"},
@@ -1170,6 +1175,142 @@ var (
 				[]string{"string"},
 			},
 		},
+		{
+			Name:               "func Not",
+			Query:              "$.bool.Not()",
+			Expect_bool:        false,
+			ExpectedResultType: RT_bool,
+			ExpectedRootFields: []string{"bool"},
+			ExpectedAddressedPaths: [][]string{
+				[]string{"bool"},
+			},
+		}, {
+			Name:               "func IsNull",
+			Query:              "$.isNull.IsNull()",
+			Expect_bool:        true,
+			ExpectedResultType: RT_bool,
+			ExpectedRootFields: []string{"isNull"},
+			ExpectedAddressedPaths: [][]string{
+				[]string{"isNull"},
+			},
+		}, {
+			Name:               "func IsNotNull",
+			Query:              "$.list.IsNull()",
+			Expect_bool:        false,
+			ExpectedResultType: RT_bool,
+			ExpectedRootFields: []string{"list"},
+			ExpectedAddressedPaths: [][]string{
+				[]string{"list"},
+			},
+		}, {
+			Name:               "func IsNullOrEmpty (on null)",
+			Query:              "$.isNull.IsNullOrEmpty()",
+			Expect_bool:        true,
+			ExpectedResultType: RT_bool,
+			ExpectedRootFields: []string{"isNull"},
+			ExpectedAddressedPaths: [][]string{
+				[]string{"isNull"},
+			},
+		}, {
+			Name:               "func IsNullOrEmpty (on array = true)",
+			Query:              "$.emptyArray.IsNullOrEmpty()",
+			Expect_bool:        true,
+			ExpectedResultType: RT_bool,
+			ExpectedRootFields: []string{"emptyArray"},
+			ExpectedAddressedPaths: [][]string{
+				[]string{"emptyArray"},
+			},
+		}, {
+			Name:               "func IsNullOrEmpty (on string = true)",
+			Query:              "$.emptyString.IsNullOrEmpty()",
+			Expect_bool:        true,
+			ExpectedResultType: RT_bool,
+			ExpectedRootFields: []string{"emptyString"},
+			ExpectedAddressedPaths: [][]string{
+				[]string{"emptyString"},
+			},
+		}, {
+			Name:               "func IsNullOrEmpty (on object = true)",
+			Query:              "$.emptyObject.IsNullOrEmpty()",
+			Expect_bool:        true,
+			ExpectedResultType: RT_bool,
+			ExpectedRootFields: []string{"emptyObject"},
+			ExpectedAddressedPaths: [][]string{
+				[]string{"emptyObject"},
+			},
+		}, {
+			Name:               "func IsNullOrEmpty (on number = true)",
+			Query:              "$.emptyNumber.IsNullOrEmpty()",
+			Expect_bool:        true,
+			ExpectedResultType: RT_bool,
+			ExpectedRootFields: []string{"emptyNumber"},
+			ExpectedAddressedPaths: [][]string{
+				[]string{"emptyNumber"},
+			},
+		}, {
+			Name:               "func IsNullOrEmpty (on array = false)",
+			Query:              "$.numbers.IsNullOrEmpty()",
+			Expect_bool:        false,
+			ExpectedResultType: RT_bool,
+			ExpectedRootFields: []string{"numbers"},
+			ExpectedAddressedPaths: [][]string{
+				[]string{"numbers"},
+			},
+		}, {
+			Name:               "func IsNullOrEmpty (on string = false)",
+			Query:              "$.string.IsNullOrEmpty()",
+			Expect_bool:        false,
+			ExpectedResultType: RT_bool,
+			ExpectedRootFields: []string{"string"},
+			ExpectedAddressedPaths: [][]string{
+				[]string{"string"},
+			},
+		}, {
+			Name:               "func IsNullOrEmpty (on object = false)",
+			Query:              "$.result.IsNullOrEmpty()",
+			Expect_bool:        false,
+			ExpectedResultType: RT_bool,
+			ExpectedRootFields: []string{"result"},
+			ExpectedAddressedPaths: [][]string{
+				[]string{"result"},
+			},
+		}, {
+			Name:               "func IsNullOrEmpty (on number = false)",
+			Query:              "$.number.IsNullOrEmpty()",
+			Expect_bool:        false,
+			ExpectedResultType: RT_bool,
+			ExpectedRootFields: []string{"number"},
+			ExpectedAddressedPaths: [][]string{
+				[]string{"number"},
+			},
+		}, {
+			Name:               "func IsNotEmpty (on numbers = true)",
+			Query:              "$.number.IsNotEmpty()",
+			Expect_bool:        true,
+			ExpectedResultType: RT_bool,
+			ExpectedRootFields: []string{"number"},
+			ExpectedAddressedPaths: [][]string{
+				[]string{"number"},
+			},
+		}, {
+			Name:               "func IsNotNullOrEmpty (on isNull = false)",
+			Query:              "$.isNull.IsNotNullOrEmpty()",
+			Expect_bool:        false,
+			ExpectedResultType: RT_bool,
+			ExpectedRootFields: []string{"isNull"},
+			ExpectedAddressedPaths: [][]string{
+				[]string{"isNull"},
+			},
+		}, {
+			Name:               "null propagation",
+			Query:              "$.isNull.field.does.not.exist.IsNotNull()",
+			Expect_bool:        false,
+			ExpectedResultType: RT_bool,
+			ExpectedRootFields: []string{"isNull"},
+			ExpectedAddressedPaths: [][]string{
+				[]string{"isNull", "field", "does", "not", "exist"},
+			},
+		},
 	}
 )
 
@@ -1193,6 +1334,11 @@ var jsn = `
 	  "yaml": "---\nconsignmentID: 112359\nconsignmentName: Test consignment",
 	  "toml": "consignmentID = 112_360\nconsignmentName = \"Test consignment\"\n"
 	},
+	"isNull": null,
+	"emptyArray": [],	
+	"emptyString": "",
+	"emptyObject": {},
+	"emptyNumber": 0,
 	"number": 1234,
 	"string": "abcDEF",
 	"regexstring": "MSRWC1234567001",
@@ -1274,6 +1420,11 @@ type TestDataStruct struct {
 		YAML string `json:"yaml"`
 		TOML string `json:"toml"`
 	} `json:"result"`
+	IsNull         *struct{}         `json:"isNull"`
+	EmptyArray     []struct{}        `json:"emptyArray"`
+	EmptyString    string            `json:"emptyString"`
+	EmptyObject    struct{}          `json:"emptyObject"`
+	EmptyNumber    int               `json:"emptyNumber"`
 	Number         int               `json:"number"`
 	String         string            `json:"string"`
 	RegexString    string            `json:"regexstring"`
