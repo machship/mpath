@@ -288,6 +288,15 @@ func (x *opPath) Do(currentData, originalData any) (dataToUse any, err error) {
 
 		dataToUse, err = op.Do(dataToUse, originalData)
 		if err != nil {
+			if errors.Is(err, ErrKeyNotFound) {
+				if op.PropagateNull() {
+					priorResultWasNil = true
+					continue
+				}
+
+				return nil, err
+			}
+
 			return nil, fmt.Errorf("path op failed: %w", err)
 		}
 

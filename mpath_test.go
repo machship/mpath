@@ -302,7 +302,7 @@ func Test_ParseAndDo(t *testing.T) {
 				}
 
 				dataToUse, err := op.Do(data, data)
-				if err != nil {
+				if err != nil && test.ExpectedResultType != RT_error {
 					t.Errorf("'%s' got error from Do(): %v", test.Name, err)
 					return
 				}
@@ -341,10 +341,10 @@ func Test_ParseAndDo(t *testing.T) {
 						}
 					}
 				case RT_error:
-					if d, ok := dataToUse.(error); !ok {
+					if err == nil {
 						t.Errorf("'%s' (%s) expected error, got none", test.Name, iterationName)
-					} else if d.Error() != test.Expect_error.Error() {
-						t.Errorf("'%s' (%s) data did not match expected value '%v': got %t", test.Name, iterationName, test.Expect_error, err)
+					} else if err.Error() != test.Expect_error.Error() {
+						t.Errorf("'%s' (%s) data did not match expected value '%v': got '%v'", test.Name, iterationName, test.Expect_error, err)
 					}
 				}
 			})
@@ -1332,11 +1332,20 @@ var (
 		}, {
 			Name:               "null propagation error",
 			Query:              "$.isNull?.field?.does?.not.exist?.IsNull()",
-			Expect_error:       fmt.Errorf("cannot access property of nil value"),
+			Expect_error:       fmt.Errorf("key not found"),
 			ExpectedResultType: RT_error,
 			ExpectedRootFields: []string{"isNull"},
 			ExpectedAddressedPaths: [][]string{
 				[]string{"isNull", "field", "does", "not", "exist"},
+			},
+		}, {
+			Name:               "does not exist",
+			Query:              "$.xxx.Equal(\"test\")",
+			Expect_error:       fmt.Errorf("key not found"),
+			ExpectedResultType: RT_error,
+			ExpectedRootFields: []string{"xxx"},
+			ExpectedAddressedPaths: [][]string{
+				[]string{"xxx"},
 			},
 		},
 	}

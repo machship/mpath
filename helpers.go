@@ -99,7 +99,7 @@ func isNumberKind(k reflect.Kind) bool {
 	return false
 }
 
-func getValuesByName(identName string, data any) (out any) {
+func getValuesByName(identName string, data any) (out any, err error) {
 	v := reflect.ValueOf(data)
 
 	if !isEmptyValue(v) {
@@ -110,11 +110,16 @@ func getValuesByName(identName string, data any) (out any) {
 
 		switch v.Kind() {
 		case reflect.Struct:
-			out, _ = getFieldValueByNameFromStruct(identName, v)
-			return
+			var wasFound bool
+			out, wasFound = getFieldValueByNameFromStruct(identName, v)
+			if wasFound {
+				return
+			}
+
+			return nil, ErrKeyNotFound
 		case reflect.Array, reflect.Slice:
 			if v.Len() == 0 {
-				return nil
+				return nil, ErrKeyNotFound
 			}
 
 			fev := v.Index(0)
@@ -124,19 +129,8 @@ func getValuesByName(identName string, data any) (out any) {
 			}
 
 			if k := fev.Kind(); !(k == reflect.Struct || k == reflect.Map) {
-				return nil
+				return nil, ErrKeyNotFound
 			}
-
-			// if fev.Kind() == reflect.Map {
-			// 	for _, e := range fev.MapKeys() {
-			// 		if mks, ok := e.Interface().(string); !ok || strings.ToLower(mks) != strings.ToLower(identName) {
-			// 			continue
-			// 		}
-
-			// 		slc = append(slc, convertToDecimalIfNumber(fev.MapIndex(e).Interface()))
-			// 	}
-			// 	return slc
-			// }
 
 			var slc []any
 			var found bool
@@ -146,12 +140,12 @@ func getValuesByName(identName string, data any) (out any) {
 				}
 			}
 			if len(slc) > 0 {
-				return slc
+				return slc, nil
 			}
 		}
 	}
 
-	return nil
+	return nil, ErrKeyNotFound
 }
 
 func getAsStructOrSlice(data any) (out any, ok, wasStruct bool) {
