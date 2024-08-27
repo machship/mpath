@@ -2,6 +2,7 @@ package mpath
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"sort"
 	"testing"
@@ -266,13 +267,14 @@ func Test_ParseAndDo(t *testing.T) {
 	}
 
 	datas := []any{dataAsMap, dataAsStruct}
+	// datas = []any{dataAsStruct}
 
 	onlyRunName := ""
 
 	//`{$.List.Last().SomeSettings[@.Key.Equal("DEF")].Any().Equal(true)}`
 	// onlyRunName = "complex 1"
 
-	// onlyRunName = "func IsNullOrEmpty (on array = true)"
+	// onlyRunName = "func IsNull"
 
 	for dataIteration, data := range datas {
 		iterationName := "map"
@@ -288,7 +290,6 @@ func Test_ParseAndDo(t *testing.T) {
 			}
 
 			op, err := ParseString(test.Query)
-
 			if err != nil { // This is to avoid nil dereference errors
 				t.Errorf("'%s' has error: %v,", test.Name, err)
 				continue
@@ -338,6 +339,12 @@ func Test_ParseAndDo(t *testing.T) {
 						t.Errorf("'%s' (%s) data did not match expected value '%t': got %t", test.Name, iterationName, test.Expect_array, d)
 					}
 				}
+			case RT_error:
+				if d, ok := dataToUse.(error); !ok {
+					t.Errorf("'%s' (%s) expected error, got none", test.Name, iterationName)
+				} else if d.Error() != test.Expect_error.Error() {
+					t.Errorf("'%s' (%s) data did not match expected value '%v': got %t", test.Name, iterationName, test.Expect_error, err)
+				}
 			}
 		}
 	}
@@ -381,6 +388,7 @@ var (
 		Expect_decimal         decimal.Decimal
 		Expect_bool            bool
 		Expect_array           []any
+		Expect_error           error
 	}{
 		// { //todo: add expected error states into the tests (this should error)
 		// 	Name:               "Test misspelt operation type",
@@ -1186,7 +1194,7 @@ var (
 			},
 		}, {
 			Name:               "func IsNull",
-			Query:              "$.isNull.IsNull()",
+			Query:              "$.isNull?.IsNull()",
 			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"isNull"},
@@ -1195,8 +1203,8 @@ var (
 			},
 		}, {
 			Name:               "func IsNotNull",
-			Query:              "$.list.IsNull()",
-			Expect_bool:        false,
+			Query:              "$.list.IsNotNull()",
+			Expect_bool:        true,
 			ExpectedResultType: RT_bool,
 			ExpectedRootFields: []string{"list"},
 			ExpectedAddressedPaths: [][]string{
@@ -1303,9 +1311,27 @@ var (
 			},
 		}, {
 			Name:               "null propagation",
-			Query:              "$.isNull.field.does.not.exist.IsNotNull()",
+			Query:              "$.isNull?.field?.does?.not?.exist?.IsNotNull()",
 			Expect_bool:        false,
 			ExpectedResultType: RT_bool,
+			ExpectedRootFields: []string{"isNull"},
+			ExpectedAddressedPaths: [][]string{
+				[]string{"isNull", "field", "does", "not", "exist"},
+			},
+		}, {
+			Name:               "null propagation 2",
+			Query:              "$.isNull?.field?.does?.not?.exist?.IsNull()",
+			Expect_bool:        true,
+			ExpectedResultType: RT_bool,
+			ExpectedRootFields: []string{"isNull"},
+			ExpectedAddressedPaths: [][]string{
+				[]string{"isNull", "field", "does", "not", "exist"},
+			},
+		}, {
+			Name:               "null propagation error",
+			Query:              "$.isNull?.field?.does?.not.exist?.IsNull()",
+			Expect_error:       fmt.Errorf("cannot access property of nil value"),
+			ExpectedResultType: RT_error,
 			ExpectedRootFields: []string{"isNull"},
 			ExpectedAddressedPaths: [][]string{
 				[]string{"isNull", "field", "does", "not", "exist"},
@@ -1321,6 +1347,7 @@ const (
 	RT_decimal ResultType = "decimal"
 	RT_bool    ResultType = "bool"
 	RT_array   ResultType = "array"
+	RT_error   ResultType = "error"
 )
 
 type CustomStringTypeForTest string

@@ -939,23 +939,7 @@ func func_IsNull(rtParams FunctionParameterTypes, val any) (any, error) {
 		return false, errNumParams(FT_IsNull, 0, got)
 	}
 
-	value := reflect.ValueOf(val)
-
-	switch vk := value.Kind(); vk {
-	case reflect.Ptr,
-		reflect.Interface,
-		reflect.Slice,
-		reflect.Map,
-		reflect.Chan,
-		reflect.Func:
-		isNil := value.IsNil()
-		return isNil, nil
-	case reflect.Invalid:
-		return true, nil
-	}
-
-	// any value that cannot be null is by definition, not null
-	return false, nil
+	return isNil(val), nil
 }
 
 const FT_IsNotNull FT_FunctionType = "IsNotNull"
@@ -1056,6 +1040,26 @@ func func_IsNotNullOrEmpty(rtParams FunctionParameterTypes, val any) (any, error
 	}
 
 	return !resBool, nil
+}
+
+func isNil(val any) bool {
+	value := reflect.ValueOf(val)
+
+	switch vk := value.Kind(); vk {
+	case reflect.Ptr,
+		reflect.Interface,
+		reflect.Slice,
+		reflect.Map,
+		reflect.Chan,
+		reflect.Func:
+		isNil := value.IsNil()
+		return isNil
+	case reflect.Invalid:
+		return true
+	}
+
+	// any value that cannot be null is by definition, not null
+	return false
 }
 
 type FT_FunctionType string

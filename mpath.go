@@ -46,7 +46,7 @@ var (
 					ch != ';' &&
 					ch != '/' &&
 					ch != '*' &&
-					ch != '?' &&
+					// ch != '?' && // taken out to allow for null propagation
 					!unicode.IsSpace(ch) &&
 					unicode.IsPrint(ch)
 			}

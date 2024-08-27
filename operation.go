@@ -15,14 +15,21 @@ type Operation interface {
 	Sprint(depth int) (out string)
 	Type() OT_OpType
 	UserString() string
+
+	PropagateNull() bool
 }
 
 type opCommon struct {
-	userString string
+	userString    string
+	propagateNull bool
 }
 
 func (x opCommon) UserString() string {
 	return x.userString
+}
+
+func (x opCommon) PropagateNull() bool {
+	return x.propagateNull
 }
 
 ////////////////////////////////////////////////////////////////////////////////////

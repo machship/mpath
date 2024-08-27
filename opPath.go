@@ -274,16 +274,26 @@ func (x *opPath) Do(currentData, originalData any) (dataToUse any, err error) {
 		}
 	}
 
+	var priorResultWasNil bool
+
 	// Now we know which data to use, we can apply the path parts
-	for _, op := range x.Operations {
+	for idx, op := range x.Operations {
+		if idx > 0 && priorResultWasNil {
+			prevOp := x.Operations[idx-1]
+			if !prevOp.PropagateNull() && op.Type() != OT_Function {
+				// todo: think about what kind of error we should return here
+				return fmt.Errorf("cannot access property of nil value"), nil
+			}
+		}
+
 		dataToUse, err = op.Do(dataToUse, originalData)
 		if err != nil {
 			return nil, fmt.Errorf("path op failed: %w", err)
 		}
-		// The following is commented out to allow for null propagation
-		// if dataToUse == nil {
-		// 	return
-		// }
+
+		if isNil(dataToUse) {
+			priorResultWasNil = true
+		}
 	}
 
 	return

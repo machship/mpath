@@ -195,6 +195,10 @@ func (x *opPathIdent) Do(currentData, _ any) (dataToUse any, err error) {
 func (x *opPathIdent) Parse(s *scanner, r rune) (nextR rune, err error) {
 	x.IdentName = s.TokenText()
 	x.userString = x.IdentName
+	if strings.HasSuffix(x.IdentName, "?") {
+		x.IdentName = x.IdentName[:len(x.IdentName)-1]
+		x.propagateNull = true
+	}
 
 	return s.Scan(), nil
 }
