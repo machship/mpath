@@ -289,63 +289,65 @@ func Test_ParseAndDo(t *testing.T) {
 				}
 			}
 
-			op, err := ParseString(test.Query)
-			if err != nil { // This is to avoid nil dereference errors
-				t.Errorf("'%s' has error: %v,", test.Name, err)
-				continue
-			}
+			t.Run(fmt.Sprintf("%s: %s", test.Name, iterationName), func(t *testing.T) {
+				op, err := ParseString(test.Query)
+				if err != nil { // This is to avoid nil dereference errors
+					t.Errorf("'%s' has error: %v,", test.Name, err)
+					return
+				}
 
-			if op == nil {
-				t.Errorf("'%s' failed to return an operation: %s", test.Name, test.Query)
-				continue
-			}
+				if op == nil {
+					t.Errorf("'%s' failed to return an operation: %s", test.Name, test.Query)
+					return
+				}
 
-			dataToUse, err := op.Do(data, data)
-			if err != nil {
-				t.Errorf("'%s' got error from Do(): %v", test.Name, err)
-				continue
-			}
+				dataToUse, err := op.Do(data, data)
+				if err != nil {
+					t.Errorf("'%s' got error from Do(): %v", test.Name, err)
+					return
+				}
 
-			switch test.ExpectedResultType {
-			case RT_string:
-				if d, ok := dataToUse.(string); !ok {
-					t.Errorf("'%s' (%s) data was not of expected type '%s'; was %T", test.Name, iterationName, test.ExpectedResultType, dataToUse)
-				} else {
-					if d != test.Expect_string {
-						t.Errorf("'%s' (%s) data did not match expected value '%s': got %s", test.Name, iterationName, test.Expect_string, d)
+				switch test.ExpectedResultType {
+				case RT_string:
+					if d, ok := dataToUse.(string); !ok {
+						t.Errorf("'%s' (%s) data was not of expected type '%s'; was %T", test.Name, iterationName, test.ExpectedResultType, dataToUse)
+					} else {
+						if d != test.Expect_string {
+							t.Errorf("'%s' (%s) data did not match expected value '%s': got %s", test.Name, iterationName, test.Expect_string, d)
+						}
+					}
+				case RT_decimal:
+					if d, ok := dataToUse.(decimal.Decimal); !ok {
+						t.Errorf("'%s' data was not of expected type '%s'; was %T", test.Name, test.ExpectedResultType, dataToUse)
+					} else {
+						if !d.Equal(test.Expect_decimal) {
+							t.Errorf("'%s' (%s) data did not match expected value '%s': got %s", test.Name, iterationName, test.Expect_decimal, d)
+						}
+					}
+				case RT_bool:
+					if d, ok := dataToUse.(bool); !ok {
+						t.Errorf("'%s' (%s) data was not of expected type '%s'; was %T", test.Name, iterationName, test.ExpectedResultType, dataToUse)
+					} else {
+						if d != test.Expect_bool {
+							t.Errorf("'%s' (%s) data did not match expected value '%t': got %t", test.Name, iterationName, test.Expect_bool, d)
+						}
+					}
+				case RT_array:
+					if d, ok := dataToUse.([]any); !ok {
+						t.Errorf("'%s' (%s) data was not of expected type '%s'; was %T", test.Name, iterationName, test.ExpectedResultType, dataToUse)
+					} else {
+						if !reflect.DeepEqual(d, test.Expect_array) {
+							t.Errorf("'%s' (%s) data did not match expected value '%t': got %t", test.Name, iterationName, test.Expect_array, d)
+						}
+					}
+				case RT_error:
+					if d, ok := dataToUse.(error); !ok {
+						t.Errorf("'%s' (%s) expected error, got none", test.Name, iterationName)
+					} else if d.Error() != test.Expect_error.Error() {
+						t.Errorf("'%s' (%s) data did not match expected value '%v': got %t", test.Name, iterationName, test.Expect_error, err)
 					}
 				}
-			case RT_decimal:
-				if d, ok := dataToUse.(decimal.Decimal); !ok {
-					t.Errorf("'%s' data was not of expected type '%s'; was %T", test.Name, test.ExpectedResultType, dataToUse)
-				} else {
-					if !d.Equal(test.Expect_decimal) {
-						t.Errorf("'%s' (%s) data did not match expected value '%s': got %s", test.Name, iterationName, test.Expect_decimal, d)
-					}
-				}
-			case RT_bool:
-				if d, ok := dataToUse.(bool); !ok {
-					t.Errorf("'%s' (%s) data was not of expected type '%s'; was %T", test.Name, iterationName, test.ExpectedResultType, dataToUse)
-				} else {
-					if d != test.Expect_bool {
-						t.Errorf("'%s' (%s) data did not match expected value '%t': got %t", test.Name, iterationName, test.Expect_bool, d)
-					}
-				}
-			case RT_array:
-				if d, ok := dataToUse.([]any); !ok {
-					t.Errorf("'%s' (%s) data was not of expected type '%s'; was %T", test.Name, iterationName, test.ExpectedResultType, dataToUse)
-				} else {
-					if !reflect.DeepEqual(d, test.Expect_array) {
-						t.Errorf("'%s' (%s) data did not match expected value '%t': got %t", test.Name, iterationName, test.Expect_array, d)
-					}
-				}
-			case RT_error:
-				if d, ok := dataToUse.(error); !ok {
-					t.Errorf("'%s' (%s) expected error, got none", test.Name, iterationName)
-				} else if d.Error() != test.Expect_error.Error() {
-					t.Errorf("'%s' (%s) data did not match expected value '%v': got %t", test.Name, iterationName, test.Expect_error, err)
-				}
-			}
+			})
 		}
 	}
 }
