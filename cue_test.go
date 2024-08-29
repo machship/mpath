@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"sort"
 	"testing"
-
-	"github.com/atotto/clipboard"
 )
 
 func Benchmark_CueStringTableTests(b *testing.B) {
@@ -332,7 +330,7 @@ func Test_CueStringTableTests(t *testing.T) {
 
 		if copyAndLog {
 			tcb, _ := json.MarshalIndent(tc, "", "  ")
-			clipboard.WriteAll(string(tcb))
+			// clipboard.WriteAll(string(tcb))
 			t.Log(string(tcb))
 		}
 	}
@@ -643,7 +641,7 @@ func Test_CueStringNoCurrentPath(t *testing.T) {
 	}
 
 	tcb, _ := json.MarshalIndent(tc, "", "  ")
-	clipboard.WriteAll(string(tcb))
+	// clipboard.WriteAll(string(tcb))
 	t.Log(string(tcb))
 }
 
@@ -699,6 +697,6 @@ func Test_CueStringManual(t *testing.T) {
 	}
 
 	tcb, _ := json.MarshalIndent(tc, "", "  ")
-	clipboard.WriteAll(string(tcb))
+	// clipboard.WriteAll(string(tcb))
 	t.Log(string(tcb))
 }
