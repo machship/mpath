@@ -81,6 +81,8 @@ func Benchmark_ParseAndDo(b *testing.B) {
 }
 
 func Test_GetRootFieldsAccessed(t *testing.T) {
+	t.Parallel()
+
 	for _, test := range testQueries {
 		op, err := ParseString(test.Query)
 		if err != nil {
@@ -109,6 +111,8 @@ func Test_GetRootFieldsAccessed(t *testing.T) {
 }
 
 func Test_Sprint(t *testing.T) {
+	t.Parallel()
+
 	// We need only test that the Sprint doesn't throw an error
 	for _, test := range testQueries {
 		op, err := ParseString(test.Query)
@@ -123,6 +127,8 @@ func Test_Sprint(t *testing.T) {
 }
 
 func Test_AddressedPaths(t *testing.T) {
+	t.Parallel()
+
 	var onlyRun string
 
 	for _, test := range testQueries {
@@ -176,6 +182,8 @@ func Test_AddressedPaths(t *testing.T) {
 }
 
 func Test_ParseErrors(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		Name              string
 		Query             string
@@ -206,6 +214,8 @@ func Test_ParseErrors(t *testing.T) {
 }
 
 func Test_ManualMap(t *testing.T) {
+	t.Parallel()
+
 	query := "$.x.Multiply(12.146)"
 
 	data := map[string]any{
@@ -226,6 +236,8 @@ func Test_ManualMap(t *testing.T) {
 }
 
 func Test_DecimalAtRoot(t *testing.T) {
+	t.Parallel()
+
 	const testName = "Test_DecimalAtRoot"
 
 	data := float64(40)
@@ -249,6 +261,7 @@ func Test_DecimalAtRoot(t *testing.T) {
 }
 
 func Test_ParseAndDo(t *testing.T) {
+	t.Parallel()
 
 	var err error
 	var dataAsMap map[string]any
@@ -274,7 +287,7 @@ func Test_ParseAndDo(t *testing.T) {
 	//`{$.List.Last().SomeSettings[@.Key.Equal("DEF")].Any().Equal(true)}`
 	// onlyRunName = "complex 1"
 
-	// onlyRunName = "func IsNull"
+	// onlyRunName = "test add negative number"
 
 	for dataIteration, data := range datas {
 		iterationName := "map"
@@ -353,6 +366,8 @@ func Test_ParseAndDo(t *testing.T) {
 }
 
 func Test_CustomStringTypeMap(t *testing.T) {
+	t.Parallel()
+
 	const outStrConst = "hello world"
 	data := map[CustomStringTypeForTest]any{"varname": outStrConst}
 	queryString := "$.varname"
@@ -1347,6 +1362,24 @@ var (
 			ExpectedAddressedPaths: [][]string{
 				[]string{"xxx"},
 			},
+		}, {
+			Name:               "report generator first returns",
+			Query:              "$.report_generator.result.First().ext",
+			Expect_string:      ".pdf",
+			ExpectedResultType: RT_string,
+			ExpectedRootFields: []string{"report_generator"},
+			ExpectedAddressedPaths: [][]string{
+				[]string{"report_generator", "result", "ext"},
+			},
+		}, {
+			Name:               "test add negative number",
+			Query:              "$.number.Add(-1)",
+			Expect_decimal:     decimal.NewFromInt(1233),
+			ExpectedResultType: RT_decimal,
+			ExpectedRootFields: []string{"number"},
+			ExpectedAddressedPaths: [][]string{
+				[]string{"number"},
+			},
 		},
 	}
 )
@@ -1366,6 +1399,15 @@ type CustomStringTypeForTest string
 // Generated using https://json-generator.com/
 var jsn = `
   {
+	"report_generator": {
+		"result": [
+			{
+				"ext": ".pdf",
+				"id": "1836941291624075264",
+				"name": "output_0.pdf"
+			}
+		]
+	},
 	"result": {
 	  "json": "{\"consignmentID\":112357,\"consignmentName\":\"Test consignment\"}",
 	  "xml": "<?xml version=\"1.0\" encoding=\"UTF-8\" ?><root><consignmentID>112358</consignmentID><consignmentName>Test consignment</consignmentName></root>",
@@ -1452,6 +1494,13 @@ var jsn = `
 `
 
 type TestDataStruct struct {
+	Report_Generator struct {
+		Result []struct {
+			Ext  string `json:"ext"`
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"result"`
+	} `json:"report_generator"`
 	Result struct {
 		JSON string `json:"json"`
 		XML  string `json:"xml"`
@@ -1493,6 +1542,8 @@ type TestDataStruct struct {
 }
 
 func Test_sliceContains(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name       string
 		inputSlice []string
@@ -1525,6 +1576,8 @@ func Test_sliceContains(t *testing.T) {
 }
 
 func Test_spreadSlice(t *testing.T) {
+	t.Parallel()
+
 	input := []any{"one", "two", "three", "four"}
 	expected := [][]any{
 		[]any{"one"},
@@ -1541,6 +1594,8 @@ func Test_spreadSlice(t *testing.T) {
 }
 
 func Test_sliceContainsSubsetSlice(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		inputSlices [][]string
@@ -1592,6 +1647,8 @@ func Test_sliceContainsSubsetSlice(t *testing.T) {
 }
 
 func Test_EscapeCharacters(t *testing.T) {
+	t.Parallel()
+
 	query := "$.result.Equal(\"Line1,\\nLine2,\\nLin\\\"e3\\n\")"
 	data := map[string]any{
 		"result": "Line1,\nLine2,\nLin\"e3\n",
@@ -1622,6 +1679,8 @@ func Test_EscapeCharacters(t *testing.T) {
 }
 
 func Test_UnescapeCharacters(t *testing.T) {
+	t.Parallel()
+
 	query := "$.result.Equal(\"Line1,\\nLine2,\\nLin\\\"e3\\n\")"
 
 	op, err := ParseString(query)

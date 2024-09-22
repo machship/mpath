@@ -308,6 +308,7 @@ func Benchmark_BigCueFile(b *testing.B) {
 }
 
 func Test_CueStringTableTests(t *testing.T) {
+	t.Parallel()
 
 	var onlyRunTest string
 	var copyAndLog bool
@@ -445,11 +446,18 @@ var (
 			mq:   `$.step2.result.First()`,
 			cp:   "stepOptional",
 		},
+		{
+			name: "can get into field afer 'First()' function call",
+			mq:   `$.step2.result.First().age`,
+			cp:   "stepOptional",
+		},
 	}
 )
 
 const (
 	cueStringForTests = `
+
+	
 		step1: {
 			num: int
 			_dependencies: [] 
@@ -610,6 +618,8 @@ const (
 )
 
 func Test_CueStringNoCurrentPath(t *testing.T) {
+	t.Parallel()
+
 	type tableTest struct {
 		name         string
 		mq           string
@@ -646,6 +656,8 @@ func Test_CueStringNoCurrentPath(t *testing.T) {
 }
 
 func Test_CueStringManual(t *testing.T) {
+	t.Parallel()
+
 	type tableTest struct {
 		name         string
 		mq           string
