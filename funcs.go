@@ -1107,6 +1107,7 @@ type PT_ParameterType string
 
 const (
 	PT_String      PT_ParameterType = "String"
+	PT_Bytes       PT_ParameterType = "Bytes"
 	PT_Boolean     PT_ParameterType = "Boolean"
 	PT_Number      PT_ParameterType = "Number"
 	PT_Any         PT_ParameterType = "Any"
@@ -1137,6 +1138,8 @@ func (pt PT_ParameterType) CueExpr() *string {
 		out = "_"
 	case PT_Object:
 		out = "{...}"
+	case PT_Bytes:
+		out = "bytes"
 	}
 
 	return &out
@@ -1905,7 +1908,7 @@ var (
 			Description: "Returns the value represented as JSON",
 			Params:      nil,
 			Returns:     inputOrOutput(PT_String, IOOT_Single),
-			ValidOn:     inputOrOutput(PT_Any, IOOT_Single),
+			ValidOn:     inputOrOutput(PT_Any, IOOT_Variadic),
 			fn:          func_AsJSON,
 			explanationFunc: func(tf Function) string {
 				return "converts to a JSON string"

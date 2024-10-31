@@ -313,7 +313,7 @@ func Test_CueStringTableTests(t *testing.T) {
 	var onlyRunTest string
 	var copyAndLog bool
 
-	// onlyRunTest = "check that optional fields return"
+	// onlyRunTest = "can use AsJSON on array"
 	// copyAndLog = true
 
 	for _, test := range cueTableTests {
@@ -450,6 +450,11 @@ var (
 			name: "can get into field afer 'First()' function call",
 			mq:   `$.step2.result.First().age`,
 			cp:   "stepOptional",
+		},
+		{
+			name: "can use AsJSON on array",
+			mq:   `$.step1.result.AsJSON()`,
+			cp:   "step2",
 		},
 	}
 )

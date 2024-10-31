@@ -1380,6 +1380,15 @@ var (
 			ExpectedAddressedPaths: [][]string{
 				[]string{"number"},
 			},
+		}, {
+			Name:               "generate JSON from array",
+			Query:              "$.report_generator.result.AsJSON()",
+			Expect_string:      `[{"ext":".pdf","id":"1836941291624075264","name":"output_0.pdf"}]`,
+			ExpectedResultType: RT_string,
+			ExpectedRootFields: []string{"report_generator"},
+			ExpectedAddressedPaths: [][]string{
+				[]string{"report_generator", "result"},
+			},
 		},
 	}
 )
