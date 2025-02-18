@@ -1,7 +1,6 @@
 package mpath
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"strings"
@@ -45,7 +44,7 @@ var (
 )
 
 // Parse takes an io.ReadSeeker and parses it into an operation tree.
-func Parse(r io.ReadSeeker) (topOp Operation, err error) {
+func ParseReadSeeker(r io.ReadSeeker) (topOp Operation, err error) {
 	s := scannerPool.Get().(*scanner)
 	defer func() {
 		s.err = nil
@@ -100,8 +99,8 @@ func Parse(r io.ReadSeeker) (topOp Operation, err error) {
 }
 
 func ParseString(ss string) (topOp Operation, err error) {
-	sr := bytes.NewReader([]byte(ss))
-	return Parse(sr)
+	sr := strings.NewReader(ss)
+	return ParseReadSeeker(sr)
 }
 
 func erAt(s *scanner, str string, args ...any) (err error) {
