@@ -315,10 +315,12 @@ func (x *opPath) Parse(s *scanner, r rune) (nextR rune, err error) {
 			return r, errors.Wrap(erInvalid(s, '@'), "cannot use '$' (root) inside filter")
 		}
 		x.StartAtRoot = true
+	case '#':
+		x.userString += string(r)
 	case '@':
 		// do nothing, this is the default
 	default:
-		return r, erInvalid(s, '$', '@')
+		return r, erInvalid(s, '$', '@', '#')
 	}
 	x.userString += string(r)
 

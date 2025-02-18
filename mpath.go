@@ -46,6 +46,7 @@ var (
 					ch != ';' &&
 					ch != '/' &&
 					ch != '*' &&
+					ch != '#' &&
 					// ch != '?' && // taken out to allow for null propagation
 					!unicode.IsSpace(ch) &&
 					unicode.IsPrint(ch)
@@ -63,7 +64,10 @@ var (
 	}
 )
 
+// ParseFromReader()
+
 func ParseString(ss string) (topOp Operation, err error) {
+
 	s := scannerPool.Get().(*scanner)
 	defer scannerPool.Put(s)
 	sr := stringsReaderPool.Get().(*strings.Reader)
