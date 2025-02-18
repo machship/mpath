@@ -94,7 +94,7 @@ func CueValidate(query, cueFile, currentPath string) (tc CanBeAPart, err error) 
 		ptc, _ := t.Validate(rootValue, CuePath{}, blockedRootFields)
 		tc = ptc
 		if ptc.Error != nil {
-			err = fmt.Errorf(*ptc.Error)
+			err = fmt.Errorf("%s", *ptc.Error)
 			return
 		}
 		ptc.String = query
@@ -108,7 +108,7 @@ func CueValidate(query, cueFile, currentPath string) (tc CanBeAPart, err error) 
 		logicalOperation := t.Validate(rootValue, CuePath{}, blockedRootFields)
 		tc = logicalOperation
 		if logicalOperation.Error != nil {
-			err = fmt.Errorf(*logicalOperation.Error)
+			err = fmt.Errorf("%s", *logicalOperation.Error)
 			return
 		}
 
@@ -288,13 +288,8 @@ func getAvailableFieldsForValue(v cue.Value, blockedRootFields []string) (fields
 			fldName = strings.TrimSuffix(fldName, `"`)
 		}
 
-		if strings.HasSuffix(fldName, "?") {
-			fldName = strings.TrimSuffix(fldName, "?")
-		}
-
-		if strings.HasSuffix(fldName, "!") {
-			fldName = strings.TrimSuffix(fldName, "!")
-		}
+		fldName = strings.TrimSuffix(fldName, "?")
+		fldName = strings.TrimSuffix(fldName, "!")
 
 		fields = append(fields, fldName)
 	}

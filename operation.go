@@ -118,9 +118,7 @@ func AddressedPaths(op Operation) (addressedPaths [][]string) {
 
 			case *opFunction:
 				for _, p := range vv.Params.Paths() {
-					for _, val := range AddressedPaths(p.Value) {
-						addressedPaths = append(addressedPaths, val)
-					}
+					addressedPaths = append(addressedPaths, AddressedPaths(p.Value)...)
 				}
 			}
 		}
@@ -129,9 +127,7 @@ func AddressedPaths(op Operation) (addressedPaths [][]string) {
 
 	case *opLogicalOperation:
 		for _, p := range v.Operations {
-			for _, val := range AddressedPaths(p) {
-				addressedPaths = append(addressedPaths, val)
-			}
+			addressedPaths = append(addressedPaths, AddressedPaths(p)...)
 		}
 	}
 
