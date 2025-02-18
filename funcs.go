@@ -1254,7 +1254,7 @@ var (
 					return ""
 				}
 
-				return fmt.Sprintf("is not")
+				return "is not"
 			},
 		},
 		FT_IsNull: {
@@ -1269,7 +1269,7 @@ var (
 					return ""
 				}
 
-				return fmt.Sprintf("is equal to null")
+				return "is equal to null"
 			},
 		},
 		FT_IsNotNull: {
@@ -1284,7 +1284,7 @@ var (
 					return ""
 				}
 
-				return fmt.Sprintf("is not equal to null")
+				return "is not equal to null"
 			},
 		},
 		FT_IsNullOrEmpty: {
@@ -1299,7 +1299,7 @@ var (
 					return ""
 				}
 
-				return fmt.Sprintf("is equal to null or is empty")
+				return "is equal to null or is empty"
 			},
 		},
 		FT_IsNotNullOrEmpty: {
@@ -1314,7 +1314,7 @@ var (
 					return ""
 				}
 
-				return fmt.Sprintf("is not equal to null or is not empty")
+				return "is not equal to null or is not empty"
 			},
 		},
 		FT_IsEmpty: {
@@ -1329,7 +1329,7 @@ var (
 					return ""
 				}
 
-				return fmt.Sprintf("is empty")
+				return "is empty"
 			},
 		},
 		FT_IsNotEmpty: {
@@ -1344,7 +1344,7 @@ var (
 					return ""
 				}
 
-				return fmt.Sprintf("is not empty")
+				return "is not empty"
 			},
 		},
 
