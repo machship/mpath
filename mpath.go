@@ -43,7 +43,7 @@ var (
 	}
 )
 
-// Parse takes an io.ReadSeeker and parses it into an operation tree.
+// ParseReadSeeker takes an io.ReadSeeker and parses it into an operation tree.
 func ParseReadSeeker(r io.ReadSeeker) (topOp Operation, err error) {
 	s := scannerPool.Get().(*scanner)
 	defer func() {
