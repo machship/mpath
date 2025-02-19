@@ -1,8 +1,10 @@
 package mpath
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"reflect"
 	"regexp"
 	"sort"
@@ -211,6 +213,23 @@ func stringBoolFunc(rtParams FunctionParameterTypes, val any, fn func(string, st
 		}
 
 		return res, nil
+	}
+
+	if reader, ok := val.(io.Reader); ok {
+		scanner := bufio.NewScanner(reader)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if fn(line, param) {
+				if invert {
+					return false, nil
+				}
+				return true, nil
+			}
+		}
+		if err := scanner.Err(); err != nil {
+			return false, fmt.Errorf("error reading stream: %w", err)
+		}
+		return invert, nil
 	}
 
 	return false, fmt.Errorf("parameter wasn't string")
