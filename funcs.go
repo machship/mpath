@@ -1051,6 +1051,77 @@ func func_IsNotNullOrEmpty(rtParams FunctionParameterTypes, val any) (any, error
 	return !resBool, nil
 }
 
+const FT_Select FT_FunctionType = "Select"
+
+func func_Select(rtParams FunctionParameterTypes, val any) (any, error) {
+	// Expect exactly one parameter: the query string.
+	query, err := paramsGetFirstOfString(rtParams)
+	if err != nil {
+		return errString(FT_Select, err)
+	}
+
+	// Parse the query string (e.g., "$.IntField") into an operation.
+	op, err := ParseString(query)
+	if err != nil {
+		return nil, fmt.Errorf("func %s: error parsing query: %w", FT_Select, err)
+	}
+
+	// Prepare to iterate over the input using reflection.
+	v := reflect.ValueOf(val)
+	if v.Kind() == reflect.Pointer || v.Kind() == reflect.Interface {
+		v = v.Elem()
+	}
+
+	var results []any
+
+	switch v.Kind() {
+	case reflect.Slice, reflect.Array:
+		// Iterate over each element in the slice/array.
+		for i := 0; i < v.Len(); i++ {
+			elem := v.Index(i).Interface()
+			res, err := op.Do(elem, elem)
+			if err != nil {
+				return nil, fmt.Errorf("func %s: error selecting field: %w", FT_Select, err)
+			}
+			// If the result is itself a slice/array, flatten it.
+			resVal := reflect.ValueOf(res)
+			if resVal.Kind() == reflect.Slice || resVal.Kind() == reflect.Array {
+				for j := 0; j < resVal.Len(); j++ {
+					results = append(results, resVal.Index(j).Interface())
+				}
+			} else {
+				results = append(results, res)
+			}
+		}
+	case reflect.Map:
+		// Iterate over map values.
+		orderedMapValues := v.MapKeys()
+		// Sort the keys to ensure deterministic output.
+		sort.Slice(orderedMapValues, func(i, j int) bool {
+			return orderedMapValues[i].String() < orderedMapValues[j].String()
+		})
+
+		for _, key := range orderedMapValues {
+			elem := v.MapIndex(key).Interface()
+			res, err := op.Do(elem, elem)
+			if err != nil {
+				return nil, fmt.Errorf("func %s: error selecting field: %w", FT_Select, err)
+			}
+			resVal := reflect.ValueOf(res)
+			if resVal.Kind() == reflect.Slice || resVal.Kind() == reflect.Array {
+				for j := 0; j < resVal.Len(); j++ {
+					results = append(results, resVal.Index(j).Interface())
+				}
+			} else {
+				results = append(results, res)
+			}
+		}
+	default:
+		return nil, fmt.Errorf("func %s: unsupported type %T; expected array or map", FT_Select, val)
+	}
+	return results, nil
+}
+
 func isNil(val any) bool {
 	value := reflect.ValueOf(val)
 
@@ -1354,6 +1425,21 @@ var (
 				}
 
 				return "is not empty"
+			},
+		},
+		FT_Select: {
+			Name:        FT_Select,
+			Description: "Selects a field from each object in a map or array",
+			Params:      singleParam("mpath query to run against each element", PT_String, IOOT_Single),
+			Returns:     inputOrOutput(PT_Any, IOOT_Array),
+			ValidOn:     inputOrOutput(PT_Any, IOOT_Array),
+			fn:          func_Select,
+			explanationFunc: func(tf Function) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("selects the field {{%s}}", tf.FunctionParameters[0].String)
 			},
 		},
 
