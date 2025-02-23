@@ -19,7 +19,6 @@ func Benchmark_ParseAndDo(b *testing.B) {
 	}
 
 	var op Operation
-
 	sort.Slice(testQueries, func(i, j int) bool {
 		return len(testQueries[i].Name) > len(testQueries[j].Name)
 	})
@@ -285,7 +284,7 @@ func Test_ParseAndDo(t *testing.T) {
 	onlyRunName := ""
 
 	//`{$.List.Last().SomeSettings[@.Key.Equal("DEF")].Any().Equal(true)}`
-	// onlyRunName = "complex 1"
+	// onlyRunName = "can sum map of numbers"
 
 	// onlyRunName = "test add negative number"
 
@@ -1389,6 +1388,15 @@ var (
 			ExpectedAddressedPaths: [][]string{
 				[]string{"report_generator", "result"},
 			},
+		}, {
+			Name:               "can sum map of numbers",
+			Query:              "$.mapOfDecimalsAndInts.Sum()",
+			Expect_decimal:     decimal.NewFromFloat(15.0),
+			ExpectedResultType: RT_decimal,
+			ExpectedRootFields: []string{"mapOfDecimalsAndInts"},
+			ExpectedAddressedPaths: [][]string{
+				[]string{"mapOfDecimalsAndInts"},
+			},
 		},
 	}
 )
@@ -1441,6 +1449,13 @@ var jsn = `
 	  1234,
 	  5678
 	],
+	"mapOfDecimalsAndInts": {
+		"a": 1,
+		"b": 2,
+		"c": 3.5,
+		"d": 4,
+		"e": 4.5
+	},
 	"floats": [
 	  1234.56,
 	  5678.9
@@ -1516,25 +1531,26 @@ type TestDataStruct struct {
 		YAML string `json:"yaml"`
 		TOML string `json:"toml"`
 	} `json:"result"`
-	IsNull         *struct{}         `json:"isNull"`
-	EmptyArray     []struct{}        `json:"emptyArray"`
-	EmptyString    string            `json:"emptyString"`
-	EmptyObject    struct{}          `json:"emptyObject"`
-	EmptyNumber    int               `json:"emptyNumber"`
-	Number         int               `json:"number"`
-	String         string            `json:"string"`
-	RegexString    string            `json:"regexstring"`
-	NumberInString string            `json:"numberInString"`
-	Bool           bool              `json:"bool"`
-	Numbers        []decimal.Decimal `json:"numbers"`
-	Floats         []float64         `json:"floats"`
-	Ints           []int             `json:"ints"`
-	Strings        []string          `json:"strings"`
-	Bools          []bool            `json:"bools"`
-	Index          int               `json:"index"`
-	IsActive       bool              `json:"isActive"`
-	Tags           []string          `json:"tags"`
-	Struct         struct {
+	IsNull               *struct{}                  `json:"isNull"`
+	EmptyArray           []struct{}                 `json:"emptyArray"`
+	EmptyString          string                     `json:"emptyString"`
+	EmptyObject          struct{}                   `json:"emptyObject"`
+	EmptyNumber          int                        `json:"emptyNumber"`
+	Number               int                        `json:"number"`
+	String               string                     `json:"string"`
+	RegexString          string                     `json:"regexstring"`
+	NumberInString       string                     `json:"numberInString"`
+	Bool                 bool                       `json:"bool"`
+	Numbers              []decimal.Decimal          `json:"numbers"`
+	Floats               []float64                  `json:"floats"`
+	Ints                 []int                      `json:"ints"`
+	MapOfDecimalsAndInts map[string]decimal.Decimal `json:"mapOfDecimalsAndInts"`
+	Strings              []string                   `json:"strings"`
+	Bools                []bool                     `json:"bools"`
+	Index                int                        `json:"index"`
+	IsActive             bool                       `json:"isActive"`
+	Tags                 []string                   `json:"tags"`
+	Struct               struct {
 		Field1 string `json:"field1"`
 		Field2 string `json:"field2"`
 		Field3 string `json:"field3"`

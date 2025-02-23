@@ -430,13 +430,22 @@ func func_decimalSlice(rtParams FunctionParameterTypes, val any, decimalSliceFun
 		}
 	}
 
+	if isMap(val) {
+		var err error
+		val, err = getMapValues(val)
+		if err != nil {
+			return false, fmt.Errorf("not an array of numbers")
+		}
+	}
+
 	var newSlc []decimal.Decimal
-	if valIfc, ok := val.([]decimal.Decimal); ok {
-		newSlc = append([]decimal.Decimal{}, valIfc...)
+	switch valueInstance := val.(type) {
+	case []decimal.Decimal:
+		newSlc = append([]decimal.Decimal{}, valueInstance...)
 		newSlc = append(newSlc, paramNumbers...)
-	} else if valIfc, ok := val.([]any); ok {
+	case []any:
 		newSlc = append([]decimal.Decimal{}, paramNumbers...)
-		for _, vs := range valIfc {
+		for _, vs := range valueInstance {
 			switch t := vs.(type) {
 			case decimal.Decimal:
 				newSlc = append(newSlc, t)
@@ -2019,4 +2028,28 @@ func ft_IsBoolFunc(ft FT_FunctionType) bool {
 	}
 
 	return fn.Returns.Type == PT_Boolean && fn.Returns.IOType == IOOT_Single
+}
+
+func isMap(val any) bool {
+	if val == nil {
+		return false
+	}
+	return reflect.TypeOf(val).Kind() == reflect.Map
+}
+func getMapValues(input any) ([]any, error) {
+	// Use reflection to check that the input is a map.
+	v := reflect.ValueOf(input)
+	if v.Kind() != reflect.Map {
+		return nil, fmt.Errorf("input is not a map")
+	}
+
+	// Create a new map for the result.
+	result := make([]any, v.Len())
+
+	// Iterate over all keys.
+	for i, key := range v.MapKeys() {
+		// Use the string key and the corresponding value.
+		result[i] = v.MapIndex(key).Interface()
+	}
+	return result, nil
 }
