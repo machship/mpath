@@ -1,7 +1,6 @@
 package mpath
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -205,34 +204,50 @@ func stringBoolFunc(rtParams FunctionParameterTypes, val any, fn func(string, st
 		return errBool(fnName, err)
 	}
 
-	if valIfc, ok := val.(string); ok {
-		res := fn(valIfc, param)
+	// Handle io.Reader case
+	if reader, ok := val.(io.Reader); ok {
+		switch fnName {
+		case FT_Contains, FT_NotContains:
+			found, err := readerContains(reader, param)
+			if err != nil {
+				return false, fmt.Errorf("%s: error processing stream: %w", fnName, err)
+			}
+			if invert {
+				return !found, nil
+			}
+			return found, nil
 
+		case FT_Prefix, FT_NotPrefix:
+			found, err := readerHasPrefix(reader, param)
+			if err != nil {
+				return false, fmt.Errorf("%s: error processing stream: %w", fnName, err)
+			}
+			if invert {
+				return !found, nil
+			}
+			return found, nil
+
+		case FT_Suffix, FT_NotSuffix:
+			found, err := readerHasSuffix(reader, param)
+			if err != nil {
+				return false, fmt.Errorf("%s: error processing stream: %w", fnName, err)
+			}
+			if invert {
+				return !found, nil
+			}
+			return found, nil
+		}
+	}
+
+	if valStr, ok := val.(string); ok {
+		res := fn(valStr, param)
 		if invert {
 			res = !res
 		}
-
 		return res, nil
 	}
 
-	if reader, ok := val.(io.Reader); ok {
-		scanner := bufio.NewScanner(reader)
-		for scanner.Scan() {
-			line := scanner.Text()
-			if fn(line, param) {
-				if invert {
-					return false, nil
-				}
-				return true, nil
-			}
-		}
-		if err := scanner.Err(); err != nil {
-			return false, fmt.Errorf("error reading stream: %w", err)
-		}
-		return invert, nil
-	}
-
-	return false, fmt.Errorf("parameter wasn't string")
+	return false, fmt.Errorf("unsupported type for %s: expected string or io.Reader, got %T", fnName, val)
 }
 
 const FT_Contains FT_FunctionType = "Contains"

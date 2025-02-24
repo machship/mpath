@@ -1,6 +1,7 @@
 package mpath
 
 import (
+	"io"
 	"reflect"
 	"strings"
 
@@ -291,4 +292,87 @@ func doForMapPerKey(valueThatShouldBeMap any, doFunc func(keyAsString string, ke
 			doFunc(mks, e, v)
 		}
 	}
+}
+
+func readerContains(r io.Reader, substr string) (bool, error) {
+	bufSize := 4096
+	substrLen := len(substr)
+	buf := make([]byte, bufSize+substrLen-1) // Ensure space to handle boundaries
+
+	offset := 0
+
+	for {
+		n, err := r.Read(buf[offset:]) // Read into available space in the buffer
+		if n > 0 {
+			data := string(buf[:offset+n])
+			if strings.Contains(data, substr) {
+				return true, nil
+			}
+
+			// Preserve only the last (substrLen - 1) bytes in the buffer for the next read
+			if offset+n >= substrLen-1 {
+				copy(buf, buf[offset+n-substrLen+1:offset+n])
+			}
+			offset = substrLen - 1
+		}
+
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return false, err
+		}
+	}
+
+	return false, nil
+}
+
+func readerHasSuffix(r io.Reader, suffix string) (bool, error) {
+	if suffix == "" {
+		return true, nil // Empty suffix should always match
+	}
+
+	suffixLen := len(suffix)
+	buf := make([]byte, 0, suffixLen) // Buffer to store last suffixLen bytes
+
+	tmp := make([]byte, 1) // Read one byte at a time
+	for {
+		n, err := r.Read(tmp)
+		if n > 0 {
+			if len(buf) < suffixLen {
+				buf = append(buf, tmp[0]) // Build up buffer
+			} else {
+				copy(buf, buf[1:])        // Shift left
+				buf[suffixLen-1] = tmp[0] // Append new byte
+			}
+		}
+
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return false, err
+		}
+	}
+
+	// Check if the final buffer matches suffix
+	return string(buf) == suffix, nil
+}
+
+func readerHasPrefix(r io.Reader, prefix string) (bool, error) {
+	if prefix == "" {
+		return true, nil // Empty prefix should always match
+	}
+
+	buf := make([]byte, len(prefix))
+	n, err := io.ReadFull(r, buf)
+
+	if err == io.EOF {
+		return false, nil // Input is empty, cannot have a prefix
+	}
+	if err != nil && err != io.ErrUnexpectedEOF {
+		return false, err
+	}
+
+	return string(buf[:n]) == prefix, nil
 }
