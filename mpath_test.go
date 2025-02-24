@@ -3,12 +3,118 @@ package mpath
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"reflect"
 	"sort"
 	"testing"
 
 	"github.com/shopspring/decimal"
 )
+
+func Test_ParseAndDo(t *testing.T) {
+	t.Parallel()
+
+	var err error
+	var dataAsMap map[string]any
+	var dataAsStruct TestDataStruct
+
+	err = json.Unmarshal([]byte(jsn), &dataAsMap)
+	if err != nil {
+		t.Error("got unexpected json marshal error: %w", err)
+		t.FailNow()
+	}
+
+	err = json.Unmarshal([]byte(jsn), &dataAsStruct)
+	if err != nil {
+		t.Error("got unexpected json marshal error: %w", err)
+		t.FailNow()
+	}
+
+	datas := []any{dataAsMap, dataAsStruct}
+	// datas = []any{dataAsStruct}
+
+	onlyRunName := ""
+
+	//`{$.List.Last().SomeSettings[@.Key.Equal("DEF")].Any().Equal(true)}`
+	// onlyRunName = "can sum map of numbers"
+
+	// onlyRunName = "test add negative number"
+
+	for dataIteration, data := range datas {
+		iterationName := "map"
+		if dataIteration == 1 {
+			iterationName = "struct"
+		}
+
+		for _, test := range testQueries {
+			if onlyRunName != "" {
+				if test.Name != onlyRunName {
+					continue
+				}
+			}
+
+			t.Run(fmt.Sprintf("%s: %s", test.Name, iterationName), func(t *testing.T) {
+				op, err := ParseString(test.Query)
+				if err != nil { // This is to avoid nil dereference errors
+					t.Errorf("'%s' has error: %v,", test.Name, err)
+					return
+				}
+
+				if op == nil {
+					t.Errorf("'%s' failed to return an operation: %s", test.Name, test.Query)
+					return
+				}
+
+				dataToUse, err := op.Do(data, data)
+				if err != nil && test.ExpectedResultType != RT_error {
+					t.Errorf("'%s' got error from Do(): %v", test.Name, err)
+					return
+				}
+
+				switch test.ExpectedResultType {
+				case RT_string:
+					if d, ok := dataToUse.(string); !ok {
+						t.Errorf("'%s' (%s) data was not of expected type '%s'; was %T", test.Name, iterationName, test.ExpectedResultType, dataToUse)
+					} else {
+						if d != test.Expect_string {
+							t.Errorf("'%s' (%s) data did not match expected value '%s': got %s", test.Name, iterationName, test.Expect_string, d)
+						}
+					}
+				case RT_decimal:
+					if d, ok := dataToUse.(decimal.Decimal); !ok {
+						t.Errorf("'%s' data was not of expected type '%s'; was %T", test.Name, test.ExpectedResultType, dataToUse)
+					} else {
+						if !d.Equal(test.Expect_decimal) {
+							t.Errorf("'%s' (%s) data did not match expected value '%s': got %s", test.Name, iterationName, test.Expect_decimal, d)
+						}
+					}
+				case RT_bool:
+					if d, ok := dataToUse.(bool); !ok {
+						t.Errorf("'%s' (%s) data was not of expected type '%s'; was %T", test.Name, iterationName, test.ExpectedResultType, dataToUse)
+					} else {
+						if d != test.Expect_bool {
+							t.Errorf("'%s' (%s) data did not match expected value '%t': got %t", test.Name, iterationName, test.Expect_bool, d)
+						}
+					}
+				case RT_array:
+					if d, ok := dataToUse.([]any); !ok {
+						t.Errorf("'%s' (%s) data was not of expected type '%s'; was %T", test.Name, iterationName, test.ExpectedResultType, dataToUse)
+					} else {
+						if !reflect.DeepEqual(test.Expect_array, d) {
+							t.Errorf("'%s' (%s) data did not match expected value '%t': got %t", test.Name, iterationName, test.Expect_array, d)
+						}
+					}
+				case RT_error:
+					if err == nil {
+						t.Errorf("'%s' (%s) expected error, got none", test.Name, iterationName)
+					} else if err.Error() != test.Expect_error.Error() {
+						t.Errorf("'%s' (%s) data did not match expected value '%v': got '%v'", test.Name, iterationName, test.Expect_error, err)
+					}
+				}
+			})
+		}
+	}
+}
 
 func Benchmark_ParseAndDo(b *testing.B) {
 	var data map[string]any
@@ -19,7 +125,6 @@ func Benchmark_ParseAndDo(b *testing.B) {
 	}
 
 	var op Operation
-
 	sort.Slice(testQueries, func(i, j int) bool {
 		return len(testQueries[i].Name) > len(testQueries[j].Name)
 	})
@@ -257,111 +362,6 @@ func Test_DecimalAtRoot(t *testing.T) {
 		t.Logf("value was float and was %s", d)
 	} else {
 		t.Error("wasn't decimal.Decimal")
-	}
-}
-
-func Test_ParseAndDo(t *testing.T) {
-	t.Parallel()
-
-	var err error
-	var dataAsMap map[string]any
-	var dataAsStruct TestDataStruct
-
-	err = json.Unmarshal([]byte(jsn), &dataAsMap)
-	if err != nil {
-		t.Error("got unexpected json marshal error: %w", err)
-		t.FailNow()
-	}
-
-	err = json.Unmarshal([]byte(jsn), &dataAsStruct)
-	if err != nil {
-		t.Error("got unexpected json marshal error: %w", err)
-		t.FailNow()
-	}
-
-	datas := []any{dataAsMap, dataAsStruct}
-	// datas = []any{dataAsStruct}
-
-	onlyRunName := ""
-
-	//`{$.List.Last().SomeSettings[@.Key.Equal("DEF")].Any().Equal(true)}`
-	// onlyRunName = "complex 1"
-
-	// onlyRunName = "test add negative number"
-
-	for dataIteration, data := range datas {
-		iterationName := "map"
-		if dataIteration == 1 {
-			iterationName = "struct"
-		}
-
-		for _, test := range testQueries {
-			if onlyRunName != "" {
-				if test.Name != onlyRunName {
-					continue
-				}
-			}
-
-			t.Run(fmt.Sprintf("%s: %s", test.Name, iterationName), func(t *testing.T) {
-				op, err := ParseString(test.Query)
-				if err != nil { // This is to avoid nil dereference errors
-					t.Errorf("'%s' has error: %v,", test.Name, err)
-					return
-				}
-
-				if op == nil {
-					t.Errorf("'%s' failed to return an operation: %s", test.Name, test.Query)
-					return
-				}
-
-				dataToUse, err := op.Do(data, data)
-				if err != nil && test.ExpectedResultType != RT_error {
-					t.Errorf("'%s' got error from Do(): %v", test.Name, err)
-					return
-				}
-
-				switch test.ExpectedResultType {
-				case RT_string:
-					if d, ok := dataToUse.(string); !ok {
-						t.Errorf("'%s' (%s) data was not of expected type '%s'; was %T", test.Name, iterationName, test.ExpectedResultType, dataToUse)
-					} else {
-						if d != test.Expect_string {
-							t.Errorf("'%s' (%s) data did not match expected value '%s': got %s", test.Name, iterationName, test.Expect_string, d)
-						}
-					}
-				case RT_decimal:
-					if d, ok := dataToUse.(decimal.Decimal); !ok {
-						t.Errorf("'%s' data was not of expected type '%s'; was %T", test.Name, test.ExpectedResultType, dataToUse)
-					} else {
-						if !d.Equal(test.Expect_decimal) {
-							t.Errorf("'%s' (%s) data did not match expected value '%s': got %s", test.Name, iterationName, test.Expect_decimal, d)
-						}
-					}
-				case RT_bool:
-					if d, ok := dataToUse.(bool); !ok {
-						t.Errorf("'%s' (%s) data was not of expected type '%s'; was %T", test.Name, iterationName, test.ExpectedResultType, dataToUse)
-					} else {
-						if d != test.Expect_bool {
-							t.Errorf("'%s' (%s) data did not match expected value '%t': got %t", test.Name, iterationName, test.Expect_bool, d)
-						}
-					}
-				case RT_array:
-					if d, ok := dataToUse.([]any); !ok {
-						t.Errorf("'%s' (%s) data was not of expected type '%s'; was %T", test.Name, iterationName, test.ExpectedResultType, dataToUse)
-					} else {
-						if !reflect.DeepEqual(d, test.Expect_array) {
-							t.Errorf("'%s' (%s) data did not match expected value '%t': got %t", test.Name, iterationName, test.Expect_array, d)
-						}
-					}
-				case RT_error:
-					if err == nil {
-						t.Errorf("'%s' (%s) expected error, got none", test.Name, iterationName)
-					} else if err.Error() != test.Expect_error.Error() {
-						t.Errorf("'%s' (%s) data did not match expected value '%v': got '%v'", test.Name, iterationName, test.Expect_error, err)
-					}
-				}
-			})
-		}
 	}
 }
 
@@ -1389,6 +1389,42 @@ var (
 			ExpectedAddressedPaths: [][]string{
 				[]string{"report_generator", "result"},
 			},
+		}, {
+			Name:               "can sum map of numbers",
+			Query:              "$.mapOfDecimalsAndInts.Sum()",
+			Expect_decimal:     decimal.NewFromFloat(15.0),
+			ExpectedResultType: RT_decimal,
+			ExpectedRootFields: []string{"mapOfDecimalsAndInts"},
+			ExpectedAddressedPaths: [][]string{
+				[]string{"mapOfDecimalsAndInts"},
+			},
+		}, {
+			Name:  "can select from slice",
+			Query: `$.list.Select("$.id")`,
+			Expect_array: []any{
+				decimal.NewFromInt(0),
+				decimal.NewFromInt(1),
+				decimal.NewFromInt(2),
+				decimal.NewFromInt(4),
+			},
+			ExpectedResultType: RT_array,
+			ExpectedRootFields: []string{"list"},
+			ExpectedAddressedPaths: [][]string{
+				[]string{"list"},
+			},
+		}, {
+			Name:  "can select from map",
+			Query: `$.mapOfObjects.Select("$.b")`,
+			Expect_array: []any{
+				decimal.NewFromBigInt(big.NewInt(5), 0),
+				decimal.NewFromBigInt(big.NewInt(6), 0),
+				decimal.NewFromBigInt(big.NewInt(7), 0),
+			},
+			ExpectedResultType: RT_array,
+			ExpectedRootFields: []string{"mapOfObjects"},
+			ExpectedAddressedPaths: [][]string{
+				[]string{"mapOfObjects"},
+			},
 		},
 	}
 )
@@ -1441,6 +1477,24 @@ var jsn = `
 	  1234,
 	  5678
 	],
+	"mapOfDecimalsAndInts": {
+		"a": 1,
+		"b": 2,
+		"c": 3.5,
+		"d": 4,
+		"e": 4.5
+	},
+	"mapOfObjects": {
+		"a": {
+			"b": 5
+		},
+		"c": {
+			"b": 6
+		},
+		"d": {
+			"b": 7
+		}
+	},
 	"floats": [
 	  1234.56,
 	  5678.9
@@ -1516,25 +1570,29 @@ type TestDataStruct struct {
 		YAML string `json:"yaml"`
 		TOML string `json:"toml"`
 	} `json:"result"`
-	IsNull         *struct{}         `json:"isNull"`
-	EmptyArray     []struct{}        `json:"emptyArray"`
-	EmptyString    string            `json:"emptyString"`
-	EmptyObject    struct{}          `json:"emptyObject"`
-	EmptyNumber    int               `json:"emptyNumber"`
-	Number         int               `json:"number"`
-	String         string            `json:"string"`
-	RegexString    string            `json:"regexstring"`
-	NumberInString string            `json:"numberInString"`
-	Bool           bool              `json:"bool"`
-	Numbers        []decimal.Decimal `json:"numbers"`
-	Floats         []float64         `json:"floats"`
-	Ints           []int             `json:"ints"`
-	Strings        []string          `json:"strings"`
-	Bools          []bool            `json:"bools"`
-	Index          int               `json:"index"`
-	IsActive       bool              `json:"isActive"`
-	Tags           []string          `json:"tags"`
-	Struct         struct {
+	IsNull               *struct{}                  `json:"isNull"`
+	EmptyArray           []struct{}                 `json:"emptyArray"`
+	EmptyString          string                     `json:"emptyString"`
+	EmptyObject          struct{}                   `json:"emptyObject"`
+	EmptyNumber          int                        `json:"emptyNumber"`
+	Number               int                        `json:"number"`
+	String               string                     `json:"string"`
+	RegexString          string                     `json:"regexstring"`
+	NumberInString       string                     `json:"numberInString"`
+	Bool                 bool                       `json:"bool"`
+	Numbers              []decimal.Decimal          `json:"numbers"`
+	Floats               []float64                  `json:"floats"`
+	Ints                 []int                      `json:"ints"`
+	MapOfDecimalsAndInts map[string]decimal.Decimal `json:"mapOfDecimalsAndInts"`
+	MapOfObjects         map[string]struct {
+		B int `json:"b"`
+	} `json:"mapOfObjects"`
+	Strings  []string `json:"strings"`
+	Bools    []bool   `json:"bools"`
+	Index    int      `json:"index"`
+	IsActive bool     `json:"isActive"`
+	Tags     []string `json:"tags"`
+	Struct   struct {
 		Field1 string `json:"field1"`
 		Field2 string `json:"field2"`
 		Field3 string `json:"field3"`

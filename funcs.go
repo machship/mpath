@@ -449,13 +449,22 @@ func func_decimalSlice(rtParams FunctionParameterTypes, val any, decimalSliceFun
 		}
 	}
 
+	if isMap(val) {
+		var err error
+		val, err = getMapValues(val)
+		if err != nil {
+			return false, fmt.Errorf("not an array of numbers")
+		}
+	}
+
 	var newSlc []decimal.Decimal
-	if valIfc, ok := val.([]decimal.Decimal); ok {
-		newSlc = append([]decimal.Decimal{}, valIfc...)
+	switch valueInstance := val.(type) {
+	case []decimal.Decimal:
+		newSlc = append([]decimal.Decimal{}, valueInstance...)
 		newSlc = append(newSlc, paramNumbers...)
-	} else if valIfc, ok := val.([]any); ok {
+	case []any:
 		newSlc = append([]decimal.Decimal{}, paramNumbers...)
-		for _, vs := range valIfc {
+		for _, vs := range valueInstance {
 			switch t := vs.(type) {
 			case decimal.Decimal:
 				newSlc = append(newSlc, t)
@@ -1061,6 +1070,77 @@ func func_IsNotNullOrEmpty(rtParams FunctionParameterTypes, val any) (any, error
 	return !resBool, nil
 }
 
+const FT_Select FT_FunctionType = "Select"
+
+func func_Select(rtParams FunctionParameterTypes, val any) (any, error) {
+	// Expect exactly one parameter: the query string.
+	query, err := paramsGetFirstOfString(rtParams)
+	if err != nil {
+		return errString(FT_Select, err)
+	}
+
+	// Parse the query string (e.g., "$.IntField") into an operation.
+	op, err := ParseString(query)
+	if err != nil {
+		return nil, fmt.Errorf("func %s: error parsing query: %w", FT_Select, err)
+	}
+
+	// Prepare to iterate over the input using reflection.
+	v := reflect.ValueOf(val)
+	if v.Kind() == reflect.Pointer || v.Kind() == reflect.Interface {
+		v = v.Elem()
+	}
+
+	var results []any
+
+	switch v.Kind() {
+	case reflect.Slice, reflect.Array:
+		// Iterate over each element in the slice/array.
+		for i := 0; i < v.Len(); i++ {
+			elem := v.Index(i).Interface()
+			res, err := op.Do(elem, elem)
+			if err != nil {
+				return nil, fmt.Errorf("func %s: error selecting field: %w", FT_Select, err)
+			}
+			// If the result is itself a slice/array, flatten it.
+			resVal := reflect.ValueOf(res)
+			if resVal.Kind() == reflect.Slice || resVal.Kind() == reflect.Array {
+				for j := 0; j < resVal.Len(); j++ {
+					results = append(results, resVal.Index(j).Interface())
+				}
+			} else {
+				results = append(results, res)
+			}
+		}
+	case reflect.Map:
+		// Iterate over map values.
+		orderedMapValues := v.MapKeys()
+		// Sort the keys to ensure deterministic output.
+		sort.Slice(orderedMapValues, func(i, j int) bool {
+			return orderedMapValues[i].String() < orderedMapValues[j].String()
+		})
+
+		for _, key := range orderedMapValues {
+			elem := v.MapIndex(key).Interface()
+			res, err := op.Do(elem, elem)
+			if err != nil {
+				return nil, fmt.Errorf("func %s: error selecting field: %w", FT_Select, err)
+			}
+			resVal := reflect.ValueOf(res)
+			if resVal.Kind() == reflect.Slice || resVal.Kind() == reflect.Array {
+				for j := 0; j < resVal.Len(); j++ {
+					results = append(results, resVal.Index(j).Interface())
+				}
+			} else {
+				results = append(results, res)
+			}
+		}
+	default:
+		return nil, fmt.Errorf("func %s: unsupported type %T; expected array or map", FT_Select, val)
+	}
+	return results, nil
+}
+
 func isNil(val any) bool {
 	value := reflect.ValueOf(val)
 
@@ -1364,6 +1444,21 @@ var (
 				}
 
 				return "is not empty"
+			},
+		},
+		FT_Select: {
+			Name:        FT_Select,
+			Description: "Selects a field from each object in a map or array",
+			Params:      singleParam("mpath query to run against each element", PT_String, IOOT_Single),
+			Returns:     inputOrOutput(PT_Any, IOOT_Array),
+			ValidOn:     inputOrOutput(PT_Any, IOOT_Array),
+			fn:          func_Select,
+			explanationFunc: func(tf Function) string {
+				if len(tf.FunctionParameters) != 1 {
+					return ""
+				}
+
+				return fmt.Sprintf("selects the field {{%s}}", tf.FunctionParameters[0].String)
 			},
 		},
 
@@ -2038,4 +2133,28 @@ func ft_IsBoolFunc(ft FT_FunctionType) bool {
 	}
 
 	return fn.Returns.Type == PT_Boolean && fn.Returns.IOType == IOOT_Single
+}
+
+func isMap(val any) bool {
+	if val == nil {
+		return false
+	}
+	return reflect.TypeOf(val).Kind() == reflect.Map
+}
+func getMapValues(input any) ([]any, error) {
+	// Use reflection to check that the input is a map.
+	v := reflect.ValueOf(input)
+	if v.Kind() != reflect.Map {
+		return nil, fmt.Errorf("input is not a map")
+	}
+
+	// Create a new map for the result.
+	result := make([]any, v.Len())
+
+	// Iterate over all keys.
+	for i, key := range v.MapKeys() {
+		// Use the string key and the corresponding value.
+		result[i] = v.MapIndex(key).Interface()
+	}
+	return result, nil
 }
