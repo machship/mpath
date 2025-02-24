@@ -198,92 +198,65 @@ func func_Invert(rtParams FunctionParameterTypes, val any) (any, error) {
 	return false, fmt.Errorf("input was not boolean")
 }
 
-func stringBoolFunc(rtParams FunctionParameterTypes, val any, fn func(string, string) bool, invert bool, fnName FT_FunctionType) (bool, error) {
+func stringBoolFunc(rtParams FunctionParameterTypes, val any, fn func(io.Reader, string) (bool, error), invert bool, fnName FT_FunctionType) (bool, error) {
 	param, err := paramsGetFirstOfString(rtParams)
 	if err != nil {
 		return errBool(fnName, err)
 	}
 
-	// Handle io.Reader case
-	if reader, ok := val.(io.Reader); ok {
-		switch fnName {
-		case FT_Contains, FT_NotContains:
-			found, err := readerContains(reader, param)
-			if err != nil {
-				return false, fmt.Errorf("%s: error processing stream: %w", fnName, err)
-			}
-			if invert {
-				return !found, nil
-			}
-			return found, nil
-
-		case FT_Prefix, FT_NotPrefix:
-			found, err := readerHasPrefix(reader, param)
-			if err != nil {
-				return false, fmt.Errorf("%s: error processing stream: %w", fnName, err)
-			}
-			if invert {
-				return !found, nil
-			}
-			return found, nil
-
-		case FT_Suffix, FT_NotSuffix:
-			found, err := readerHasSuffix(reader, param)
-			if err != nil {
-				return false, fmt.Errorf("%s: error processing stream: %w", fnName, err)
-			}
-			if invert {
-				return !found, nil
-			}
-			return found, nil
-		}
-	}
-
+	var v io.Reader
 	if valStr, ok := val.(string); ok {
-		res := fn(valStr, param)
-		if invert {
-			res = !res
-		}
-		return res, nil
+		v = strings.NewReader(valStr)
+	} else if r, ok := val.(io.Reader); ok {
+		v = r
+	} else {
+		return false, fmt.Errorf("unsupported type for %s: expected string or io.Reader, got %T", fnName, val)
 	}
 
-	return false, fmt.Errorf("unsupported type for %s: expected string or io.Reader, got %T", fnName, val)
+	res, err := fn(v, param)
+	if err != nil {
+		return false, fmt.Errorf("%s: error processing stream: %w", fnName, err)
+	}
+	if invert {
+		res = !res
+	}
+	return res, nil
 }
 
 const FT_Contains FT_FunctionType = "Contains"
 
 func func_Contains(rtParams FunctionParameterTypes, val any) (any, error) {
-	return stringBoolFunc(rtParams, val, strings.Contains, false, FT_Contains)
+	return stringBoolFunc(rtParams, val, readerContains, false, FT_Contains)
 }
 
 const FT_NotContains FT_FunctionType = "NotContains"
 
 func func_NotContains(rtParams FunctionParameterTypes, val any) (any, error) {
-	return stringBoolFunc(rtParams, val, strings.Contains, true, FT_NotContains)
+	return stringBoolFunc(rtParams, val, readerContains, true, FT_NotContains)
 }
 
 const FT_Prefix FT_FunctionType = "Prefix"
 
 func func_Prefix(rtParams FunctionParameterTypes, val any) (any, error) {
-	return stringBoolFunc(rtParams, val, strings.HasPrefix, false, FT_Prefix)
+	return stringBoolFunc(rtParams, val, readerHasPrefix, false, FT_Prefix)
 }
 
 const FT_NotPrefix FT_FunctionType = "NotPrefix"
 
 func func_NotPrefix(rtParams FunctionParameterTypes, val any) (any, error) {
-	return stringBoolFunc(rtParams, val, strings.HasPrefix, true, FT_NotPrefix)
+	return stringBoolFunc(rtParams, val, readerHasPrefix, true, FT_NotPrefix)
 }
 
 const FT_Suffix FT_FunctionType = "Suffix"
 
 func func_Suffix(rtParams FunctionParameterTypes, val any) (any, error) {
-	return stringBoolFunc(rtParams, val, strings.HasSuffix, false, FT_Suffix)
+	return stringBoolFunc(rtParams, val, readerHasSuffix, false, FT_Suffix)
 }
 
 const FT_NotSuffix FT_FunctionType = "NotSuffix"
 
 func func_NotSuffix(rtParams FunctionParameterTypes, val any) (any, error) {
-	return stringBoolFunc(rtParams, val, strings.HasSuffix, true, FT_NotSuffix)
+	return stringBoolFunc(rtParams, val, readerHasSuffix, true, FT_NotSuffix)
 }
 
 const FT_Sprintf FT_FunctionType = "Sprintf"
