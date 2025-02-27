@@ -3,6 +3,7 @@ package mpath
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 	sc "text/scanner"
@@ -232,10 +233,12 @@ func (x *opFunction) Do(currentData, originalData any) (dataToUse any, err error
 	var rtParams FunctionParameterTypes
 
 	// get the pathParams and put them in the appropriate bucket
+
 	for _, param := range x.Params {
+
 		var ppOp Operation
 		switch t := param.(type) {
-		case *FP_Number, *FP_String, *FP_Bool:
+		case *FP_Number, *FP_Reader, *FP_Bool:
 			rtParams = append(rtParams, t)
 			continue
 		case *FP_Path:
@@ -248,11 +251,12 @@ func (x *opFunction) Do(currentData, originalData any) (dataToUse any, err error
 		if err != nil {
 			return nil, fmt.Errorf("issue with path parameter: %w", err)
 		}
+
 		switch resType := res.(type) {
 		case decimal.Decimal:
 			rtParams = append(rtParams, &FP_Number{resType})
 		case string:
-			rtParams = append(rtParams, &FP_String{resType})
+			rtParams = append(rtParams, &FP_Reader{strings.NewReader(resType)})
 		case bool:
 			rtParams = append(rtParams, &FP_Bool{resType})
 		case []decimal.Decimal:
@@ -261,7 +265,7 @@ func (x *opFunction) Do(currentData, originalData any) (dataToUse any, err error
 			}
 		case []string:
 			for _, rt := range resType {
-				rtParams = append(rtParams, &FP_String{rt})
+				rtParams = append(rtParams, &FP_Reader{strings.NewReader(rt)})
 			}
 		case []bool:
 			for _, rt := range resType {
@@ -285,7 +289,7 @@ func (x *opFunction) Do(currentData, originalData any) (dataToUse any, err error
 				case decimal.Decimal:
 					rtParams = append(rtParams, &FP_Number{pvType})
 				case string:
-					rtParams = append(rtParams, &FP_String{pvType})
+					rtParams = append(rtParams, &FP_Reader{strings.NewReader(pvType)})
 				case bool:
 					rtParams = append(rtParams, &FP_Bool{pvType})
 				default:
@@ -358,7 +362,7 @@ func (x *opFunction) Parse(s *scanner, r rune) (nextR rune, err error) {
 				tt = tt[1 : len(tt)-1]
 			}
 			tt = unescape(tt)
-			x.Params = append(x.Params, &FP_String{tt})
+			x.Params = append(x.Params, &FP_Reader{strings.NewReader(tt)})
 		case sc.Float, sc.Int:
 			// tt := s.TokenText()
 			// x.userString += string(tt)
@@ -499,10 +503,10 @@ func (x FunctionParameterTypes) Numbers() (out []*FP_Number) {
 	return
 }
 
-func (x FunctionParameterTypes) Strings() (out []*FP_String) {
+func (x FunctionParameterTypes) Readers() (out []*FP_Reader) {
 	for _, fp := range x {
 		switch t := fp.(type) {
-		case *FP_String:
+		case *FP_Reader:
 			out = append(out, t)
 		}
 	}
@@ -563,22 +567,31 @@ func (x *FP_Number) MarshalJSON() ([]byte, error) {
 	return functionParameterMarshalJSON(x.Value, "Number")
 }
 
-type FP_String struct {
-	Value string
+type FP_Reader struct {
+	Value io.ReadSeeker
 }
 
-func (p FP_String) String() string {
-	return fmt.Sprintf(`"%s"`, escape(p.Value))
+func (p FP_Reader) String() string {
+	content, err := readAll(p.Value)
+	if err != nil {
+		return fmt.Sprintf("error reading: %v", err)
+	}
+	return fmt.Sprintf(`"%s"`, escape(string(content)))
+
 }
 
-func (x *FP_String) IsFuncParam() (returns InputOrOutput) {
+func (x *FP_Reader) IsFuncParam() (returns InputOrOutput) {
 	return inputOrOutput(PT_String, IOOT_Single)
 }
 
-func (x *FP_String) GetValue() any { return x.Value }
+func (x *FP_Reader) GetValue() any { return x.Value }
 
-func (x *FP_String) MarshalJSON() ([]byte, error) {
-	return functionParameterMarshalJSON(x.Value, "String")
+func (x *FP_Reader) MarshalJSON() ([]byte, error) {
+	content, err := readAll(x.Value)
+	if err != nil {
+		return nil, fmt.Errorf("error reading: %v", err)
+	}
+	return functionParameterMarshalJSON(string(content), "String")
 }
 
 type FP_Bool struct {

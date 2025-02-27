@@ -1,6 +1,8 @@
 package mpath
 
 import (
+	"bytes"
+	"fmt"
 	"io"
 	"reflect"
 	"strings"
@@ -294,85 +296,107 @@ func doForMapPerKey(valueThatShouldBeMap any, doFunc func(keyAsString string, ke
 	}
 }
 
-func readerContains(r io.Reader, substr string) (bool, error) {
-	bufSize := 4096
-	substrLen := len(substr)
-	buf := make([]byte, bufSize+substrLen-1) // Ensure space to handle boundaries
-
-	offset := 0
-
-	for {
-		n, err := r.Read(buf[offset:]) // Read into available space in the buffer
-		if n > 0 {
-			data := string(buf[:offset+n])
-			if strings.Contains(data, substr) {
-				return true, nil
-			}
-
-			// Preserve only the last (substrLen - 1) bytes in the buffer for the next read
-			if offset+n >= substrLen-1 {
-				copy(buf, buf[offset+n-substrLen+1:offset+n])
-			}
-			offset = substrLen - 1
-		}
-
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return false, err
-		}
-	}
-
-	return false, nil
-}
-
-func readerHasSuffix(r io.Reader, suffix string) (bool, error) {
-	if suffix == "" {
-		return true, nil // Empty suffix should always match
-	}
-
-	suffixLen := len(suffix)
-	buf := make([]byte, 0, suffixLen) // Buffer to store last suffixLen bytes
-
-	tmp := make([]byte, 1) // Read one byte at a time
-	for {
-		n, err := r.Read(tmp)
-		if n > 0 {
-			if len(buf) < suffixLen {
-				buf = append(buf, tmp[0]) // Build up buffer
-			} else {
-				copy(buf, buf[1:])        // Shift left
-				buf[suffixLen-1] = tmp[0] // Append new byte
-			}
-		}
-
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return false, err
-		}
-	}
-
-	// Check if the final buffer matches suffix
-	return string(buf) == suffix, nil
-}
-
-func readerHasPrefix(r io.Reader, prefix string) (bool, error) {
-	if prefix == "" {
-		return true, nil // Empty prefix should always match
-	}
-
-	buf := make([]byte, len(prefix))
-	n, err := io.ReadFull(r, buf)
-
-	if err == io.EOF {
-		return false, nil // Input is empty, cannot have a prefix
-	}
-	if err != nil && err != io.ErrUnexpectedEOF {
+func readerContains(r io.Reader, substr io.Reader) (bool, error) {
+	substrBytes, err := io.ReadAll(substr)
+	if err != nil {
 		return false, err
 	}
 
-	return string(buf[:n]) == prefix, nil
+	bufSize := 4096
+	buf := make([]byte, bufSize+len(substrBytes)) // Keep extra space for substring match across buffers
+	offset := 0
+
+	for {
+		n, err := r.Read(buf[offset:])
+		if n > 0 {
+			if strings.Contains(string(buf[:offset+n]), string(substrBytes)) {
+				return true, nil
+			}
+			copy(buf, buf[n:offset+n]) // Shift buffer left
+			offset = len(substrBytes) - 1
+		}
+
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return false, err
+		}
+	}
+	return false, nil
+}
+
+func readerHasSuffix(r io.Reader, suffix io.Reader) (bool, error) {
+	suffixBytes, err := io.ReadAll(suffix)
+	if err != nil {
+		return false, fmt.Errorf("error reading suffix: %w", err)
+	}
+
+	suffixLen := len(suffixBytes)
+	if suffixLen == 0 {
+		return true, nil
+	}
+
+	buf := make([]byte, suffixLen)
+	_, err = io.ReadFull(r, buf)
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+		return false, err
+	}
+
+	// Read the stream while maintaining a sliding buffer of last `suffixLen` bytes
+	tmp := make([]byte, 1)
+	for {
+		n, err := r.Read(tmp)
+		if n > 0 {
+			// Shift buffer left and append new byte
+			copy(buf, buf[1:])
+			buf[len(buf)-1] = tmp[0]
+		}
+
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return false, err
+		}
+	}
+
+	// Final suffix check
+	return bytes.HasSuffix(buf, suffixBytes), nil
+}
+
+func readerHasPrefix(r io.Reader, prefix io.Reader) (bool, error) {
+	prefixBytes, err := io.ReadAll(prefix)
+	if err != nil {
+		return false, err
+	}
+
+	buf := make([]byte, len(prefixBytes))
+	_, err = io.ReadFull(r, buf)
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+		return false, err
+	}
+
+	return strings.HasPrefix(string(buf), string(prefixBytes)), nil
+}
+
+func bufferReader(r io.Reader) (io.Reader, error) {
+	var buf bytes.Buffer
+	tee := io.TeeReader(r, &buf)
+	data, err := io.ReadAll(tee) // Read the full stream and store it
+	if err != nil {
+		return nil, err
+	}
+	return bytes.NewReader(data), nil // Return a new reader with stored data
+}
+
+func readAll(r io.ReadSeeker) (string, error) {
+	if _, err := r.Seek(0, io.SeekStart); err != nil {
+		return "", err
+	}
+	b, err := io.ReadAll(r)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }

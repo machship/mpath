@@ -39,8 +39,17 @@ func paramsGetFirstOfNumber(rtParams FunctionParameterTypes) (val decimal.Decima
 		return p.Value, nil
 	}
 
-	for _, p := range rtParams.Strings() {
-		if wasNumber, number := convertToDecimalIfNumberAndCheck(p.Value); wasNumber {
+	for _, p := range rtParams.Readers() {
+		_, err := p.Value.Seek(0, io.SeekStart)
+		if err != nil {
+			return val, fmt.Errorf("error resetting reader: %w", err)
+		}
+
+		v, err := readAll(p.Value)
+		if err != nil {
+			return val, fmt.Errorf("error reading buffer: %w", err)
+		}
+		if wasNumber, number := convertToDecimalIfNumberAndCheck(v); wasNumber {
 			return number, nil
 		}
 	}
@@ -48,12 +57,12 @@ func paramsGetFirstOfNumber(rtParams FunctionParameterTypes) (val decimal.Decima
 	return val, fmt.Errorf("no number parameter found")
 }
 
-func paramsGetFirstOfString(rtParams FunctionParameterTypes) (val string, err error) {
+func paramsGetFirstOfString(rtParams FunctionParameterTypes) (val io.ReadSeeker, err error) {
 	if got, ok := rtParams.checkLengthOfParams(1); !ok {
 		return val, fmt.Errorf("expected %d params, got %d", 1, got)
 	}
 
-	for _, p := range rtParams.Strings() {
+	for _, p := range rtParams.Readers() {
 		return p.Value, nil
 	}
 
@@ -65,7 +74,7 @@ func paramsGetAll(rtParams FunctionParameterTypes) (val []any, err error) {
 		val = append(val, p.Value)
 	}
 
-	for _, p := range rtParams.Strings() {
+	for _, p := range rtParams.Readers() {
 		val = append(val, p.Value)
 	}
 
@@ -104,6 +113,21 @@ func errNumParams(name FT_FunctionType, expected, got int) error {
 	return fmt.Errorf("(%s) expected %d params, got %d", name, expected, got)
 }
 
+func stringValue(v any) (string, bool) {
+	switch t := v.(type) {
+	case string:
+		return t, true
+	case io.ReadSeeker:
+		vb, err := readAll(t)
+		if err != nil {
+			return "", false
+		}
+		return vb, true
+	default:
+		return "", false
+	}
+}
+
 const FT_Equal FT_FunctionType = "Equal"
 
 func func_Equal(rtParams FunctionParameterTypes, val any) (any, error) {
@@ -119,6 +143,12 @@ func func_Equal(rtParams FunctionParameterTypes, val any) (any, error) {
 			return vt.Equal(pt), nil
 		}
 		return false, nil
+	}
+	valStr, valIsString := stringValue(val)
+	paramStr, paramIsString := stringValue(param)
+
+	if valIsString && paramIsString {
+		return valStr == paramStr, nil
 	}
 
 	return val == param, nil
@@ -198,22 +228,32 @@ func func_Invert(rtParams FunctionParameterTypes, val any) (any, error) {
 	return false, fmt.Errorf("input was not boolean")
 }
 
-func stringBoolFunc(rtParams FunctionParameterTypes, val any, fn func(io.Reader, string) (bool, error), invert bool, fnName FT_FunctionType) (bool, error) {
+func stringBoolFunc(rtParams FunctionParameterTypes, val any, fn func(io.Reader, io.Reader) (bool, error), invert bool, fnName FT_FunctionType) (bool, error) {
 	param, err := paramsGetFirstOfString(rtParams)
 	if err != nil {
 		return errBool(fnName, err)
 	}
-
-	var v io.Reader
-	if valStr, ok := val.(string); ok {
-		v = strings.NewReader(valStr)
-	} else if r, ok := val.(io.Reader); ok {
-		v = r
-	} else {
-		return false, fmt.Errorf("unsupported type for %s: expected string or io.Reader, got %T", fnName, val)
+	_, err = param.Seek(0, io.SeekStart)
+	if err != nil {
+		return false, err
 	}
 
-	res, err := fn(v, param)
+	var valReader io.Reader
+	if valStr, ok := val.(string); ok {
+		valReader = strings.NewReader(valStr)
+	} else if r, ok := val.(io.Reader); ok {
+		valReader = r
+	} else {
+		return false, fmt.Errorf("unsupported type for %s: expected string or io.Reader for val, got %T", fnName, val)
+	}
+
+	valBuffered, err := bufferReader(valReader)
+	if err != nil {
+		return false, fmt.Errorf("%s: error buffering val: %w", fnName, err)
+	}
+
+	// Execute function
+	res, err := fn(valBuffered, param)
 	if err != nil {
 		return false, fmt.Errorf("%s: error processing stream: %w", fnName, err)
 	}
@@ -431,8 +471,17 @@ func func_decimalSlice(rtParams FunctionParameterTypes, val any, decimalSliceFun
 		paramNumbers = append(paramNumbers, pn.Value)
 	}
 
-	for _, ps := range rtParams.Strings() {
-		if wasNumber, number := convertToDecimalIfNumberAndCheck(ps.Value); wasNumber {
+	for _, ps := range rtParams.Readers() {
+		_, err := ps.Value.Seek(0, io.SeekStart)
+		if err != nil {
+			return val, fmt.Errorf("error resetting reader: %w", err)
+		}
+
+		v, err := readAll(ps.Value)
+		if err != nil {
+			return val, fmt.Errorf("error reading buffer: %w", err)
+		}
+		if wasNumber, number := convertToDecimalIfNumberAndCheck(v); wasNumber {
 			paramNumbers = append(paramNumbers, number)
 		}
 	}
@@ -583,6 +632,14 @@ func func_AnyOf(rtParams FunctionParameterTypes, val any) (any, error) {
 			return false, nil
 		}
 
+		if aStr, ok := stringValue(val); ok {
+			if bStr, ok := stringValue(p); ok {
+				if aStr == bStr {
+					return true, nil
+				}
+			}
+		}
+
 		if val == p {
 			return true, nil
 		}
@@ -665,8 +722,17 @@ func func_DoesMatchRegex(rtParams FunctionParameterTypes, val any) (any, error) 
 	if err != nil {
 		return errBool(FT_DoesMatchRegex, err)
 	}
+	_, err = param.Seek(0, io.SeekStart)
+	if err != nil {
+		return val, err
+	}
 
-	exp, err := regexp.Compile(param)
+	v, err := readAll(param)
+	if err != nil {
+		return val, fmt.Errorf("error reading buffer: %w", err)
+	}
+
+	exp, err := regexp.Compile(v)
 	if err != nil {
 		return false, fmt.Errorf("regular expression is invalid")
 	}
@@ -688,16 +754,23 @@ func func_ReplaceRegex(rtParams FunctionParameterTypes, val any) (any, error) {
 	var rgx, replace string
 	var foundReplace bool
 
-	for i, ps := range rtParams.Strings() {
-		p := ps.Value
+	for i, ps := range rtParams.Readers() {
+		_, err := ps.Value.Seek(0, io.SeekStart)
+		if err != nil {
+			return val, fmt.Errorf("error resetting reader: %w", err)
+		}
+		v, err := readAll(ps.Value)
+		if err != nil {
+			return val, fmt.Errorf("error reading buffer: %w", err)
+		}
 		switch i {
 		case 0:
-			if p == "" {
+			if v == "" {
 				return "", fmt.Errorf("find parameter must not be an empty string")
 			}
-			rgx = p
+			rgx = v
 		case 1:
-			replace = p
+			replace = v
 			foundReplace = true
 		}
 		if i > 1 {
@@ -730,16 +803,23 @@ func func_ReplaceAll(rtParams FunctionParameterTypes, val any) (any, error) {
 	var find, replace string
 	var foundReplace bool
 
-	for i, ps := range rtParams.Strings() {
-		p := ps.Value
+	for i, ps := range rtParams.Readers() {
+		_, err := ps.Value.Seek(0, io.SeekStart)
+		if err != nil {
+			return val, fmt.Errorf("error resetting reader: %w", err)
+		}
+		v, err := readAll(ps.Value)
+		if err != nil {
+			return val, fmt.Errorf("error reading buffer: %w", err)
+		}
 		switch i {
 		case 0:
-			if p == "" {
+			if v == "" {
 				return "", fmt.Errorf("find parameter must not be an empty string")
 			}
-			find = p
+			find = v
 		case 1:
-			replace = p
+			replace = v
 			foundReplace = true
 		}
 		if i > 1 {
@@ -878,8 +958,15 @@ func func_RemoveKeysByRegex(rtParams FunctionParameterTypes, val any) (any, erro
 	if err != nil {
 		return nil, err
 	}
-
-	exp, err := regexp.Compile(param)
+	_, err = param.Seek(0, io.SeekStart)
+	if err != nil {
+		return nil, err
+	}
+	v, err := readAll(param)
+	if err != nil {
+		return val, fmt.Errorf("error reading buffer: %w", err)
+	}
+	exp, err := regexp.Compile(v)
 	if err != nil {
 		return nil, fmt.Errorf("regular expression is invalid")
 	}
@@ -905,9 +992,17 @@ func func_RemoveKeysByPrefix(rtParams FunctionParameterTypes, val any) (any, err
 	if err != nil {
 		return nil, err
 	}
+	_, err = prefixParam.Seek(0, io.SeekStart)
+	if err != nil {
+		return nil, err
+	}
+	v, err := readAll(prefixParam)
+	if err != nil {
+		return nil, fmt.Errorf("error reading buffer: %w", err)
+	}
 
 	doForMapPerKey(val, func(keyAsString string, keyAsValue, mapAsValue reflect.Value) {
-		if strings.HasPrefix(keyAsString, prefixParam) {
+		if strings.HasPrefix(keyAsString, v) {
 			// This deletes the key if it matches the regex
 			mapAsValue.SetMapIndex(keyAsValue, reflect.Value{})
 		}
@@ -927,9 +1022,16 @@ func func_RemoveKeysBySuffix(rtParams FunctionParameterTypes, val any) (any, err
 	if err != nil {
 		return nil, err
 	}
-
+	_, err = prefixParam.Seek(0, io.SeekStart)
+	if err != nil {
+		return nil, err
+	}
+	v, err := readAll(prefixParam)
+	if err != nil {
+		return nil, fmt.Errorf("error reading buffer: %w", err)
+	}
 	doForMapPerKey(val, func(keyAsString string, keyAsValue, mapAsValue reflect.Value) {
-		if strings.HasSuffix(keyAsString, prefixParam) {
+		if strings.HasSuffix(keyAsString, v) {
 			// This deletes the key if it matches the regex
 			mapAsValue.SetMapIndex(keyAsValue, reflect.Value{})
 		}
@@ -1064,11 +1166,14 @@ func func_Select(rtParams FunctionParameterTypes, val any) (any, error) {
 	// Expect exactly one parameter: the query string.
 	query, err := paramsGetFirstOfString(rtParams)
 	if err != nil {
-		return errString(FT_Select, err)
+		return nil, err
 	}
-
+	_, err = query.Seek(0, io.SeekStart)
+	if err != nil {
+		return nil, err
+	}
 	// Parse the query string (e.g., "$.IntField") into an operation.
-	op, err := ParseString(query)
+	op, err := ParseReadSeeker(query)
 	if err != nil {
 		return nil, fmt.Errorf("func %s: error parsing query: %w", FT_Select, err)
 	}

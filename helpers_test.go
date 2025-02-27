@@ -45,7 +45,7 @@ func TestReaderContains(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			r := bytes.NewReader([]byte(tc.input))
-			result, err := readerContains(r, tc.substr)
+			result, err := readerContains(r, strings.NewReader(tc.substr))
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -61,7 +61,7 @@ func TestReaderHasSuffix(t *testing.T) {
 		name     string
 		input    string
 		check    string
-		checkFn  func(io.Reader, string) (bool, error)
+		checkFn  func(io.Reader, io.Reader) (bool, error)
 		expected bool
 	}{
 		{"SuffixMatch", "Hello, world!", "world!", readerHasSuffix, true},
@@ -83,7 +83,7 @@ func TestReaderHasSuffix(t *testing.T) {
 
 	for _, tc := range testCases {
 		r := bytes.NewReader([]byte(tc.input))
-		result, err := tc.checkFn(r, tc.check)
+		result, err := tc.checkFn(r, strings.NewReader(tc.check))
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -98,7 +98,7 @@ func TestReaderHasPrefix(t *testing.T) {
 		name     string
 		input    string
 		check    string
-		checkFn  func(io.Reader, string) (bool, error)
+		checkFn  func(io.Reader, io.Reader) (bool, error)
 		expected bool
 	}{
 		{"PrefixMatch", "Hello, world!", "Hello", readerHasPrefix, true},
@@ -119,7 +119,7 @@ func TestReaderHasPrefix(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			r := bytes.NewReader([]byte(tc.input))
-			result, err := tc.checkFn(r, tc.check)
+			result, err := tc.checkFn(r, strings.NewReader(tc.check))
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
