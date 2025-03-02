@@ -2,7 +2,6 @@ package mpath
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -299,7 +298,7 @@ func stringBoolFunc(rtParams FunctionParameterTypes, val any, fn func(io.Reader,
 		return false, err
 	}
 
-	var valReader io.Reader
+	var valReader io.ReadSeeker
 	if valStr, ok := val.(string); ok {
 		valReader = strings.NewReader(valStr)
 	} else if r, ok := val.(io.ReadSeeker); ok {
@@ -818,44 +817,7 @@ const FT_TrimRight FT_FunctionType = "TrimRight"
 
 func func_TrimRight(rtParams FunctionParameterTypes, val any) (any, error) {
 	return readerPartFunc(rtParams, val, func(r io.Reader, n int) (string, error) {
-		if n == 0 { // Nothing to trim
-			var result bytes.Buffer
-			_, err := io.Copy(&result, r)
-			if err != nil {
-				return "", err
-			}
-			return result.String(), nil
-		}
-
-		buf := bufio.NewReader(r)
-		window := make([]byte, 0, n) // Sliding window for last `n` bytes
-		var result bytes.Buffer
-		count := 0
-
-		for {
-			b, err := buf.ReadByte()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				return "", err
-			}
-
-			if count >= n {
-				result.WriteByte(window[0]) // Only write out bytes before last `n`
-				window = window[1:]         // Shift window left
-			}
-
-			window = append(window, b)
-			count++
-		}
-
-		// If input size < n, return empty string
-		if count < n {
-			return "", nil
-		}
-
-		return result.String(), nil
+		return trimRight(r, n)
 	}, FT_TrimRight)
 }
 
@@ -863,26 +825,7 @@ const FT_TrimLeft FT_FunctionType = "TrimLeft"
 
 func func_TrimLeft(rtParams FunctionParameterTypes, val any) (any, error) {
 	return readerPartFunc(rtParams, val, func(r io.Reader, n int) (string, error) {
-		buf := bufio.NewReader(r)
-
-		// Skip the first `n` bytes
-		for i := 0; i < n; i++ {
-			_, err := buf.ReadByte()
-			if err == io.EOF {
-				return "", nil // If we reach EOF, return empty string
-			}
-			if err != nil {
-				return "", err
-			}
-		}
-
-		var result bytes.Buffer
-		_, err := io.Copy(&result, buf)
-		if err != nil {
-			return "", err
-		}
-
-		return result.String(), nil
+		return trimLeft(r, n)
 	}, FT_TrimLeft)
 }
 
@@ -890,34 +833,7 @@ const FT_Right FT_FunctionType = "Right"
 
 func func_Right(rtParams FunctionParameterTypes, val any) (any, error) {
 	return readerPartFunc(rtParams, val, func(r io.Reader, n int) (string, error) {
-		buf := bufio.NewReader(r)
-		window := make([]byte, 0, n) // Dynamic sliding window
-		count := 0
-
-		for {
-			b, err := buf.ReadByte()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				return "", err
-			}
-
-			if count < n {
-				window = append(window, b) // Fill up to `n`
-			} else {
-				copy(window, window[1:])
-				window[len(window)-1] = b
-			}
-			count++
-		}
-
-		// If `n > len(input)`, return the full string
-		if count < n {
-			return string(window), nil
-		}
-
-		return string(window), nil
+		return right(r, n)
 	}, FT_Right)
 }
 
@@ -925,21 +841,7 @@ const FT_Left FT_FunctionType = "Left"
 
 func func_Left(rtParams FunctionParameterTypes, val any) (any, error) {
 	return readerPartFunc(rtParams, val, func(r io.Reader, n int) (string, error) {
-		buf := bufio.NewReader(r)
-		var result bytes.Buffer
-
-		for i := 0; i < n; i++ {
-			b, err := buf.ReadByte()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				return "", err
-			}
-			result.WriteByte(b)
-		}
-
-		return result.String(), nil
+		return left(r, n)
 	}, FT_Left)
 }
 

@@ -498,3 +498,116 @@ func streamingReplaceAll(r io.ReadSeeker, find, replace string) (string, error) 
 
 	return result.String(), nil
 }
+
+func trimRight(r io.Reader, n int) (string, error) {
+	if n == 0 { // Nothing to trim
+		var result bytes.Buffer
+		_, err := io.Copy(&result, r)
+		if err != nil {
+			return "", err
+		}
+		return result.String(), nil
+	}
+
+	buf := bufio.NewReader(r)
+	window := make([]byte, 0, n) // Sliding window for last `n` bytes
+	var result bytes.Buffer
+	count := 0
+
+	for {
+		b, err := buf.ReadByte()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", err
+		}
+
+		if count >= n {
+			result.WriteByte(window[0]) // Only write out bytes before last `n`
+			window = window[1:]         // Shift window left
+		}
+
+		window = append(window, b)
+		count++
+	}
+
+	// If input size < n, return empty string
+	if count < n {
+		return "", nil
+	}
+
+	return result.String(), nil
+}
+
+func trimLeft(r io.Reader, n int) (string, error) {
+	buf := bufio.NewReader(r)
+
+	// Skip the first `n` bytes
+	for i := 0; i < n; i++ {
+		_, err := buf.ReadByte()
+		if err == io.EOF {
+			return "", nil // If we reach EOF, return empty string
+		}
+		if err != nil {
+			return "", err
+		}
+	}
+
+	var result bytes.Buffer
+	_, err := io.Copy(&result, buf)
+	if err != nil {
+		return "", err
+	}
+
+	return result.String(), nil
+}
+
+func right(r io.Reader, n int) (string, error) {
+	buf := bufio.NewReader(r)
+	window := make([]byte, 0, n) // Dynamic sliding window
+	count := 0
+
+	for {
+		b, err := buf.ReadByte()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", err
+		}
+
+		if count < n {
+			window = append(window, b) // Fill up to `n`
+		} else {
+			copy(window, window[1:])
+			window[len(window)-1] = b
+		}
+		count++
+	}
+
+	// If `n > len(input)`, return the full string
+	if count < n {
+		return string(window), nil
+	}
+
+	return string(window), nil
+}
+
+func left(r io.Reader, n int) (string, error) {
+	buf := bufio.NewReader(r)
+	var result bytes.Buffer
+
+	for i := 0; i < n; i++ {
+		b, err := buf.ReadByte()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", err
+		}
+		result.WriteByte(b)
+	}
+
+	return result.String(), nil
+}
