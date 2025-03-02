@@ -321,30 +321,24 @@ func readerContains(r io.Reader, substr io.Reader) (bool, error) {
 		return true, nil
 	}
 
-	// Main content buffer size
+	buf := bufio.NewReader(r)
 	bufSize := 4096
-
-	// Create buffer large enough to hold overlapping chunks
-	buf := make([]byte, bufSize)
 	overlap := make([]byte, 0, len(pattern)-1)
 
 	for {
-		n, err := r.Read(buf)
-
+		chunk := make([]byte, bufSize)
+		n, err := buf.Read(chunk)
 		if n > 0 {
-			// Create a chunk consisting of the overlap from previous read plus current data
-			chunk := append(overlap, buf[:n]...)
-
-			// Check if this chunk contains our pattern
-			if bytes.Contains(chunk, pattern) {
+			data := append(overlap, chunk[:n]...)
+			if bytes.Contains(data, pattern) {
 				return true, nil
 			}
 
-			// Save the tail of this chunk as potential overlap
-			if len(chunk) >= len(pattern)-1 {
-				overlap = chunk[len(chunk)-(len(pattern)-1):]
+			// Keep last `len(pattern)-1` bytes as overlap
+			if len(data) >= len(pattern)-1 {
+				overlap = data[len(data)-(len(pattern)-1):]
 			} else {
-				overlap = chunk
+				overlap = data
 			}
 		}
 
@@ -383,19 +377,17 @@ func readerHasSuffix(r io.Reader, suffix io.Reader) (bool, error) {
 	}
 
 	// Keep only the most recent bytes equal to the pattern length
-	patternLen := len(pattern)
-	buf := make([]byte, 0, patternLen)
-	chunk := make([]byte, 4096)
+	buf := bufio.NewReader(r)
+	bufSize := 4096
+	queue := make([]byte, 0, len(pattern))
 
 	for {
-		n, err := r.Read(chunk)
+		chunk := make([]byte, bufSize)
+		n, err := buf.Read(chunk)
 		if n > 0 {
-			// Append new bytes
-			buf = append(buf, chunk[:n]...)
-
-			// Keep only the last patternLen bytes
-			if len(buf) > patternLen {
-				buf = buf[len(buf)-patternLen:]
+			queue = append(queue, chunk[:n]...)
+			if len(queue) > len(pattern) {
+				queue = queue[len(queue)-len(pattern):] // Keep only last `pattern` bytes
 			}
 		}
 
@@ -407,9 +399,7 @@ func readerHasSuffix(r io.Reader, suffix io.Reader) (bool, error) {
 		}
 	}
 
-	// Check if the buffer equals the pattern
-	// This works because we've kept exactly patternLen bytes in the buffer
-	return bytes.Equal(buf, pattern), nil
+	return bytes.Equal(queue, pattern), nil
 }
 
 func readerHasPrefix(r io.Reader, prefix io.Reader) (bool, error) {
@@ -436,8 +426,9 @@ func readerHasPrefix(r io.Reader, prefix io.Reader) (bool, error) {
 	}
 
 	// Read exactly the same number of bytes from the reader as the pattern length
-	buf := make([]byte, len(pattern))
-	n, err := io.ReadFull(r, buf)
+	buf := bufio.NewReader(r)
+	readBytes := make([]byte, len(pattern))
+	n, err := io.ReadFull(buf, readBytes)
 
 	// Handle errors
 	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
@@ -450,7 +441,7 @@ func readerHasPrefix(r io.Reader, prefix io.Reader) (bool, error) {
 	}
 
 	// Check if what we read equals the pattern
-	return bytes.Equal(buf, pattern), nil
+	return bytes.Equal(readBytes, pattern), nil
 }
 
 // This method performs the replacement while streaming, ensuring minimal memory usage
@@ -610,4 +601,31 @@ func left(r io.Reader, n int) (string, error) {
 	}
 
 	return result.String(), nil
+}
+
+func streamEquals(r1 io.Reader, r2 io.Reader) (bool, error) {
+	bufSize := 1024
+	buf1 := make([]byte, bufSize)
+	buf2 := make([]byte, bufSize)
+
+	for {
+		n1, err1 := r1.Read(buf1)
+		n2, err2 := r2.Read(buf2)
+
+		if n1 != n2 || !bytes.Equal(buf1[:n1], buf2[:n2]) {
+			return false, nil // Mismatch found, return immediately
+		}
+
+		if err1 == io.EOF && err2 == io.EOF {
+			return true, nil // Both reached EOF at the same time
+		}
+
+		if err1 != nil && err1 != io.EOF {
+			return false, fmt.Errorf("error reading first stream: %w", err1)
+		}
+
+		if err2 != nil && err2 != io.EOF {
+			return false, fmt.Errorf("error reading second stream: %w", err2)
+		}
+	}
 }

@@ -124,89 +124,26 @@ func func_Equal(rtParams FunctionParameterTypes, val any) (any, error) {
 
 	switch vt := val.(type) {
 	case decimal.Decimal:
-		switch pt := param.(type) {
-		case decimal.Decimal:
+		if pt, ok := param.(decimal.Decimal); ok {
 			return vt.Equal(pt), nil
 		}
 		return false, nil
+
 	case string:
 		switch pt := param.(type) {
 		case string:
 			return vt == pt, nil
 		case io.ReadSeeker:
-			var strBuilder strings.Builder
-			buf := make([]byte, 1024) // Use a reasonably sized buffer
-			for {
-				n, err := pt.Read(buf)
-				if n > 0 {
-					strBuilder.Write(buf[:n])
-				}
-				if err == io.EOF {
-					break
-				}
-				if err != nil {
-					return false, fmt.Errorf("failed to read stream: %w", err)
-				}
-			}
-
-			return vt == strBuilder.String(), nil
+			return streamEquals(strings.NewReader(vt), pt)
 		}
 		return false, nil
+
 	case io.ReadSeeker:
 		switch pt := param.(type) {
 		case string:
-			var strBuilder strings.Builder
-			buf := make([]byte, 1024) // Use a reasonably sized buffer
-			for {
-				n, err := vt.Read(buf)
-				if n > 0 {
-					strBuilder.Write(buf[:n])
-				}
-				if err == io.EOF {
-					break
-				}
-				if err != nil {
-					return false, fmt.Errorf("failed to read stream: %w", err)
-				}
-			}
-
-			return strBuilder.String() == pt, nil
+			return streamEquals(vt, strings.NewReader(pt))
 		case io.ReadSeeker:
-			var paramBuilder strings.Builder
-			var valBuilder strings.Builder
-			paramBuf := make([]byte, 1024)
-			valBuf := make([]byte, 1024)
-			for {
-				n, err := pt.Read(paramBuf)
-				if n > 0 {
-					paramBuilder.Write(paramBuf[:n])
-				}
-				if err == io.EOF {
-					break
-				}
-				if err != nil {
-					return false, fmt.Errorf("failed to read stream: %w", err)
-				}
-
-				nn, err := vt.Read(valBuf)
-				if nn > 0 {
-					valBuilder.Write(valBuf[:nn])
-				}
-				if err == io.EOF {
-					break
-				}
-				if err != nil {
-					return false, fmt.Errorf("failed to read stream: %w", err)
-				}
-
-				// check if we have same strings so far,
-				// terminate early if we don't
-				if paramBuilder.String() != valBuilder.String() {
-					return false, nil
-				}
-			}
-
-			return paramBuilder.String() == valBuilder.String(), nil
+			return streamEquals(vt, pt)
 		}
 		return false, nil
 	}
@@ -680,14 +617,11 @@ func func_AnyOf(rtParams FunctionParameterTypes, val any) (any, error) {
 	for _, p := range params {
 		switch vt := val.(type) {
 		case decimal.Decimal:
-			switch pt := p.(type) {
-			case decimal.Decimal:
-				if vt.Equal(pt) {
-					return true, nil
-				}
-				continue
+			if pt, ok := p.(decimal.Decimal); ok && vt.Equal(pt) {
+				return true, nil
 			}
-			return false, nil
+			continue
+
 		case string:
 			switch pt := p.(type) {
 			case string:
@@ -696,81 +630,34 @@ func func_AnyOf(rtParams FunctionParameterTypes, val any) (any, error) {
 				}
 				continue
 			case io.ReadSeeker:
-				var strBuilder strings.Builder
-				buf := make([]byte, 1024) // Use a reasonably sized buffer
-				for {
-					n, err := pt.Read(buf)
-					if n > 0 {
-						strBuilder.Write(buf[:n])
-					}
-					if err == io.EOF {
-						break
-					}
-					if err != nil {
-						return false, fmt.Errorf("failed to read stream: %w", err)
-					}
+				ok, err := streamEquals(strings.NewReader(vt), pt)
+				if err != nil {
+					return errBool(FT_AnyOf, err)
 				}
-
-				if vt == strBuilder.String() {
+				if ok {
 					return true, nil
 				}
 				continue
 			}
 			return false, nil
+
 		case io.ReadSeeker:
 			switch pt := p.(type) {
 			case string:
-				var strBuilder strings.Builder
-				buf := make([]byte, 1024) // Use a reasonably sized buffer
-				for {
-					n, err := vt.Read(buf)
-					if n > 0 {
-						strBuilder.Write(buf[:n])
-					}
-					if err == io.EOF {
-						break
-					}
-					if err != nil {
-						return false, fmt.Errorf("failed to read stream: %w", err)
-					}
+				ok, err := streamEquals(vt, strings.NewReader(pt))
+				if err != nil {
+					return errBool(FT_AnyOf, err)
 				}
-				if strBuilder.String() == pt {
+				if ok {
 					return true, nil
 				}
 				continue
 			case io.ReadSeeker:
-				var valBuilder, paramBuilder strings.Builder
-				vBuf := make([]byte, 1024)
-				pBuf := make([]byte, 1024)
-				for {
-					n, err := pt.Read(pBuf)
-					if n > 0 {
-						paramBuilder.Write(pBuf[:n])
-					}
-					if err == io.EOF {
-						break
-					}
-					if err != nil {
-						return false, fmt.Errorf("failed to read stream: %w", err)
-					}
-					nn, err := vt.Read(vBuf)
-					if nn > 0 {
-						valBuilder.Write(pBuf[:nn])
-					}
-					if err == io.EOF {
-						break
-					}
-					if err != nil {
-						return false, fmt.Errorf("failed to read stream: %w", err)
-					}
-
-					// terminate early if they match any so far
-					if valBuilder.String() != paramBuilder.String() {
-						return false, nil
-					}
+				ok, err := streamEquals(vt, pt)
+				if err != nil {
+					return errBool(FT_AnyOf, err)
 				}
-
-				if valBuilder.String() == paramBuilder.String() {
+				if ok {
 					return true, nil
 				}
 				continue
