@@ -1,7 +1,9 @@
 package mpath
 
 import (
+	"bufio"
 	"bytes"
+	"fmt"
 	"io"
 	"reflect"
 	"strings"
@@ -449,4 +451,50 @@ func readerHasPrefix(r io.Reader, prefix io.Reader) (bool, error) {
 
 	// Check if what we read equals the pattern
 	return bytes.Equal(buf, pattern), nil
+}
+
+// This method performs the replacement while streaming, ensuring minimal memory usage
+func streamingReplaceAll(r io.ReadSeeker, find, replace string) (string, error) {
+	var result strings.Builder
+	buf := bufio.NewReader(r)
+	findLen := len(find)
+	window := make([]byte, 0, findLen)
+
+	// Ensure we start reading from the beginning
+	_, err := r.Seek(0, io.SeekStart)
+	if err != nil {
+		return "", fmt.Errorf("error resetting reader: %w", err)
+	}
+
+	for {
+		b, err := buf.ReadByte()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", fmt.Errorf("error reading from input: %w", err)
+		}
+
+		window = append(window, b)
+
+		// Maintain a rolling window
+		if len(window) > findLen {
+			// Write first byte in window and shift
+			result.WriteByte(window[0])
+			window = window[1:]
+		}
+
+		// Match found → Replace
+		if len(window) == findLen && string(window) == find {
+			result.WriteString(replace) // Write replacement
+			window = window[:0]         // Reset window
+		}
+	}
+
+	// Flush remaining bytes
+	if len(window) > 0 {
+		result.Write(window)
+	}
+
+	return result.String(), nil
 }

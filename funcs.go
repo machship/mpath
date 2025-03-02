@@ -1081,11 +1081,11 @@ func func_ReplaceAll(rtParams FunctionParameterTypes, val any) (any, error) {
 	replace = strings.TrimRight(replace, "\x00")
 
 	// Ensure input is a reader
-	var inputReader io.Reader
+	var inputReader io.ReadSeeker
 	switch v := val.(type) {
 	case string:
 		inputReader = strings.NewReader(v)
-	case io.Reader:
+	case io.ReadSeeker:
 		inputReader = v
 	default:
 		return "", fmt.Errorf("unsupported input type, expected string or io.Reader, got %T", val)
@@ -1097,58 +1097,7 @@ func func_ReplaceAll(rtParams FunctionParameterTypes, val any) (any, error) {
 		return "", fmt.Errorf("error replacing content: %w", err)
 	}
 
-	// Ensure result is returned as a string
-	var output strings.Builder
-	_, err = io.Copy(&output, result)
-	if err != nil {
-		return "", fmt.Errorf("error reading result buffer: %w", err)
-	}
-
-	return output.String(), nil
-}
-
-func streamingReplaceAll(r io.Reader, find, replace string) (io.Reader, error) {
-	pr, pw := io.Pipe()
-
-	go func() {
-		defer pw.Close()
-
-		buf := bufio.NewReader(r)
-		findLen := len(find)
-		window := make([]byte, 0, findLen) // Sliding window
-
-		for {
-			b, err := buf.ReadByte()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				pw.CloseWithError(err)
-				return
-			}
-
-			window = append(window, b)
-
-			// If window is full, compare
-			if len(window) > findLen {
-				pw.Write([]byte{window[0]}) // Output first byte
-				window = window[1:]         // Slide window left
-			}
-
-			// Check if window matches `find`
-			if len(window) == findLen && string(window) == find {
-				pw.Write([]byte(replace)) // Write replacement
-				window = window[:0]       // Reset window
-			}
-		}
-
-		// Flush remaining bytes in buffer
-		if len(window) > 0 {
-			pw.Write(window)
-		}
-	}()
-
-	return pr, nil
+	return result, nil
 }
 
 const FT_AsJSON FT_FunctionType = "AsJSON"
