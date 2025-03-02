@@ -2,7 +2,6 @@ package mpath
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"reflect"
 	"strings"
@@ -297,23 +296,54 @@ func doForMapPerKey(valueThatShouldBeMap any, doFunc func(keyAsString string, ke
 }
 
 func readerContains(r io.Reader, substr io.Reader) (bool, error) {
-	substrBytes, err := io.ReadAll(substr)
-	if err != nil {
-		return false, err
-	}
-
-	bufSize := 4096
-	buf := make([]byte, bufSize+len(substrBytes)) // Keep extra space for substring match across buffers
-	offset := 0
+	// First, read the substring pattern - we need this to know what to search for
+	// This is unavoidable since we need to know the complete pattern to search
+	var pattern []byte
+	subBuf := make([]byte, 1024)
 
 	for {
-		n, err := r.Read(buf[offset:])
+		n, err := substr.Read(subBuf)
 		if n > 0 {
-			if strings.Contains(string(buf[:offset+n]), string(substrBytes)) {
+			pattern = append(pattern, subBuf[:n]...)
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return false, err
+		}
+	}
+
+	// Empty substring always matches
+	if len(pattern) == 0 {
+		return true, nil
+	}
+
+	// Main content buffer size
+	bufSize := 4096
+
+	// Create buffer large enough to hold overlapping chunks
+	buf := make([]byte, bufSize)
+	overlap := make([]byte, 0, len(pattern)-1)
+
+	for {
+		n, err := r.Read(buf)
+
+		if n > 0 {
+			// Create a chunk consisting of the overlap from previous read plus current data
+			chunk := append(overlap, buf[:n]...)
+
+			// Check if this chunk contains our pattern
+			if bytes.Contains(chunk, pattern) {
 				return true, nil
 			}
-			copy(buf, buf[n:offset+n]) // Shift buffer left
-			offset = len(substrBytes) - 1
+
+			// Save the tail of this chunk as potential overlap
+			if len(chunk) >= len(pattern)-1 {
+				overlap = chunk[len(chunk)-(len(pattern)-1):]
+			} else {
+				overlap = chunk
+			}
 		}
 
 		if err == io.EOF {
@@ -323,34 +353,48 @@ func readerContains(r io.Reader, substr io.Reader) (bool, error) {
 			return false, err
 		}
 	}
+
 	return false, nil
 }
 
 func readerHasSuffix(r io.Reader, suffix io.Reader) (bool, error) {
-	suffixBytes, err := io.ReadAll(suffix)
-	if err != nil {
-		return false, fmt.Errorf("error reading suffix: %w", err)
+	// Read the suffix pattern in chunks
+	var pattern []byte
+	suffixBuf := make([]byte, 1024)
+
+	for {
+		n, err := suffix.Read(suffixBuf)
+		if n > 0 {
+			pattern = append(pattern, suffixBuf[:n]...)
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return false, err
+		}
 	}
 
-	suffixLen := len(suffixBytes)
-	if suffixLen == 0 {
+	// Empty suffix always matches
+	if len(pattern) == 0 {
 		return true, nil
 	}
 
-	buf := make([]byte, suffixLen)
-	_, err = io.ReadFull(r, buf)
-	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
-		return false, err
-	}
+	// Keep only the most recent bytes equal to the pattern length
+	patternLen := len(pattern)
+	buf := make([]byte, 0, patternLen)
+	chunk := make([]byte, 4096)
 
-	// Read the stream while maintaining a sliding buffer of last `suffixLen` bytes
-	tmp := make([]byte, 1)
 	for {
-		n, err := r.Read(tmp)
+		n, err := r.Read(chunk)
 		if n > 0 {
-			// Shift buffer left and append new byte
-			copy(buf, buf[1:])
-			buf[len(buf)-1] = tmp[0]
+			// Append new bytes
+			buf = append(buf, chunk[:n]...)
+
+			// Keep only the last patternLen bytes
+			if len(buf) > patternLen {
+				buf = buf[len(buf)-patternLen:]
+			}
 		}
 
 		if err == io.EOF {
@@ -361,42 +405,48 @@ func readerHasSuffix(r io.Reader, suffix io.Reader) (bool, error) {
 		}
 	}
 
-	// Final suffix check
-	return bytes.HasSuffix(buf, suffixBytes), nil
+	// Check if the buffer equals the pattern
+	// This works because we've kept exactly patternLen bytes in the buffer
+	return bytes.Equal(buf, pattern), nil
 }
 
 func readerHasPrefix(r io.Reader, prefix io.Reader) (bool, error) {
-	prefixBytes, err := io.ReadAll(prefix)
-	if err != nil {
-		return false, err
+	// Read the prefix pattern in chunks
+	var pattern []byte
+	prefixBuf := make([]byte, 1024)
+
+	for {
+		n, err := prefix.Read(prefixBuf)
+		if n > 0 {
+			pattern = append(pattern, prefixBuf[:n]...)
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return false, err
+		}
 	}
 
-	buf := make([]byte, len(prefixBytes))
-	_, err = io.ReadFull(r, buf)
+	// Empty prefix always matches
+	if len(pattern) == 0 {
+		return true, nil
+	}
+
+	// Read exactly the same number of bytes from the reader as the pattern length
+	buf := make([]byte, len(pattern))
+	n, err := io.ReadFull(r, buf)
+
+	// Handle errors
 	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
 		return false, err
 	}
 
-	return strings.HasPrefix(string(buf), string(prefixBytes)), nil
-}
+	// If we couldn't read enough bytes, reader doesn't have this prefix
+	if n < len(pattern) {
+		return false, nil
+	}
 
-func bufferReader(r io.Reader) (io.Reader, error) {
-	var buf bytes.Buffer
-	tee := io.TeeReader(r, &buf)
-	data, err := io.ReadAll(tee) // Read the full stream and store it
-	if err != nil {
-		return nil, err
-	}
-	return bytes.NewReader(data), nil // Return a new reader with stored data
-}
-
-func readAll(r io.ReadSeeker) (string, error) {
-	if _, err := r.Seek(0, io.SeekStart); err != nil {
-		return "", err
-	}
-	b, err := io.ReadAll(r)
-	if err != nil {
-		return "", err
-	}
-	return string(b), nil
+	// Check if what we read equals the pattern
+	return bytes.Equal(buf, pattern), nil
 }

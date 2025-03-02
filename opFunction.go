@@ -572,11 +572,12 @@ type FP_Reader struct {
 }
 
 func (p FP_Reader) String() string {
-	content, err := readAll(p.Value)
+	p.Value.Seek(0, io.SeekStart)
+	b, err := io.ReadAll(p.Value)
 	if err != nil {
-		return fmt.Sprintf("error reading: %v", err)
+		return ""
 	}
-	return fmt.Sprintf(`"%s"`, escape(string(content)))
+	return fmt.Sprintf(`"%s"`, escape(string(b)))
 
 }
 
@@ -587,11 +588,15 @@ func (x *FP_Reader) IsFuncParam() (returns InputOrOutput) {
 func (x *FP_Reader) GetValue() any { return x.Value }
 
 func (x *FP_Reader) MarshalJSON() ([]byte, error) {
-	content, err := readAll(x.Value)
+	_, err := x.Value.Seek(0, io.SeekStart)
+	if err != nil {
+		return nil, err
+	}
+	b, err := io.ReadAll(x.Value)
 	if err != nil {
 		return nil, fmt.Errorf("error reading: %v", err)
 	}
-	return functionParameterMarshalJSON(string(content), "String")
+	return functionParameterMarshalJSON(string(b), "String")
 }
 
 type FP_Bool struct {

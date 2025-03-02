@@ -1,6 +1,8 @@
 package mpath
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -40,16 +42,16 @@ func paramsGetFirstOfNumber(rtParams FunctionParameterTypes) (val decimal.Decima
 	}
 
 	for _, p := range rtParams.Readers() {
-		_, err := p.Value.Seek(0, io.SeekStart)
-		if err != nil {
+		if _, err := p.Value.Seek(0, io.SeekStart); err != nil {
 			return val, fmt.Errorf("error resetting reader: %w", err)
 		}
-
-		v, err := readAll(p.Value)
+		// we need to get the entirety of the reader to convert to decimal
+		b, err := io.ReadAll(p.Value)
 		if err != nil {
 			return val, fmt.Errorf("error reading buffer: %w", err)
 		}
-		if wasNumber, number := convertToDecimalIfNumberAndCheck(v); wasNumber {
+
+		if wasNumber, number := convertToDecimalIfNumberAndCheck(string(b)); wasNumber {
 			return number, nil
 		}
 	}
@@ -57,7 +59,7 @@ func paramsGetFirstOfNumber(rtParams FunctionParameterTypes) (val decimal.Decima
 	return val, fmt.Errorf("no number parameter found")
 }
 
-func paramsGetFirstOfString(rtParams FunctionParameterTypes) (val io.ReadSeeker, err error) {
+func paramsGetFirstOfReaders(rtParams FunctionParameterTypes) (val io.ReadSeeker, err error) {
 	if got, ok := rtParams.checkLengthOfParams(1); !ok {
 		return val, fmt.Errorf("expected %d params, got %d", 1, got)
 	}
@@ -113,21 +115,6 @@ func errNumParams(name FT_FunctionType, expected, got int) error {
 	return fmt.Errorf("(%s) expected %d params, got %d", name, expected, got)
 }
 
-func stringValue(v any) (string, bool) {
-	switch t := v.(type) {
-	case string:
-		return t, true
-	case io.ReadSeeker:
-		vb, err := readAll(t)
-		if err != nil {
-			return "", false
-		}
-		return vb, true
-	default:
-		return "", false
-	}
-}
-
 const FT_Equal FT_FunctionType = "Equal"
 
 func func_Equal(rtParams FunctionParameterTypes, val any) (any, error) {
@@ -143,12 +130,86 @@ func func_Equal(rtParams FunctionParameterTypes, val any) (any, error) {
 			return vt.Equal(pt), nil
 		}
 		return false, nil
-	}
-	valStr, valIsString := stringValue(val)
-	paramStr, paramIsString := stringValue(param)
+	case string:
+		switch pt := param.(type) {
+		case string:
+			return vt == pt, nil
+		case io.ReadSeeker:
+			var strBuilder strings.Builder
+			buf := make([]byte, 1024) // Use a reasonably sized buffer
+			for {
+				n, err := pt.Read(buf)
+				if n > 0 {
+					strBuilder.Write(buf[:n])
+				}
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					return false, fmt.Errorf("failed to read stream: %w", err)
+				}
+			}
 
-	if valIsString && paramIsString {
-		return valStr == paramStr, nil
+			return vt == strBuilder.String(), nil
+		}
+		return false, nil
+	case io.ReadSeeker:
+		switch pt := param.(type) {
+		case string:
+			var strBuilder strings.Builder
+			buf := make([]byte, 1024) // Use a reasonably sized buffer
+			for {
+				n, err := vt.Read(buf)
+				if n > 0 {
+					strBuilder.Write(buf[:n])
+				}
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					return false, fmt.Errorf("failed to read stream: %w", err)
+				}
+			}
+
+			return strBuilder.String() == pt, nil
+		case io.ReadSeeker:
+			var paramBuilder strings.Builder
+			var valBuilder strings.Builder
+			paramBuf := make([]byte, 1024)
+			valBuf := make([]byte, 1024)
+			for {
+				n, err := pt.Read(paramBuf)
+				if n > 0 {
+					paramBuilder.Write(paramBuf[:n])
+				}
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					return false, fmt.Errorf("failed to read stream: %w", err)
+				}
+
+				nn, err := vt.Read(valBuf)
+				if nn > 0 {
+					valBuilder.Write(valBuf[:nn])
+				}
+				if err == io.EOF {
+					break
+				}
+				if err != nil {
+					return false, fmt.Errorf("failed to read stream: %w", err)
+				}
+
+				// check if we have same strings so far,
+				// terminate early if we don't
+				if paramBuilder.String() != valBuilder.String() {
+					return false, nil
+				}
+			}
+
+			return paramBuilder.String() == valBuilder.String(), nil
+		}
+		return false, nil
 	}
 
 	return val == param, nil
@@ -229,7 +290,7 @@ func func_Invert(rtParams FunctionParameterTypes, val any) (any, error) {
 }
 
 func stringBoolFunc(rtParams FunctionParameterTypes, val any, fn func(io.Reader, io.Reader) (bool, error), invert bool, fnName FT_FunctionType) (bool, error) {
-	param, err := paramsGetFirstOfString(rtParams)
+	param, err := paramsGetFirstOfReaders(rtParams)
 	if err != nil {
 		return errBool(fnName, err)
 	}
@@ -241,19 +302,18 @@ func stringBoolFunc(rtParams FunctionParameterTypes, val any, fn func(io.Reader,
 	var valReader io.Reader
 	if valStr, ok := val.(string); ok {
 		valReader = strings.NewReader(valStr)
-	} else if r, ok := val.(io.Reader); ok {
+	} else if r, ok := val.(io.ReadSeeker); ok {
+		_, err := r.Seek(0, io.SeekStart)
+		if err != nil {
+			return false, fmt.Errorf("error resetting reader: %w", err)
+		}
 		valReader = r
 	} else {
 		return false, fmt.Errorf("unsupported type for %s: expected string or io.Reader for val, got %T", fnName, val)
 	}
 
-	valBuffered, err := bufferReader(valReader)
-	if err != nil {
-		return false, fmt.Errorf("%s: error buffering val: %w", fnName, err)
-	}
-
 	// Execute function
-	res, err := fn(valBuffered, param)
+	res, err := fn(valReader, param)
 	if err != nil {
 		return false, fmt.Errorf("%s: error processing stream: %w", fnName, err)
 	}
@@ -472,16 +532,15 @@ func func_decimalSlice(rtParams FunctionParameterTypes, val any, decimalSliceFun
 	}
 
 	for _, ps := range rtParams.Readers() {
-		_, err := ps.Value.Seek(0, io.SeekStart)
-		if err != nil {
+		if _, err := ps.Value.Seek(0, io.SeekStart); err != nil {
 			return val, fmt.Errorf("error resetting reader: %w", err)
 		}
-
-		v, err := readAll(ps.Value)
+		// we need to get the entirety of the reader to convert to decimal
+		b, err := io.ReadAll(ps.Value)
 		if err != nil {
 			return val, fmt.Errorf("error reading buffer: %w", err)
 		}
-		if wasNumber, number := convertToDecimalIfNumberAndCheck(v); wasNumber {
+		if wasNumber, number := convertToDecimalIfNumberAndCheck(string(b)); wasNumber {
 			paramNumbers = append(paramNumbers, number)
 		}
 	}
@@ -630,14 +689,94 @@ func func_AnyOf(rtParams FunctionParameterTypes, val any) (any, error) {
 				continue
 			}
 			return false, nil
-		}
-
-		if aStr, ok := stringValue(val); ok {
-			if bStr, ok := stringValue(p); ok {
-				if aStr == bStr {
+		case string:
+			switch pt := p.(type) {
+			case string:
+				if vt == pt {
 					return true, nil
 				}
+				continue
+			case io.ReadSeeker:
+				var strBuilder strings.Builder
+				buf := make([]byte, 1024) // Use a reasonably sized buffer
+				for {
+					n, err := pt.Read(buf)
+					if n > 0 {
+						strBuilder.Write(buf[:n])
+					}
+					if err == io.EOF {
+						break
+					}
+					if err != nil {
+						return false, fmt.Errorf("failed to read stream: %w", err)
+					}
+				}
+
+				if vt == strBuilder.String() {
+					return true, nil
+				}
+				continue
 			}
+			return false, nil
+		case io.ReadSeeker:
+			switch pt := p.(type) {
+			case string:
+				var strBuilder strings.Builder
+				buf := make([]byte, 1024) // Use a reasonably sized buffer
+				for {
+					n, err := vt.Read(buf)
+					if n > 0 {
+						strBuilder.Write(buf[:n])
+					}
+					if err == io.EOF {
+						break
+					}
+					if err != nil {
+						return false, fmt.Errorf("failed to read stream: %w", err)
+					}
+				}
+				if strBuilder.String() == pt {
+					return true, nil
+				}
+				continue
+			case io.ReadSeeker:
+				var valBuilder, paramBuilder strings.Builder
+				vBuf := make([]byte, 1024)
+				pBuf := make([]byte, 1024)
+				for {
+					n, err := pt.Read(pBuf)
+					if n > 0 {
+						paramBuilder.Write(pBuf[:n])
+					}
+					if err == io.EOF {
+						break
+					}
+					if err != nil {
+						return false, fmt.Errorf("failed to read stream: %w", err)
+					}
+					nn, err := vt.Read(vBuf)
+					if nn > 0 {
+						valBuilder.Write(pBuf[:nn])
+					}
+					if err == io.EOF {
+						break
+					}
+					if err != nil {
+						return false, fmt.Errorf("failed to read stream: %w", err)
+					}
+
+					// terminate early if they match any so far
+					if valBuilder.String() != paramBuilder.String() {
+						return false, nil
+					}
+				}
+
+				if valBuilder.String() == paramBuilder.String() {
+					return true, nil
+				}
+				continue
+			}
+			return false, nil
 		}
 
 		if val == p {
@@ -648,7 +787,7 @@ func func_AnyOf(rtParams FunctionParameterTypes, val any) (any, error) {
 	return false, nil
 }
 
-func stringPartFunc(rtParams FunctionParameterTypes, val any, fn func(string, int) (string, error), fnName FT_FunctionType) (string, error) {
+func readerPartFunc(rtParams FunctionParameterTypes, val any, fn func(io.Reader, int) (string, error), fnName FT_FunctionType) (string, error) {
 	param, err := paramsGetFirstOfNumber(rtParams)
 	if err != nil {
 		return errString(fnName, err)
@@ -660,79 +799,182 @@ func stringPartFunc(rtParams FunctionParameterTypes, val any, fn func(string, in
 
 	paramAsInt := int(param.IntPart())
 
-	if valIfc, ok := val.(string); ok {
-		return fn(valIfc, paramAsInt)
+	var valReader io.Reader
+	if valStr, ok := val.(string); ok {
+		valReader = strings.NewReader(valStr)
+	} else if r, ok := val.(io.ReadSeeker); ok {
+		_, err = r.Seek(0, io.SeekStart)
+		if err != nil {
+			return "", err
+		}
+	} else {
+		return "", fmt.Errorf("unsupported type for %s: expected string or io.Reader for val, got %T", fnName, val)
 	}
 
-	return "", fmt.Errorf("value wasn't string")
+	return fn(valReader, paramAsInt)
 }
 
 const FT_TrimRight FT_FunctionType = "TrimRight"
 
 func func_TrimRight(rtParams FunctionParameterTypes, val any) (any, error) {
-	return stringPartFunc(rtParams, val, func(s string, i int) (string, error) {
-		if len(s) <= i {
+	return readerPartFunc(rtParams, val, func(r io.Reader, n int) (string, error) {
+		if n == 0 { // Nothing to trim
+			var result bytes.Buffer
+			_, err := io.Copy(&result, r)
+			if err != nil {
+				return "", err
+			}
+			return result.String(), nil
+		}
+
+		buf := bufio.NewReader(r)
+		window := make([]byte, 0, n) // Sliding window for last `n` bytes
+		var result bytes.Buffer
+		count := 0
+
+		for {
+			b, err := buf.ReadByte()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				return "", err
+			}
+
+			if count >= n {
+				result.WriteByte(window[0]) // Only write out bytes before last `n`
+				window = window[1:]         // Shift window left
+			}
+
+			window = append(window, b)
+			count++
+		}
+
+		// If input size < n, return empty string
+		if count < n {
 			return "", nil
 		}
 
-		return s[:len(s)-i], nil
+		return result.String(), nil
 	}, FT_TrimRight)
 }
 
 const FT_TrimLeft FT_FunctionType = "TrimLeft"
 
 func func_TrimLeft(rtParams FunctionParameterTypes, val any) (any, error) {
-	return stringPartFunc(rtParams, val, func(s string, i int) (string, error) {
-		if len(s) <= i {
-			return "", nil
+	return readerPartFunc(rtParams, val, func(r io.Reader, n int) (string, error) {
+		buf := bufio.NewReader(r)
+
+		// Skip the first `n` bytes
+		for i := 0; i < n; i++ {
+			_, err := buf.ReadByte()
+			if err == io.EOF {
+				return "", nil // If we reach EOF, return empty string
+			}
+			if err != nil {
+				return "", err
+			}
 		}
 
-		return s[i:], nil
+		var result bytes.Buffer
+		_, err := io.Copy(&result, buf)
+		if err != nil {
+			return "", err
+		}
+
+		return result.String(), nil
 	}, FT_TrimLeft)
 }
 
 const FT_Right FT_FunctionType = "Right"
 
 func func_Right(rtParams FunctionParameterTypes, val any) (any, error) {
-	return stringPartFunc(rtParams, val, func(s string, i int) (string, error) {
-		if len(s) < i {
-			return s, nil
+	return readerPartFunc(rtParams, val, func(r io.Reader, n int) (string, error) {
+		buf := bufio.NewReader(r)
+		window := make([]byte, 0, n) // Dynamic sliding window
+		count := 0
+
+		for {
+			b, err := buf.ReadByte()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				return "", err
+			}
+
+			if count < n {
+				window = append(window, b) // Fill up to `n`
+			} else {
+				copy(window, window[1:])
+				window[len(window)-1] = b
+			}
+			count++
 		}
 
-		return s[len(s)-i:], nil
+		// If `n > len(input)`, return the full string
+		if count < n {
+			return string(window), nil
+		}
+
+		return string(window), nil
 	}, FT_Right)
 }
 
 const FT_Left FT_FunctionType = "Left"
 
 func func_Left(rtParams FunctionParameterTypes, val any) (any, error) {
-	return stringPartFunc(rtParams, val, func(s string, i int) (string, error) {
-		if len(s) < i {
-			return s, nil
+	return readerPartFunc(rtParams, val, func(r io.Reader, n int) (string, error) {
+		buf := bufio.NewReader(r)
+		var result bytes.Buffer
+
+		for i := 0; i < n; i++ {
+			b, err := buf.ReadByte()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				return "", err
+			}
+			result.WriteByte(b)
 		}
 
-		return s[:i], nil
+		return result.String(), nil
 	}, FT_Left)
 }
 
 const FT_DoesMatchRegex FT_FunctionType = "DoesMatchRegex"
 
 func func_DoesMatchRegex(rtParams FunctionParameterTypes, val any) (any, error) {
-	param, err := paramsGetFirstOfString(rtParams)
+	param, err := paramsGetFirstOfReaders(rtParams)
 	if err != nil {
 		return errBool(FT_DoesMatchRegex, err)
 	}
 	_, err = param.Seek(0, io.SeekStart)
 	if err != nil {
-		return val, err
+		return false, err
 	}
 
-	v, err := readAll(param)
-	if err != nil {
-		return val, fmt.Errorf("error reading buffer: %w", err)
+	// Read the regex pattern from the reader in chunks
+	var patternBuilder strings.Builder
+	buf := make([]byte, 1024) // Use a reasonably sized buffer
+
+	for {
+		n, err := param.Read(buf)
+		if n > 0 {
+			patternBuilder.Write(buf[:n])
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return false, fmt.Errorf("failed to read regex pattern: %w", err)
+		}
 	}
 
-	exp, err := regexp.Compile(v)
+	patternStr := patternBuilder.String()
+
+	exp, err := regexp.Compile(patternStr)
 	if err != nil {
 		return false, fmt.Errorf("regular expression is invalid")
 	}
@@ -759,10 +1001,23 @@ func func_ReplaceRegex(rtParams FunctionParameterTypes, val any) (any, error) {
 		if err != nil {
 			return val, fmt.Errorf("error resetting reader: %w", err)
 		}
-		v, err := readAll(ps.Value)
-		if err != nil {
-			return val, fmt.Errorf("error reading buffer: %w", err)
+		var builder strings.Builder
+		buf := make([]byte, 1024)
+
+		for {
+			n, err := ps.Value.Read(buf)
+			if n > 0 {
+				builder.Write(buf[:n])
+			}
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				return val, fmt.Errorf("error reading buffer: %w", err)
+			}
 		}
+
+		v := builder.String()
 		switch i {
 		case 0:
 			if v == "" {
@@ -797,45 +1052,103 @@ const FT_ReplaceAll FT_FunctionType = "ReplaceAll"
 
 func func_ReplaceAll(rtParams FunctionParameterTypes, val any) (any, error) {
 	if got, ok := rtParams.checkLengthOfParams(2); !ok {
-		return "", errNumParams(FT_ReplaceAll, 1, got)
+		return "", errNumParams(FT_ReplaceAll, 2, got)
 	}
 
-	var find, replace string
-	var foundReplace bool
+	readers := rtParams.Readers()
+	if len(readers) < 2 {
+		return "", fmt.Errorf("replace operation requires both find and replace parameters")
+	}
 
-	for i, ps := range rtParams.Readers() {
-		_, err := ps.Value.Seek(0, io.SeekStart)
-		if err != nil {
-			return val, fmt.Errorf("error resetting reader: %w", err)
-		}
-		v, err := readAll(ps.Value)
-		if err != nil {
-			return val, fmt.Errorf("error reading buffer: %w", err)
-		}
-		switch i {
-		case 0:
-			if v == "" {
-				return "", fmt.Errorf("find parameter must not be an empty string")
+	// Read `find` pattern (assumed small enough to fit in memory)
+	findBuf := bufio.NewReader(readers[0].Value)
+	find, err := findBuf.ReadString(0)
+	if err != nil && err != io.EOF {
+		return "", fmt.Errorf("error reading find string: %w", err)
+	}
+	find = strings.TrimRight(find, "\x00")
+
+	if find == "" {
+		return "", fmt.Errorf("find parameter must not be an empty string")
+	}
+
+	// Read replacement value
+	replaceBuf := bufio.NewReader(readers[1].Value)
+	replace, err := replaceBuf.ReadString(0)
+	if err != nil && err != io.EOF {
+		return "", fmt.Errorf("error reading replace string: %w", err)
+	}
+	replace = strings.TrimRight(replace, "\x00")
+
+	// Ensure input is a reader
+	var inputReader io.Reader
+	switch v := val.(type) {
+	case string:
+		inputReader = strings.NewReader(v)
+	case io.Reader:
+		inputReader = v
+	default:
+		return "", fmt.Errorf("unsupported input type, expected string or io.Reader, got %T", val)
+	}
+
+	// Streaming replacement
+	result, err := streamingReplaceAll(inputReader, find, replace)
+	if err != nil {
+		return "", fmt.Errorf("error replacing content: %w", err)
+	}
+
+	// Ensure result is returned as a string
+	var output strings.Builder
+	_, err = io.Copy(&output, result)
+	if err != nil {
+		return "", fmt.Errorf("error reading result buffer: %w", err)
+	}
+
+	return output.String(), nil
+}
+
+func streamingReplaceAll(r io.Reader, find, replace string) (io.Reader, error) {
+	pr, pw := io.Pipe()
+
+	go func() {
+		defer pw.Close()
+
+		buf := bufio.NewReader(r)
+		findLen := len(find)
+		window := make([]byte, 0, findLen) // Sliding window
+
+		for {
+			b, err := buf.ReadByte()
+			if err == io.EOF {
+				break
 			}
-			find = v
-		case 1:
-			replace = v
-			foundReplace = true
+			if err != nil {
+				pw.CloseWithError(err)
+				return
+			}
+
+			window = append(window, b)
+
+			// If window is full, compare
+			if len(window) > findLen {
+				pw.Write([]byte{window[0]}) // Output first byte
+				window = window[1:]         // Slide window left
+			}
+
+			// Check if window matches `find`
+			if len(window) == findLen && string(window) == find {
+				pw.Write([]byte(replace)) // Write replacement
+				window = window[:0]       // Reset window
+			}
 		}
-		if i > 1 {
-			break
+
+		// Flush remaining bytes in buffer
+		if len(window) > 0 {
+			pw.Write(window)
 		}
-	}
+	}()
 
-	if !foundReplace {
-		return "", fmt.Errorf("replace parameter missing")
-	}
-
-	if valIfc, ok := val.(string); ok {
-		return strings.ReplaceAll(valIfc, find, replace), nil
-	}
-
-	return "", fmt.Errorf("value wasn't string")
+	return pr, nil
 }
 
 const FT_AsJSON FT_FunctionType = "AsJSON"
@@ -954,7 +1267,7 @@ func func_RemoveKeysByRegex(rtParams FunctionParameterTypes, val any) (any, erro
 		return nil, errNumParams(FT_RemoveKeysByRegex, 1, got)
 	}
 
-	param, err := paramsGetFirstOfString(rtParams)
+	param, err := paramsGetFirstOfReaders(rtParams)
 	if err != nil {
 		return nil, err
 	}
@@ -962,10 +1275,23 @@ func func_RemoveKeysByRegex(rtParams FunctionParameterTypes, val any) (any, erro
 	if err != nil {
 		return nil, err
 	}
-	v, err := readAll(param)
-	if err != nil {
-		return val, fmt.Errorf("error reading buffer: %w", err)
+	var patternBuilder strings.Builder
+	buf := make([]byte, 1024)
+
+	for {
+		n, err := param.Read(buf)
+		if n > 0 {
+			patternBuilder.Write(buf[:n])
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("error reading buffer: %w", err)
+		}
 	}
+
+	v := patternBuilder.String()
 	exp, err := regexp.Compile(v)
 	if err != nil {
 		return nil, fmt.Errorf("regular expression is invalid")
@@ -988,7 +1314,7 @@ func func_RemoveKeysByPrefix(rtParams FunctionParameterTypes, val any) (any, err
 		return nil, errNumParams(FT_RemoveKeysByPrefix, 1, got)
 	}
 
-	prefixParam, err := paramsGetFirstOfString(rtParams)
+	prefixParam, err := paramsGetFirstOfReaders(rtParams)
 	if err != nil {
 		return nil, err
 	}
@@ -996,10 +1322,23 @@ func func_RemoveKeysByPrefix(rtParams FunctionParameterTypes, val any) (any, err
 	if err != nil {
 		return nil, err
 	}
-	v, err := readAll(prefixParam)
-	if err != nil {
-		return nil, fmt.Errorf("error reading buffer: %w", err)
+	var patternBuilder strings.Builder
+	buf := make([]byte, 1024)
+
+	for {
+		n, err := prefixParam.Read(buf)
+		if n > 0 {
+			patternBuilder.Write(buf[:n])
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("error reading buffer: %w", err)
+		}
 	}
+
+	v := patternBuilder.String()
 
 	doForMapPerKey(val, func(keyAsString string, keyAsValue, mapAsValue reflect.Value) {
 		if strings.HasPrefix(keyAsString, v) {
@@ -1018,7 +1357,7 @@ func func_RemoveKeysBySuffix(rtParams FunctionParameterTypes, val any) (any, err
 		return nil, errNumParams(FT_RemoveKeysBySuffix, 1, got)
 	}
 
-	prefixParam, err := paramsGetFirstOfString(rtParams)
+	prefixParam, err := paramsGetFirstOfReaders(rtParams)
 	if err != nil {
 		return nil, err
 	}
@@ -1026,10 +1365,23 @@ func func_RemoveKeysBySuffix(rtParams FunctionParameterTypes, val any) (any, err
 	if err != nil {
 		return nil, err
 	}
-	v, err := readAll(prefixParam)
-	if err != nil {
-		return nil, fmt.Errorf("error reading buffer: %w", err)
+	var patternBuilder strings.Builder
+	buf := make([]byte, 1024)
+
+	for {
+		n, err := prefixParam.Read(buf)
+		if n > 0 {
+			patternBuilder.Write(buf[:n])
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("error reading buffer: %w", err)
+		}
 	}
+
+	v := patternBuilder.String()
 	doForMapPerKey(val, func(keyAsString string, keyAsValue, mapAsValue reflect.Value) {
 		if strings.HasSuffix(keyAsString, v) {
 			// This deletes the key if it matches the regex
@@ -1164,7 +1516,7 @@ const FT_Select FT_FunctionType = "Select"
 
 func func_Select(rtParams FunctionParameterTypes, val any) (any, error) {
 	// Expect exactly one parameter: the query string.
-	query, err := paramsGetFirstOfString(rtParams)
+	query, err := paramsGetFirstOfReaders(rtParams)
 	if err != nil {
 		return nil, err
 	}
