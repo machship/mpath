@@ -604,7 +604,7 @@ func left(r io.Reader, n int) (string, error) {
 }
 
 func streamEquals(r1 io.Reader, r2 io.Reader) (bool, error) {
-	bufSize := 1024
+	bufSize := 4096
 	buf1 := make([]byte, bufSize)
 	buf2 := make([]byte, bufSize)
 

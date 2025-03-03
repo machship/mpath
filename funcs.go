@@ -134,6 +134,10 @@ func func_Equal(rtParams FunctionParameterTypes, val any) (any, error) {
 		case string:
 			return vt == pt, nil
 		case io.ReadSeeker:
+			_, err = pt.Seek(0, io.SeekStart)
+			if err != nil {
+				return errBool(FT_Equal, err)
+			}
 			return streamEquals(strings.NewReader(vt), pt)
 		}
 		return false, nil
@@ -143,6 +147,14 @@ func func_Equal(rtParams FunctionParameterTypes, val any) (any, error) {
 		case string:
 			return streamEquals(vt, strings.NewReader(pt))
 		case io.ReadSeeker:
+			_, err = vt.Seek(0, io.SeekStart)
+			if err != nil {
+				return errBool(FT_Equal, err)
+			}
+			_, err = pt.Seek(0, io.SeekStart)
+			if err != nil {
+				return errBool(FT_Equal, err)
+			}
 			return streamEquals(vt, pt)
 		}
 		return false, nil
@@ -630,6 +642,10 @@ func func_AnyOf(rtParams FunctionParameterTypes, val any) (any, error) {
 				}
 				continue
 			case io.ReadSeeker:
+				_, err = pt.Seek(0, io.SeekStart)
+				if err != nil {
+					return errBool(FT_AnyOf, err)
+				}
 				ok, err := streamEquals(strings.NewReader(vt), pt)
 				if err != nil {
 					return errBool(FT_AnyOf, err)
@@ -644,6 +660,10 @@ func func_AnyOf(rtParams FunctionParameterTypes, val any) (any, error) {
 		case io.ReadSeeker:
 			switch pt := p.(type) {
 			case string:
+				_, err = vt.Seek(0, io.SeekStart)
+				if err != nil {
+					return errBool(FT_AnyOf, err)
+				}
 				ok, err := streamEquals(vt, strings.NewReader(pt))
 				if err != nil {
 					return errBool(FT_AnyOf, err)
@@ -653,6 +673,14 @@ func func_AnyOf(rtParams FunctionParameterTypes, val any) (any, error) {
 				}
 				continue
 			case io.ReadSeeker:
+				_, err = pt.Seek(0, io.SeekStart)
+				if err != nil {
+					return errBool(FT_AnyOf, err)
+				}
+				_, err = vt.Seek(0, io.SeekStart)
+				if err != nil {
+					return errBool(FT_AnyOf, err)
+				}
 				ok, err := streamEquals(vt, pt)
 				if err != nil {
 					return errBool(FT_AnyOf, err)
@@ -741,7 +769,7 @@ func func_DoesMatchRegex(rtParams FunctionParameterTypes, val any) (any, error) 
 	}
 	_, err = param.Seek(0, io.SeekStart)
 	if err != nil {
-		return false, err
+		return errBool(FT_DoesMatchRegex, err)
 	}
 
 	// Read the regex pattern from the reader in chunks
@@ -875,6 +903,10 @@ func func_ReplaceAll(rtParams FunctionParameterTypes, val any) (any, error) {
 	case string:
 		inputReader = strings.NewReader(v)
 	case io.ReadSeeker:
+		_, err = v.Seek(0, io.SeekStart)
+		if err != nil {
+			return "", fmt.Errorf("error seeking stream: %w", err)
+		}
 		inputReader = v
 	default:
 		return "", fmt.Errorf("unsupported input type, expected string or io.Reader, got %T", val)
