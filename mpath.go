@@ -2,6 +2,7 @@ package mpath
 
 import (
 	"fmt"
+	"io"
 	"strings"
 	"sync"
 	sc "text/scanner"
@@ -10,6 +11,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
 )
+
+var invalidRunes = map[rune]bool{
+	'\'': true, '"': true, '(': true, ')': true, '[': true, ']': true,
+	'{': true, '}': true, '@': true, '$': true, '&': true, '.': true,
+	',': true, '=': true, '>': true, '<': true, '|': true, '!': true,
+	';': true, '/': true, '*': true, '#': true,
+}
 
 func Setup(jsonMarshalDecimalsWithoutQuotes bool) {
 	decimal.MarshalJSONWithoutQuotes = jsonMarshalDecimalsWithoutQuotes
@@ -21,35 +29,11 @@ var (
 			s := newScanner()
 			s.sx.Mode = sc.ScanIdents | sc.ScanChars | sc.ScanStrings | sc.ScanRawStrings | sc.ScanComments | sc.SkipComments
 			s.sx.IsIdentRune = func(ch rune, i int) bool {
-				// if i == 0 && unicode.IsDigit(ch) {
-				// 	return false
-				// }
+				if invalidRunes[ch] || unicode.IsSpace(ch) {
+					return false
+				}
 
-				return ch != '\'' &&
-					ch != '"' &&
-					ch != '(' &&
-					ch != ')' &&
-					ch != '[' &&
-					ch != ']' &&
-					ch != '{' &&
-					ch != '}' &&
-					ch != '@' &&
-					ch != '$' &&
-					ch != '&' &&
-					ch != '.' &&
-					ch != ',' &&
-					ch != '=' &&
-					ch != '>' &&
-					ch != '<' &&
-					ch != '|' &&
-					ch != '!' &&
-					ch != ';' &&
-					ch != '/' &&
-					ch != '*' &&
-					ch != '#' &&
-					// ch != '?' && // taken out to allow for null propagation
-					!unicode.IsSpace(ch) &&
-					unicode.IsPrint(ch)
+				return unicode.IsPrint(ch)
 			}
 			s.sx.Error = func(es *sc.Scanner, msg string) {
 				//todo: find a way to pipe this out
@@ -57,38 +41,35 @@ var (
 			return s
 		},
 	}
-	stringsReaderPool = sync.Pool{
-		New: func() any {
-			return &strings.Reader{}
-		},
-	}
 )
 
-// ParseFromReader()
-
-func ParseString(ss string) (topOp Operation, err error) {
-
+// ParseReadSeeker takes an io.ReadSeeker and parses it into an operation tree.
+func ParseReadSeeker(r io.ReadSeeker) (topOp Operation, err error) {
 	s := scannerPool.Get().(*scanner)
-	defer scannerPool.Put(s)
-	sr := stringsReaderPool.Get().(*strings.Reader)
-	defer stringsReaderPool.Put(sr)
-	s.Reset(sr, ss)
+	defer func() {
+		s.err = nil
+		scannerPool.Put(s)
+	}()
 
-	var r rune
-	r = s.Scan()
+	err = s.Reset(r)
+	if err != nil {
+		return nil, err
+	}
+
+	var tok rune
+	tok = s.Scan()
 	for {
-		if r == sc.EOF || r == 0 {
+		if tok == sc.EOF || tok == 0 {
 			break
 		}
 
-		switch r {
+		switch tok {
 		case '{':
 			if topOp != nil {
 				return nil, erAt(s, "operation not terminated properly: found Logical Operation after top operation already defined")
 			}
-			// Curly braces are for logical operation groups (&& and ||)
 			topOp = &opLogicalOperation{}
-			r, err = topOp.Parse(s, r)
+			tok, err = topOp.Parse(s, tok)
 			if err != nil {
 				return nil, err
 			}
@@ -96,9 +77,8 @@ func ParseString(ss string) (topOp Operation, err error) {
 			if topOp != nil {
 				return nil, erAt(s, "operation not terminated properly: found Path after top operation already defined")
 			}
-			// @ and $ are Path starters and specify whether to use the original data, or the data at this point of the path
 			topOp = &opPath{}
-			r, err = topOp.Parse(s, r)
+			tok, err = topOp.Parse(s, tok)
 			if err != nil {
 				return nil, err
 			}
@@ -106,11 +86,21 @@ func ParseString(ss string) (topOp Operation, err error) {
 			if topOp == nil {
 				return nil, errors.Wrap(erInvalid(s, '{', '@', '$'), "invalid query")
 			}
-			return nil, erAt(s, "operation not terminated properly: found '%s' (%d) after top operation already defined", s.TokenText(), r)
+			return nil, erAt(s, "operation not terminated properly: found '%s' (%d) after top operation already defined", s.TokenText(), tok)
 		}
 	}
 
+	// return scanner error if any
+	if err := s.Err(); err != nil {
+		return nil, err
+	}
+
 	return
+}
+
+func ParseString(ss string) (topOp Operation, err error) {
+	sr := strings.NewReader(ss)
+	return ParseReadSeeker(sr)
 }
 
 func erAt(s *scanner, str string, args ...any) (err error) {
@@ -135,23 +125,30 @@ func erInvalid(s *scanner, validRunes ...rune) error {
 }
 
 type scanner struct {
-	sx *sc.Scanner
+	sx  *sc.Scanner
+	err error
 }
 
 func newScanner() *scanner {
-	return &scanner{
-		sx: &sc.Scanner{},
+	s := &scanner{sx: &sc.Scanner{}}
+	s.sx.Error = func(es *sc.Scanner, msg string) {
+		s.err = errors.New(msg)
 	}
+	return s
 }
 
 func (s *scanner) TokenText() (t string) {
 	return s.sx.TokenText()
 }
 
-func (s *scanner) Reset(sr *strings.Reader, ss string) {
-	sr.Reset(ss)
-	s.sx.Init(sr)
+func (s *scanner) Reset(reader io.ReadSeeker) error {
+	_, err := reader.Seek(0, io.SeekStart)
+	if err != nil {
+		return err
+	}
+	s.sx.Init(reader)
 	s.sx.Mode = sc.ScanIdents | sc.ScanChars | sc.ScanStrings | sc.ScanRawStrings | sc.ScanComments | sc.SkipComments
+	return nil
 }
 
 func (s *scanner) Scan() (r rune) {
@@ -169,4 +166,8 @@ func (s *scanner) Scan() (r rune) {
 		}
 	}
 	return
+}
+
+func (s *scanner) Err() error {
+	return s.err
 }

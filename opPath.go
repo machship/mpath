@@ -187,7 +187,7 @@ func (x *opPath) Validate(rootValue cue.Value, cuePath CuePath, blockedRootField
 			// opFilter Validate does not advance the next value
 			pi.Filter = t.Validate(rootValue, cuePath, blockedRootFields)
 			if pi.Filter.Error != nil {
-				return errFunc(fmt.Errorf(*pi.Filter.Error))
+				return errFunc(fmt.Errorf("%s", *pi.Filter.Error))
 			}
 
 		case *opFunction:
