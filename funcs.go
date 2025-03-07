@@ -44,13 +44,8 @@ func paramsGetFirstOfNumber(rtParams FunctionParameterTypes) (val decimal.Decima
 		if _, err := p.Value.Seek(0, io.SeekStart); err != nil {
 			return val, fmt.Errorf("error resetting reader: %w", err)
 		}
-		// we need to get the entirety of the reader to convert to decimal
-		b, err := io.ReadAll(p.Value)
-		if err != nil {
-			return val, fmt.Errorf("error reading buffer: %w", err)
-		}
 
-		if wasNumber, number := convertToDecimalIfNumberAndCheck(string(b)); wasNumber {
+		if wasNumber, number := readDecimalFromReaderAndCheck(p.Value); wasNumber {
 			return number, nil
 		}
 	}
@@ -483,12 +478,7 @@ func func_decimalSlice(rtParams FunctionParameterTypes, val any, decimalSliceFun
 		if _, err := ps.Value.Seek(0, io.SeekStart); err != nil {
 			return val, fmt.Errorf("error resetting reader: %w", err)
 		}
-		// we need to get the entirety of the reader to convert to decimal
-		b, err := io.ReadAll(ps.Value)
-		if err != nil {
-			return val, fmt.Errorf("error reading buffer: %w", err)
-		}
-		if wasNumber, number := convertToDecimalIfNumberAndCheck(string(b)); wasNumber {
+		if wasNumber, number := readDecimalFromReaderAndCheck(ps.Value); wasNumber {
 			paramNumbers = append(paramNumbers, number)
 		}
 	}

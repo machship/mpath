@@ -354,26 +354,9 @@ func readerContains(r io.Reader, substr io.Reader) (bool, error) {
 }
 
 func readerHasSuffix(r io.Reader, suffix io.Reader) (bool, error) {
-	// Read the suffix pattern in chunks
-	var pattern []byte
-	suffixBuf := make([]byte, 1024)
-
-	for {
-		n, err := suffix.Read(suffixBuf)
-		if n > 0 {
-			pattern = append(pattern, suffixBuf[:n]...)
-		}
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return false, err
-		}
-	}
-
-	// Empty suffix always matches
-	if len(pattern) == 0 {
-		return true, nil
+	pattern, err := readPattern(suffix)
+	if err != nil {
+		return false, err
 	}
 
 	// Keep only the most recent bytes equal to the pattern length
@@ -403,21 +386,9 @@ func readerHasSuffix(r io.Reader, suffix io.Reader) (bool, error) {
 }
 
 func readerHasPrefix(r io.Reader, prefix io.Reader) (bool, error) {
-	// Read the prefix pattern in chunks
-	var pattern []byte
-	prefixBuf := make([]byte, 1024)
-
-	for {
-		n, err := prefix.Read(prefixBuf)
-		if n > 0 {
-			pattern = append(pattern, prefixBuf[:n]...)
-		}
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return false, err
-		}
+	pattern, err := readPattern(prefix)
+	if err != nil {
+		return false, err
 	}
 
 	// Empty prefix always matches
@@ -442,6 +413,24 @@ func readerHasPrefix(r io.Reader, prefix io.Reader) (bool, error) {
 
 	// Check if what we read equals the pattern
 	return bytes.Equal(readBytes, pattern), nil
+}
+
+func readPattern(src io.Reader) ([]byte, error) {
+	var pattern []byte
+	buf := make([]byte, 1024)
+	for {
+		n, err := src.Read(buf)
+		if n > 0 {
+			pattern = append(pattern, buf[:n]...)
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pattern, nil
 }
 
 // This method performs the replacement while streaming, ensuring minimal memory usage
@@ -628,4 +617,51 @@ func streamEquals(r1 io.Reader, r2 io.Reader) (bool, error) {
 			return false, fmt.Errorf("error reading second stream: %w", err2)
 		}
 	}
+}
+
+func readDecimalFromReaderAndCheck(r io.Reader) (bool, decimal.Decimal) {
+	var strBuilder strings.Builder
+	buf := make([]byte, 1) // Read one byte at a time
+	dotCount := 0
+
+	for {
+		n, err := r.Read(buf)
+		if n > 0 {
+			b := buf[0]
+
+			// Allow only digits and one dot
+			if b >= '0' && b <= '9' {
+				strBuilder.WriteByte(b)
+			} else if b == '.' {
+				if dotCount > 0 {
+					return false, decimal.Decimal{}
+				}
+				dotCount++
+				strBuilder.WriteByte(b)
+			} else {
+				// Invalid character → stop parsing immediately
+				return false, decimal.Decimal{}
+			}
+
+			// Check if number is getting too large for decimal
+			if strBuilder.Len() > 500 { // Arbitrary safe limit
+				return false, decimal.Decimal{}
+			}
+		}
+
+		// Stop on EOF
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return false, decimal.Decimal{}
+		}
+	}
+
+	// Convert parsed string to decimal
+	if strBuilder.Len() == 0 {
+		return false, decimal.Decimal{}
+	}
+
+	return convertToDecimalIfNumberAndCheck(strBuilder.String())
 }
