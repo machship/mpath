@@ -152,10 +152,19 @@ var ErrKeyNotFound = fmt.Errorf("key not found")
 func (x *opPathIdent) Do(currentData, originalData any) (dataToUse any, err error) {
 	obj := currentData
 
-	if originalDataMap, ok := originalData.(map[string]any); ok {
-		if val, exists := originalDataMap["#"+x.IdentName]; exists {
-			return val, nil
+	originalDataVal := reflect.ValueOf(originalData)
+	switch originalDataVal.Kind() {
+	case reflect.Map:
+		for _, e := range originalDataVal.MapKeys() {
+			mks, ok := e.Interface().(string)
+			if ok {
+				if mks == "#"+x.IdentName {
+					return originalDataVal.MapIndex(e).Interface(), nil
+				}
+
+			}
 		}
+
 	}
 
 	// Ensure we are working with a map
