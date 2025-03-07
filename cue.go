@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 
 	"cuelang.org/go/cue"
 	"cuelang.org/go/cue/cuecontext"
@@ -46,10 +47,14 @@ func (c CuePath) Add(s string) CuePath {
 	return append(c, s)
 }
 
+var cueValidateMutex sync.Mutex
+
 // query: the mpath query string
 // cueFile: the cue file
 // currentPath: the id of the step for which this query is an input value, or if for the output, leave blank
 func CueValidate(query, cueFile, currentPath string) (tc CanBeAPart, err error) {
+	cueValidateMutex.Lock() // Only one goroutine writes to the map at a time
+	defer cueValidateMutex.Unlock()
 	if query == "" || cueFile == "" {
 		return nil, fmt.Errorf("missing parameter value")
 	}

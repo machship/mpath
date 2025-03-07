@@ -1,6 +1,10 @@
 package mpath
 
 import (
+	"bufio"
+	"bytes"
+	"fmt"
+	"io"
 	"reflect"
 	"strings"
 
@@ -291,4 +295,373 @@ func doForMapPerKey(valueThatShouldBeMap any, doFunc func(keyAsString string, ke
 			doFunc(mks, e, v)
 		}
 	}
+}
+
+func readerContains(r io.Reader, substr io.Reader) (bool, error) {
+	// First, read the substring pattern - we need this to know what to search for
+	// This is unavoidable since we need to know the complete pattern to search
+	var pattern []byte
+	subBuf := make([]byte, 1024)
+
+	for {
+		n, err := substr.Read(subBuf)
+		if n > 0 {
+			pattern = append(pattern, subBuf[:n]...)
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return false, err
+		}
+	}
+
+	// Empty substring always matches
+	if len(pattern) == 0 {
+		return true, nil
+	}
+
+	buf := bufio.NewReader(r)
+	bufSize := 4096
+	overlap := make([]byte, 0, len(pattern)-1)
+
+	for {
+		chunk := make([]byte, bufSize)
+		n, err := buf.Read(chunk)
+		if n > 0 {
+			data := append(overlap, chunk[:n]...)
+			if bytes.Contains(data, pattern) {
+				return true, nil
+			}
+
+			// Keep last `len(pattern)-1` bytes as overlap
+			if len(data) >= len(pattern)-1 {
+				overlap = data[len(data)-(len(pattern)-1):]
+			} else {
+				overlap = data
+			}
+		}
+
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return false, err
+		}
+	}
+
+	return false, nil
+}
+
+func readerHasSuffix(r io.Reader, suffix io.Reader) (bool, error) {
+	pattern, err := readPattern(suffix)
+	if err != nil {
+		return false, err
+	}
+
+	// Keep only the most recent bytes equal to the pattern length
+	buf := bufio.NewReader(r)
+	bufSize := 4096
+	queue := make([]byte, 0, len(pattern))
+
+	for {
+		chunk := make([]byte, bufSize)
+		n, err := buf.Read(chunk)
+		if n > 0 {
+			queue = append(queue, chunk[:n]...)
+			if len(queue) > len(pattern) {
+				queue = queue[len(queue)-len(pattern):] // Keep only last `pattern` bytes
+			}
+		}
+
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return false, err
+		}
+	}
+
+	return bytes.Equal(queue, pattern), nil
+}
+
+func readerHasPrefix(r io.Reader, prefix io.Reader) (bool, error) {
+	pattern, err := readPattern(prefix)
+	if err != nil {
+		return false, err
+	}
+
+	// Empty prefix always matches
+	if len(pattern) == 0 {
+		return true, nil
+	}
+
+	// Read exactly the same number of bytes from the reader as the pattern length
+	buf := bufio.NewReader(r)
+	readBytes := make([]byte, len(pattern))
+	n, err := io.ReadFull(buf, readBytes)
+
+	// Handle errors
+	if err != nil && err != io.EOF && err != io.ErrUnexpectedEOF {
+		return false, err
+	}
+
+	// If we couldn't read enough bytes, reader doesn't have this prefix
+	if n < len(pattern) {
+		return false, nil
+	}
+
+	// Check if what we read equals the pattern
+	return bytes.Equal(readBytes, pattern), nil
+}
+
+func readPattern(src io.Reader) ([]byte, error) {
+	var pattern []byte
+	buf := make([]byte, 1024)
+	for {
+		n, err := src.Read(buf)
+		if n > 0 {
+			pattern = append(pattern, buf[:n]...)
+		}
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pattern, nil
+}
+
+// This method performs the replacement while streaming, ensuring minimal memory usage
+func streamingReplaceAll(r io.ReadSeeker, find, replace string) (string, error) {
+	var result strings.Builder
+	buf := bufio.NewReader(r)
+	findLen := len(find)
+	window := make([]byte, 0, findLen)
+
+	// Ensure we start reading from the beginning
+	_, err := r.Seek(0, io.SeekStart)
+	if err != nil {
+		return "", fmt.Errorf("error resetting reader: %w", err)
+	}
+
+	for {
+		b, err := buf.ReadByte()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", fmt.Errorf("error reading from input: %w", err)
+		}
+
+		window = append(window, b)
+
+		// Maintain a rolling window
+		if len(window) > findLen {
+			// Write first byte in window and shift
+			result.WriteByte(window[0])
+			window = window[1:]
+		}
+
+		// Match found → Replace
+		if len(window) == findLen && string(window) == find {
+			result.WriteString(replace) // Write replacement
+			window = window[:0]         // Reset window
+		}
+	}
+
+	// Flush remaining bytes
+	if len(window) > 0 {
+		result.Write(window)
+	}
+
+	return result.String(), nil
+}
+
+func trimRight(r io.Reader, n int) (string, error) {
+	if n == 0 { // Nothing to trim
+		var result bytes.Buffer
+		_, err := io.Copy(&result, r)
+		if err != nil {
+			return "", err
+		}
+		return result.String(), nil
+	}
+
+	buf := bufio.NewReader(r)
+	window := make([]byte, 0, n) // Sliding window for last `n` bytes
+	var result bytes.Buffer
+	count := 0
+
+	for {
+		b, err := buf.ReadByte()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", err
+		}
+
+		if count >= n {
+			result.WriteByte(window[0]) // Only write out bytes before last `n`
+			window = window[1:]         // Shift window left
+		}
+
+		window = append(window, b)
+		count++
+	}
+
+	// If input size < n, return empty string
+	if count < n {
+		return "", nil
+	}
+
+	return result.String(), nil
+}
+
+func trimLeft(r io.Reader, n int) (string, error) {
+	buf := bufio.NewReader(r)
+
+	// Skip the first `n` bytes
+	for i := 0; i < n; i++ {
+		_, err := buf.ReadByte()
+		if err == io.EOF {
+			return "", nil // If we reach EOF, return empty string
+		}
+		if err != nil {
+			return "", err
+		}
+	}
+
+	var result bytes.Buffer
+	_, err := io.Copy(&result, buf)
+	if err != nil {
+		return "", err
+	}
+
+	return result.String(), nil
+}
+
+func right(r io.Reader, n int) (string, error) {
+	buf := bufio.NewReader(r)
+	window := make([]byte, 0, n) // Dynamic sliding window
+	count := 0
+
+	for {
+		b, err := buf.ReadByte()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", err
+		}
+
+		if count < n {
+			window = append(window, b) // Fill up to `n`
+		} else {
+			copy(window, window[1:])
+			window[len(window)-1] = b
+		}
+		count++
+	}
+
+	// If `n > len(input)`, return the full string
+	if count < n {
+		return string(window), nil
+	}
+
+	return string(window), nil
+}
+
+func left(r io.Reader, n int) (string, error) {
+	buf := bufio.NewReader(r)
+	var result bytes.Buffer
+
+	for i := 0; i < n; i++ {
+		b, err := buf.ReadByte()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return "", err
+		}
+		result.WriteByte(b)
+	}
+
+	return result.String(), nil
+}
+
+func streamEquals(r1 io.Reader, r2 io.Reader) (bool, error) {
+	bufSize := 4096
+	buf1 := make([]byte, bufSize)
+	buf2 := make([]byte, bufSize)
+
+	for {
+		n1, err1 := r1.Read(buf1)
+		n2, err2 := r2.Read(buf2)
+
+		if n1 != n2 || !bytes.Equal(buf1[:n1], buf2[:n2]) {
+			return false, nil // Mismatch found, return immediately
+		}
+
+		if err1 == io.EOF && err2 == io.EOF {
+			return true, nil // Both reached EOF at the same time
+		}
+
+		if err1 != nil && err1 != io.EOF {
+			return false, fmt.Errorf("error reading first stream: %w", err1)
+		}
+
+		if err2 != nil && err2 != io.EOF {
+			return false, fmt.Errorf("error reading second stream: %w", err2)
+		}
+	}
+}
+
+func readDecimalFromReaderAndCheck(r io.Reader) (bool, decimal.Decimal) {
+	var strBuilder strings.Builder
+	buf := make([]byte, 1) // Read one byte at a time
+	dotCount := 0
+
+	for {
+		n, err := r.Read(buf)
+		if n > 0 {
+			b := buf[0]
+
+			// Allow only digits and one dot
+			if b >= '0' && b <= '9' {
+				strBuilder.WriteByte(b)
+			} else if b == '.' {
+				if dotCount > 0 {
+					return false, decimal.Decimal{}
+				}
+				dotCount++
+				strBuilder.WriteByte(b)
+			} else {
+				// Invalid character → stop parsing immediately
+				return false, decimal.Decimal{}
+			}
+
+			// Check if number is getting too large for decimal
+			if strBuilder.Len() > 500 { // Arbitrary safe limit
+				return false, decimal.Decimal{}
+			}
+		}
+
+		// Stop on EOF
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return false, decimal.Decimal{}
+		}
+	}
+
+	// Convert parsed string to decimal
+	if strBuilder.Len() == 0 {
+		return false, decimal.Decimal{}
+	}
+
+	return convertToDecimalIfNumberAndCheck(strBuilder.String())
 }
