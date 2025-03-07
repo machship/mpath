@@ -113,6 +113,7 @@ func (x *opLogicalOperation) Do(currentData, originalData any) (dataToUse any, e
 		if err != nil {
 			return nil, err
 		}
+
 		if b, ok := res.(bool); ok {
 			switch x.LogicalOperationType {
 			case LOT_And:

@@ -292,5 +292,5 @@ Only for use with numbers:
 ### Future planned work:
 
 - Provide the ability to pass in custom functions when initialising the package, and being able to call them by name.
-- Provide the ability to define 'global variables' that can be set prior to the main operation, and then can be referred to by name. The plan here is to use the `#` character to define them, and to use them later. This will mean that variables can be used more efficiently. 
+- Provide the ability to define 'global variables' that can be set prior to the main operation, and then can be referred to by name. The plan here is to use the `#` character to define them, and to use them later. This will mean that variables can be used more efficiently. (DONE)
 - Double check that we're not inefficiently converting decimals.

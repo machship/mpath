@@ -351,7 +351,8 @@ func func_First(rtParams FunctionParameterTypes, val any) (any, error) {
 			return nil, fmt.Errorf("nothing in array")
 		}
 	}
-
+	fmt.Println("!!!!!!!!!!")
+	fmt.Println(val)
 	return false, fmt.Errorf("not array")
 }
 

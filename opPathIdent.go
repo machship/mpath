@@ -149,12 +149,26 @@ func (x *opPathIdent) Sprint(depth int) (out string) {
 
 var ErrKeyNotFound = fmt.Errorf("key not found")
 
-func (x *opPathIdent) Do(currentData, _ any) (dataToUse any, err error) {
-	// Ident paths require that the data is a struct or map[string]any
+func (x *opPathIdent) Do(currentData, originalData any) (dataToUse any, err error) {
+	obj := currentData
 
-	// Deal with maps
-	// if m, ok := currentData.(map[string]any); ok {
-	v := reflect.ValueOf(currentData)
+	originalDataVal := reflect.ValueOf(originalData)
+	switch originalDataVal.Kind() {
+	case reflect.Map:
+		for _, e := range originalDataVal.MapKeys() {
+			mks, ok := e.Interface().(string)
+			if ok {
+				if mks == "#"+x.IdentName {
+					return originalDataVal.MapIndex(e).Interface(), nil
+				}
+
+			}
+		}
+
+	}
+
+	// Ensure we are working with a map
+	v := reflect.ValueOf(obj)
 	switch v.Kind() {
 	case reflect.Pointer, reflect.Interface:
 		v = v.Elem()
@@ -189,9 +203,7 @@ func (x *opPathIdent) Do(currentData, _ any) (dataToUse any, err error) {
 		return nil, ErrKeyNotFound
 	}
 
-	// If we get here, the data must be a struct
-	// and we will look for the field by name
-	return getValuesByName(x.IdentName, currentData)
+	return getValuesByName(x.IdentName, obj)
 }
 
 func (x *opPathIdent) Parse(s *scanner, r rune) (nextR rune, err error) {

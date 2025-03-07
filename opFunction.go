@@ -251,6 +251,8 @@ func (x *opFunction) Do(currentData, originalData any) (dataToUse any, err error
 		switch resType := res.(type) {
 		case decimal.Decimal:
 			rtParams = append(rtParams, &FP_Number{resType})
+		case float64:
+			rtParams = append(rtParams, &FP_Number{decimal.NewFromFloat(resType)})
 		case string:
 			rtParams = append(rtParams, &FP_String{resType})
 		case bool:
@@ -338,7 +340,7 @@ func (x *opFunction) Parse(s *scanner, r rune) (nextR rune, err error) {
 			x.userString += string(r)
 			// This is the end of the function
 			return s.Scan(), nil
-		case '$', '@':
+		case '$', '@', '#':
 			// This is a path
 			if r, err = x.addOpToParamsAndParse(s, r); err != nil {
 				return r, err

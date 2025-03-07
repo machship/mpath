@@ -16,7 +16,7 @@ var invalidRunes = map[rune]bool{
 	'\'': true, '"': true, '(': true, ')': true, '[': true, ']': true,
 	'{': true, '}': true, '@': true, '$': true, '&': true, '.': true,
 	',': true, '=': true, '>': true, '<': true, '|': true, '!': true,
-	';': true, '/': true, '*': true,
+	';': true, '/': true, '*': true, '#': true,
 }
 
 func Setup(jsonMarshalDecimalsWithoutQuotes bool) {

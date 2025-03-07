@@ -288,9 +288,7 @@ func getAvailableFieldsForValue(v cue.Value, blockedRootFields []string) (fields
 			fldName = strings.TrimSuffix(fldName, `"`)
 		}
 
-		fldName = strings.TrimSuffix(fldName, "?")
-		fldName = strings.TrimSuffix(fldName, "!")
-
+		fldName = strings.TrimSuffix(strings.TrimSuffix(fldName, "?"), "!")
 		fields = append(fields, fldName)
 	}
 

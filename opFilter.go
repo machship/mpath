@@ -53,7 +53,7 @@ func (x *opFilter) Do(currentData, originalData any) (dataToUse any, err error) 
 			return nil, err
 		}
 
-		if _, ok := res.(bool); ok {
+		if boolRes, ok := res.(bool); ok && boolRes {
 			return val, nil
 		}
 		return nil, nil
